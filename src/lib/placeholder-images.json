@@ -1,3 +1,40 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "landing-image",
+      "description": "An abstract illustration of a family communicating through devices, with soft shapes and colors.",
+      "imageUrl": "https://images.unsplash.com/photo-1764267704017-28e252353c9d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8ZmFtaWx5JTIwY29ubmVjdGlvbnxlbnwwfHx8fDE3NjUxMjk2MjB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "family connection"
+    },
+    {
+      "id": "user-avatar-1",
+      "description": "Profile picture for a user named Maria.",
+      "imageUrl": "https://images.unsplash.com/flagged/photo-1559855603-ce4c8f480d76?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHx3b21hbiUyMHNtaWxpbmd8ZW58MHx8fHwxNzY1MTUzODk1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman smiling"
+    },
+    {
+      "id": "user-avatar-2",
+      "description": "Profile picture for a user named João.",
+      "imageUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxtYW4lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjUwOTc0OTJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man portrait"
+    },
+    {
+      "id": "user-avatar-3",
+      "description": "Profile picture for a user named Ana.",
+      "imageUrl": "https://images.unsplash.com/photo-1485783522162-1dbb8ffcbe5b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjaGlsZCUyMHBsYXlpbmd8ZW58MHx8fHwxNzY1MDc5OTI0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "child playing"
+    },
+    {
+      "id": "user-avatar-4",
+      "description": "Profile picture for a user named Carlos.",
+      "imageUrl": "https://images.unsplash.com/photo-1644941002474-6ee8ab0ee8cb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxmYXRoZXIlMjBzb258ZW58MHx8fHwxNzY1MDk5NDc1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "father son"
+    },
+    {
+      "id": "media-preview-1",
+      "description": "A placeholder for a shared image in the chat.",
+      "imageUrl": "https://images.unsplash.com/photo-1518022525094-218670c9b745?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxiZWFjaCUyMHN1bnNldHxlbnwwfHx8fDE3NjUxMzM1OTl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "beach sunset"
+    }
+  ]
 }
