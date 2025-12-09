@@ -16,12 +16,32 @@ import { RoomCodeDisplay } from '@/components/room-code-display';
 import { Button } from '@/components/ui/button';
 import { useSidebar } from '@/components/dashboard-sidebar';
 import { cn } from '@/lib/utils';
+import { getAllUnreadCounts, getUnreadCount } from '@/lib/storage/notifications';
+import { Badge } from '@/components/ui/badge';
 
 export default function RoomList() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const sidebar = useSidebar();
   const closeMobileSidebar = sidebar?.closeMobileSidebar;
+
+  // Load unread counts
+  useEffect(() => {
+    const loadUnreadCounts = () => {
+      setUnreadCounts(getAllUnreadCounts());
+    };
+    
+    loadUnreadCounts();
+    
+    // Listen for unread count updates
+    const handleUpdate = () => loadUnreadCounts();
+    window.addEventListener('unreadCountUpdated', handleUpdate);
+    
+    return () => {
+      window.removeEventListener('unreadCountUpdated', handleUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     async function fetchRooms() {
@@ -101,9 +121,16 @@ export default function RoomList() {
           >
             <CardHeader className="p-4 sm:p-6">
               <div className="flex items-start justify-between gap-2 min-w-0">
-                <CardTitle className="text-base sm:text-lg font-semibold truncate flex-1 min-w-0" title={room.name}>
-                  {room.name}
-                </CardTitle>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <CardTitle className="text-base sm:text-lg font-semibold truncate flex-1 min-w-0" title={room.name}>
+                    {room.name}
+                  </CardTitle>
+                  {unreadCounts[room.id] > 0 && (
+                    <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-xs shrink-0">
+                      {unreadCounts[room.id] > 99 ? '99+' : unreadCounts[room.id]}
+                    </Badge>
+                  )}
+                </div>
                 <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground shrink-0">
                   <Users className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span>{room.memberCount || room.members.length}</span>

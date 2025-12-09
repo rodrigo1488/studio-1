@@ -27,7 +27,7 @@ import type { Room, Message, User } from '@/lib/data';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Image from 'next/image';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Popover,
   PopoverContent,
@@ -41,6 +41,8 @@ import { RoomCodeDisplay } from '@/components/room-code-display';
 import { CallButton } from '@/components/webrtc/call-button';
 import { CameraCapture } from '@/components/media/camera-capture';
 import { AudioPlayer } from '@/components/media/audio-player';
+import { addMessageToCache, saveMessagesToCache } from '@/lib/storage/messages-cache';
+import { addNotification, markNotificationsAsRead } from '@/lib/storage/notifications';
 
 interface ChatLayoutProps {
   room: Room;
@@ -76,6 +78,8 @@ export default function ChatLayout({
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [shouldCancelRecording, setShouldCancelRecording] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -98,11 +102,20 @@ export default function ChatLayout({
         }
         const appMessage = convertMessageToAppFormat(newMessage, user);
         
+        // Check if message already exists
         setMessages((prev) => {
-          // Check if message already exists
           if (prev.find((m) => m.id === appMessage.id)) {
             return prev;
           }
+          
+          // Add to cache
+          addMessageToCache(room.id, appMessage);
+          
+          // Only add notification if message is not from current user
+          if (appMessage.senderId !== currentUser.id) {
+            addNotification(room.id, appMessage);
+          }
+          
           return [...prev, appMessage];
         });
       } catch (error) {
@@ -113,6 +126,15 @@ export default function ChatLayout({
           if (prev.find((m) => m.id === appMessage.id)) {
             return prev;
           }
+          
+          // Add to cache
+          addMessageToCache(room.id, appMessage);
+          
+          // Only add notification if message is not from current user
+          if (appMessage.senderId !== currentUser.id) {
+            addNotification(room.id, appMessage);
+          }
+          
           return [...prev, appMessage];
         });
       }
@@ -120,29 +142,133 @@ export default function ChatLayout({
 
     channelRef.current = channel;
 
+    // Mark notifications as read when component mounts
+    markNotificationsAsRead(room.id);
+
     return () => {
       if (channelRef.current) {
         unsubscribeFromChannel(channelRef.current);
       }
     };
-  }, [room.id]);
+  }, [room.id, currentUser.id]);
 
   // Update messages when initialMessages change
   useEffect(() => {
     setMessages(initialMessages);
+    // Check if there are more messages based on initial load
+    setHasMoreMessages(initialMessages.length >= 8);
   }, [initialMessages]);
 
+  // Scroll to bottom when new messages arrive (but not when loading older messages)
   useEffect(() => {
-    if (scrollAreaRef.current) {
-        // A slight delay ensures the DOM has updated before scrolling
-        setTimeout(() => {
-            const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
-            if (viewport) {
-                viewport.scrollTop = viewport.scrollHeight;
-            }
-        }, 100);
+    if (scrollAreaRef.current && !isLoadingMore) {
+      const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        // Only auto-scroll if we're near the bottom (within 100px)
+        const isNearBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 100;
+        if (isNearBottom) {
+          setTimeout(() => {
+            viewport.scrollTop = viewport.scrollHeight;
+          }, 100);
+        }
+      }
     }
-  }, [messages]);
+  }, [messages, isLoadingMore]);
+
+  const loadMoreMessages = useCallback(async () => {
+    if (isLoadingMore || !hasMoreMessages || messages.length === 0) return;
+
+    setIsLoadingMore(true);
+    try {
+      // Get the oldest message timestamp
+      const oldestMessage = messages[0];
+      // Ensure timestamp is a Date object
+      const beforeDate = oldestMessage.timestamp instanceof Date 
+        ? oldestMessage.timestamp 
+        : new Date(oldestMessage.timestamp);
+
+      // Fetch older messages
+      const response = await fetch(
+        `/api/messages/${room.id}?limit=8&before=${beforeDate.toISOString()}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.messages.length === 0) {
+          setHasMoreMessages(false);
+          setIsLoadingMore(false);
+          return;
+        }
+
+        // Get unique sender IDs for new messages
+        const senderIds = [...new Set(data.messages.map((msg: Message) => msg.senderId))];
+        
+        // Fetch users in batch
+        let usersMap: Record<string, User> = {};
+        if (senderIds.length > 0) {
+          try {
+            const usersResponse = await fetch('/api/users/batch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userIds: senderIds }),
+            });
+            if (usersResponse.ok) {
+              const usersData = await usersResponse.json();
+              usersMap = usersData.users.reduce((acc: Record<string, User>, user: User) => {
+                acc[user.id] = user;
+                return acc;
+              }, {});
+            }
+          } catch (error) {
+            console.error('Error fetching users in batch:', error);
+          }
+        }
+
+        // Map messages with users
+        const newMessages = data.messages.map((msg: Message) => ({
+          ...msg,
+          user: usersMap[msg.senderId],
+        }));
+
+        // Preserve scroll position
+        const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
+        const previousScrollHeight = viewport?.scrollHeight || 0;
+
+        // Prepend new messages (they are older)
+        setMessages((prev) => [...newMessages, ...prev]);
+        setHasMoreMessages(data.hasMore);
+
+        // Restore scroll position after DOM update
+        setTimeout(() => {
+          if (viewport) {
+            const newScrollHeight = viewport.scrollHeight;
+            viewport.scrollTop = newScrollHeight - previousScrollHeight;
+          }
+        }, 50);
+      }
+    } catch (error) {
+      console.error('Error loading more messages:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [messages, room.id, isLoadingMore, hasMoreMessages]);
+
+  // Setup scroll listener for infinite scroll
+  useEffect(() => {
+    const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
+    if (!viewport) return;
+
+    const handleScroll = () => {
+      // Load more when scrolled to top (within 200px)
+      if (viewport.scrollTop < 200 && hasMoreMessages && !isLoadingMore) {
+        loadMoreMessages();
+      }
+    };
+
+    viewport.addEventListener('scroll', handleScroll);
+    return () => viewport.removeEventListener('scroll', handleScroll);
+  }, [hasMoreMessages, isLoadingMore, loadMoreMessages]);
 
   const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -571,6 +697,11 @@ export default function ChatLayout({
       {/* Message Area */}
       <ScrollArea className="flex-1" ref={scrollAreaRef}>
         <div className="p-4 space-y-4">
+          {isLoadingMore && (
+            <div className="flex justify-center py-2">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          )}
           {messages.map((message, index) => {
             // Generate rainbow colors for messages
             const rainbowColors = [

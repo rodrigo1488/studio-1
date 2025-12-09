@@ -4,6 +4,8 @@ import ChatLayout from './components/chat-layout';
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Room, Message, User } from '@/lib/data';
+import { getCachedMessages, saveMessagesToCache } from '@/lib/storage/messages-cache';
+import { markNotificationsAsRead } from '@/lib/storage/notifications';
 
 export default function ChatPage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = use(params);
@@ -34,32 +36,40 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
         const roomData = await roomResponse.json();
         setRoom(roomData.room);
 
-        // Get messages
-        const messagesResponse = await fetch(`/api/messages/${roomId}`);
+        // Get messages - only load last 8 initially
+        const messagesResponse = await fetch(`/api/messages/${roomId}?limit=8`);
         if (messagesResponse.ok) {
           const messagesData = await messagesResponse.json();
           
-          // Fetch user data for each message
-          const messagesWithUsers = await Promise.all(
-            messagesData.messages.map(async (msg: Message) => {
-              try {
-                const userResponse = await fetch(`/api/users/${msg.senderId}`);
-                if (userResponse.ok) {
-                  const userData = await userResponse.json();
-                  return {
-                    ...msg,
-                    user: userData.user,
-                  };
-                }
-              } catch (error) {
-                console.error('Error fetching user:', error);
+          // Get unique sender IDs
+          const senderIds = [...new Set(messagesData.messages.map((msg: Message) => msg.senderId))];
+          
+          // Fetch all users in batch
+          let usersMap: Record<string, User> = {};
+          if (senderIds.length > 0) {
+            try {
+              const usersResponse = await fetch('/api/users/batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userIds: senderIds }),
+              });
+              if (usersResponse.ok) {
+                const usersData = await usersResponse.json();
+                usersMap = usersData.users.reduce((acc: Record<string, User>, user: User) => {
+                  acc[user.id] = user;
+                  return acc;
+                }, {});
               }
-              return {
-                ...msg,
-                user: undefined,
-              };
-            })
-          );
+            } catch (error) {
+              console.error('Error fetching users in batch:', error);
+            }
+          }
+          
+          // Map messages with users
+          const messagesWithUsers = messagesData.messages.map((msg: Message) => ({
+            ...msg,
+            user: usersMap[msg.senderId],
+          }));
           
           setMessages(messagesWithUsers);
         }

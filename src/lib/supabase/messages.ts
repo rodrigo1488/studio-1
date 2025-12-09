@@ -56,31 +56,51 @@ export async function sendMessage(
 }
 
 /**
- * Get messages for a room
+ * Get messages for a room with pagination
  */
-export async function getRoomMessages(roomId: string): Promise<Message[]> {
+export async function getRoomMessages(
+  roomId: string,
+  limit: number = 50,
+  offset: number = 0,
+  before?: Date
+): Promise<{ messages: Message[]; hasMore: boolean }> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('messages')
-      .select('id, room_id, sender_id, text, media_url, media_type, created_at')
-      .eq('room_id', roomId)
-      .order('created_at', { ascending: true });
+      .select('id, room_id, sender_id, text, media_url, media_type, created_at', { count: 'exact' })
+      .eq('room_id', roomId);
 
-    if (error || !data) {
-      return [];
+    // If before date is provided, get messages before that date
+    if (before) {
+      query = query.lt('created_at', before.toISOString());
     }
 
-    return data.map((msg) => ({
-      id: msg.id,
-      roomId: msg.room_id,
-      senderId: msg.sender_id,
-      text: msg.text,
-      timestamp: new Date(msg.created_at),
-      mediaUrl: msg.media_url || undefined,
-      mediaType: msg.media_type || undefined,
-    }));
+    const { data, error, count } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error || !data) {
+      return { messages: [], hasMore: false };
+    }
+
+    // Reverse to get chronological order (oldest first)
+    const messages = data
+      .reverse()
+      .map((msg) => ({
+        id: msg.id,
+        roomId: msg.room_id,
+        senderId: msg.sender_id,
+        text: msg.text,
+        timestamp: new Date(msg.created_at),
+        mediaUrl: msg.media_url || undefined,
+        mediaType: msg.media_type || undefined,
+      }));
+
+    const hasMore = count ? offset + limit < count : false;
+
+    return { messages, hasMore };
   } catch (error) {
-    return [];
+    return { messages: [], hasMore: false };
   }
 }
 

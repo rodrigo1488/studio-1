@@ -9,6 +9,8 @@ import { useRouter } from 'next/navigation';
 import { getInitials, cn } from '@/lib/utils';
 import type { User } from '@/lib/data';
 import { useSidebar } from '@/components/dashboard-sidebar';
+import { getAllUnreadCounts } from '@/lib/storage/notifications';
+import { Badge } from '@/components/ui/badge';
 
 interface DirectConversation {
   id: string;
@@ -24,9 +26,27 @@ interface DirectConversation {
 export default function DirectConversationsList() {
   const [conversations, setConversations] = useState<DirectConversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const router = useRouter();
   const sidebar = useSidebar();
   const closeMobileSidebar = sidebar?.closeMobileSidebar;
+
+  // Load unread counts
+  useEffect(() => {
+    const loadUnreadCounts = () => {
+      setUnreadCounts(getAllUnreadCounts());
+    };
+    
+    loadUnreadCounts();
+    
+    // Listen for unread count updates
+    const handleUpdate = () => loadUnreadCounts();
+    window.addEventListener('unreadCountUpdated', handleUpdate);
+    
+    return () => {
+      window.removeEventListener('unreadCountUpdated', handleUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     fetchConversations();
@@ -112,9 +132,16 @@ export default function DirectConversationsList() {
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0 overflow-hidden">
-              <p className="font-medium truncate text-sm sm:text-base" title={conversation.otherUser.name}>
-                {conversation.otherUser.name}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium truncate text-sm sm:text-base flex-1" title={conversation.otherUser.name}>
+                  {conversation.otherUser.name}
+                </p>
+                {unreadCounts[conversation.id] > 0 && (
+                  <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-xs shrink-0">
+                    {unreadCounts[conversation.id] > 99 ? '99+' : unreadCounts[conversation.id]}
+                  </Badge>
+                )}
+              </div>
               {conversation.lastMessage ? (
                 <>
                   <p className="text-xs sm:text-sm text-muted-foreground truncate mt-1" title={conversation.lastMessage.text}>

@@ -17,9 +17,16 @@ export async function GET(
     }
 
     const { roomId } = await params;
-    const messages = await getRoomMessages(roomId);
+    const searchParams = request.nextUrl.searchParams;
+    const limit = parseInt(searchParams.get('limit') || '8', 10);
+    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const beforeParam = searchParams.get('before');
 
-    return NextResponse.json({ messages });
+    const before = beforeParam ? new Date(beforeParam) : undefined;
+
+    const { messages, hasMore } = await getRoomMessages(roomId, limit, offset, before);
+
+    return NextResponse.json({ messages, hasMore });
   } catch (error) {
     return NextResponse.json(
       { error: 'Erro ao buscar mensagens' },
