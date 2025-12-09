@@ -18,7 +18,17 @@ interface CallButtonProps {
 }
 
 export function CallButton({ room, currentUser }: CallButtonProps) {
-  const { startCall, status, currentCall } = useCall();
+  // Try to use the call context, but handle gracefully if not available
+  let startCall, status, currentCall;
+  try {
+    const callContext = useCall();
+    startCall = callContext.startCall;
+    status = callContext.status;
+    currentCall = callContext.currentCall;
+  } catch (error) {
+    // CallProvider not available, don't render the button
+    return null;
+  }
   const [otherUser, setOtherUser] = useState<User | null>(null);
 
   // Busca o outro usuário da sala (para conversas diretas com 2 membros)

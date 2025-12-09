@@ -18,6 +18,7 @@ import { useSidebar } from '@/components/dashboard-sidebar';
 import { cn } from '@/lib/utils';
 import { getAllUnreadCounts, getUnreadCount } from '@/lib/storage/notifications';
 import { Badge } from '@/components/ui/badge';
+import { getCachedRooms, saveRoomsToCache } from '@/lib/storage/lists-cache';
 
 export default function RoomList() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -45,11 +46,21 @@ export default function RoomList() {
 
   useEffect(() => {
     async function fetchRooms() {
+      // Try to load from cache first
+      const cachedRooms = getCachedRooms();
+      if (cachedRooms && cachedRooms.length > 0) {
+        setRooms(cachedRooms);
+        setIsLoading(false);
+      }
+
+      // Fetch from server (update cache in background)
       try {
         const response = await fetch('/api/rooms/list');
         if (response.ok) {
           const data = await response.json();
-          setRooms(data.rooms || []);
+          const rooms = data.rooms || [];
+          setRooms(rooms);
+          saveRoomsToCache(rooms);
         }
       } catch (error) {
         console.error('Error fetching rooms:', error);

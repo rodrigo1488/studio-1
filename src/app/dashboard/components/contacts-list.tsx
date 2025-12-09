@@ -15,8 +15,9 @@ import { UserPlus, Search, MessageSquare } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { User } from '@/lib/data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getInitials } from '@/lib/utils';
+import { getInitials, cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { getCachedContacts, saveContactsToCache } from '@/lib/storage/lists-cache';
 
 export default function ContactsList() {
   const [contacts, setContacts] = useState<User[]>([]);
@@ -33,11 +34,21 @@ export default function ContactsList() {
   }, []);
 
   const fetchContacts = async () => {
+    // Try to load from cache first
+    const cachedContacts = getCachedContacts();
+    if (cachedContacts && cachedContacts.length >= 0) {
+      setContacts(cachedContacts);
+      setIsLoading(false);
+    }
+
+    // Fetch from server (update cache in background)
     try {
       const response = await fetch('/api/contacts/list');
       if (response.ok) {
         const data = await response.json();
-        setContacts(data.contacts || []);
+        const contacts = data.contacts || [];
+        setContacts(contacts);
+        saveContactsToCache(contacts);
       }
     } catch (error) {
       console.error('Error fetching contacts:', error);
@@ -101,6 +112,8 @@ export default function ContactsList() {
         setSearchResult(null);
         setNickname('');
         setIsDialogOpen(false);
+        // Clear cache and refetch
+        saveContactsToCache([]);
         fetchContacts();
       } else {
         const data = await response.json();

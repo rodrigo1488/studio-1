@@ -86,58 +86,66 @@ export default function ChatLayout({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const micButtonRef = useRef<HTMLButtonElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const { toast } = useToast();
+
+  // Scroll to bottom when messages change or component mounts
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages.length]);
+
+  // Scroll to bottom on initial load
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Subscribe to realtime messages
   useEffect(() => {
     const channel = subscribeToMessages(room.id, async (newMessage) => {
-      // Fetch user data for the new message
-      try {
-        const userResponse = await fetch(`/api/users/${newMessage.sender_id}`);
-        let user = undefined;
-        if (userResponse.ok) {
-          const userData = await userResponse.json();
-          user = userData.user;
+      // Check if we already have this user cached
+      let user = getCachedUser(newMessage.sender_id);
+      
+      // Only fetch if not in cache
+      if (!user) {
+        try {
+          const userResponse = await fetch(`/api/users/${newMessage.sender_id}`);
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            user = userData.user;
+            // Save to cache
+            saveUserToCache(user);
+          }
+        } catch (error) {
+          console.error('Error fetching user for new message:', error);
         }
-        const appMessage = convertMessageToAppFormat(newMessage, user);
-        
-        // Check if message already exists
-        setMessages((prev) => {
-          if (prev.find((m) => m.id === appMessage.id)) {
-            return prev;
-          }
-          
-          // Add to cache
-          addMessageToCache(room.id, appMessage);
-          
-          // Only add notification if message is not from current user
-          if (appMessage.senderId !== currentUser.id) {
-            addNotification(room.id, appMessage);
-          }
-          
-          return [...prev, appMessage];
-        });
-      } catch (error) {
-        console.error('Error fetching user for new message:', error);
-        // Still add message without user data
-        const appMessage = convertMessageToAppFormat(newMessage);
-        setMessages((prev) => {
-          if (prev.find((m) => m.id === appMessage.id)) {
-            return prev;
-          }
-          
-          // Add to cache
-          addMessageToCache(room.id, appMessage);
-          
-          // Only add notification if message is not from current user
-          if (appMessage.senderId !== currentUser.id) {
-            addNotification(room.id, appMessage);
-          }
-          
-          return [...prev, appMessage];
-        });
       }
+      
+      const appMessage = convertMessageToAppFormat(newMessage, user);
+      
+      // Check if message already exists
+      setMessages((prev) => {
+        if (prev.find((m) => m.id === appMessage.id)) {
+          return prev;
+        }
+        
+        // Add to cache
+        addMessageToCache(room.id, appMessage);
+        
+        // Only add notification if message is not from current user
+        if (appMessage.senderId !== currentUser.id) {
+          addNotification(room.id, appMessage);
+        }
+        
+        return [...prev, appMessage];
+      });
     });
 
     channelRef.current = channel;
@@ -154,9 +162,13 @@ export default function ChatLayout({
 
   // Update messages when initialMessages change
   useEffect(() => {
-    setMessages(initialMessages);
+    // Remove duplicates before setting messages
+    const uniqueMessages = initialMessages.filter((msg, index, self) => 
+      index === self.findIndex(m => m.id === msg.id)
+    );
+    setMessages(uniqueMessages);
     // Check if there are more messages based on initial load
-    setHasMoreMessages(initialMessages.length >= 8);
+    setHasMoreMessages(uniqueMessages.length >= 8);
   }, [initialMessages]);
 
   // Scroll to bottom when new messages arrive (but not when loading older messages)
@@ -235,8 +247,24 @@ export default function ChatLayout({
         const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
         const previousScrollHeight = viewport?.scrollHeight || 0;
 
-        // Prepend new messages (they are older)
-        setMessages((prev) => [...newMessages, ...prev]);
+        // Prepend new messages (they are older), removing duplicates
+        setMessages((prev) => {
+          // Remove duplicates from prev first
+          const uniquePrev = prev.filter((msg, index, self) => 
+            index === self.findIndex(m => m.id === msg.id)
+          );
+          
+          // Merge and remove duplicates
+          const merged = [...newMessages, ...uniquePrev];
+          const uniqueMerged = merged.filter((msg, index, self) => 
+            index === self.findIndex(m => m.id === msg.id)
+          );
+          
+          // Update cache with merged messages
+          saveMessagesToCache(room.id, uniqueMerged);
+          
+          return uniqueMerged;
+        });
         setHasMoreMessages(data.hasMore);
 
         // Restore scroll position after DOM update
@@ -643,9 +671,9 @@ export default function ChatLayout({
   }, []);
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="flex h-full w-full flex-col relative">
       {/* Chat Header */}
-      <header className="flex h-16 items-center justify-between border-b-2 border-primary/30 bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 backdrop-blur-sm px-2 sm:px-4 shrink-0 shadow-md">
+      <header className="flex h-16 items-center justify-between border-b-2 border-primary/30 bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 backdrop-blur-sm px-2 sm:px-4 shrink-0 shadow-md z-10">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <Button asChild variant="ghost" size="icon" className="-ml-2 shrink-0">
             <Link href="/dashboard">
@@ -702,7 +730,9 @@ export default function ChatLayout({
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           )}
-          {messages.map((message, index) => {
+          {messages
+            .filter((msg, index, self) => index === self.findIndex(m => m.id === msg.id))
+            .map((message, index) => {
             // Generate rainbow colors for messages
             const rainbowColors = [
               'bg-[#3B82F6]', // Blue

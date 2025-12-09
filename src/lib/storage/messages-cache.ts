@@ -2,8 +2,10 @@ import type { Message } from '@/lib/data';
 
 const CACHE_PREFIX = 'chat_messages_';
 const CACHE_TIMESTAMP_PREFIX = 'chat_timestamp_';
+const CACHE_LAST_UPDATE_PREFIX = 'chat_last_update_';
 const MAX_CACHED_MESSAGES = 50; // Cache last 50 messages per room
-const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes - cache mais longo
+const CACHE_STALE_MS = 2 * 60 * 1000; // 2 minutes - considerar stale mas ainda usar
 
 export interface CachedMessages {
   messages: Message[];
@@ -13,8 +15,9 @@ export interface CachedMessages {
 
 /**
  * Get cached messages for a room
+ * Returns messages and whether cache is stale (needs refresh in background)
  */
-export function getCachedMessages(roomId: string): Message[] | null {
+export function getCachedMessages(roomId: string): { messages: Message[]; isStale: boolean } | null {
   try {
     const cacheKey = `${CACHE_PREFIX}${roomId}`;
     const timestampKey = `${CACHE_TIMESTAMP_PREFIX}${roomId}`;
@@ -29,8 +32,9 @@ export function getCachedMessages(roomId: string): Message[] | null {
     // Check if cache is expired
     const cacheTime = parseInt(timestamp, 10);
     const now = Date.now();
+    const age = now - cacheTime;
     
-    if (now - cacheTime > CACHE_EXPIRY_MS) {
+    if (age > CACHE_EXPIRY_MS) {
       // Cache expired, remove it
       localStorage.removeItem(cacheKey);
       localStorage.removeItem(timestampKey);
@@ -39,10 +43,15 @@ export function getCachedMessages(roomId: string): Message[] | null {
     
     const parsed: Message[] = JSON.parse(cached);
     // Convert timestamp strings back to Date objects
-    return parsed.map(msg => ({
+    const messages = parsed.map(msg => ({
       ...msg,
       timestamp: new Date(msg.timestamp),
     }));
+    
+    // Cache is stale if older than CACHE_STALE_MS but still valid
+    const isStale = age > CACHE_STALE_MS;
+    
+    return { messages, isStale };
   } catch (error) {
     console.error('Error reading cached messages:', error);
     return null;
@@ -77,9 +86,9 @@ export function saveMessagesToCache(roomId: string, messages: Message[]): void {
 export function addMessageToCache(roomId: string, message: Message): void {
   try {
     const cached = getCachedMessages(roomId);
-    if (cached) {
+    if (cached && cached.messages) {
       // Add new message and keep only last N
-      const updated = [...cached, message].slice(-MAX_CACHED_MESSAGES);
+      const updated = [...cached.messages, message].slice(-MAX_CACHED_MESSAGES);
       saveMessagesToCache(roomId, updated);
     } else {
       // No cache, just save this message

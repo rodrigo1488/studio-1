@@ -11,6 +11,7 @@ import type { User } from '@/lib/data';
 import { useSidebar } from '@/components/dashboard-sidebar';
 import { getAllUnreadCounts } from '@/lib/storage/notifications';
 import { Badge } from '@/components/ui/badge';
+import { getCachedConversations, saveConversationsToCache } from '@/lib/storage/lists-cache';
 
 interface DirectConversation {
   id: string;
@@ -53,11 +54,21 @@ export default function DirectConversationsList() {
   }, []);
 
   const fetchConversations = async () => {
+    // Try to load from cache first
+    const cachedConversations = getCachedConversations();
+    if (cachedConversations && cachedConversations.length >= 0) {
+      setConversations(cachedConversations);
+      setIsLoading(false);
+    }
+
+    // Fetch from server (update cache in background)
     try {
       const response = await fetch('/api/direct-conversations/list');
       if (response.ok) {
         const data = await response.json();
-        setConversations(data.conversations || []);
+        const conversations = data.conversations || [];
+        setConversations(conversations);
+        saveConversationsToCache(conversations);
       }
     } catch (error) {
       console.error('Error fetching conversations:', error);
