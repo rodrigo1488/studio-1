@@ -63,11 +63,32 @@ export async function uploadMedia(
     throw new Error(`Failed to upload file: ${error.message}`);
   }
 
-  // Get public URL
-  const { data: urlData } = storageClient.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+  // Get public URL - try public URL first, fallback to signed URL if needed
+  let publicUrl: string;
+  
+  try {
+    const { data: urlData } = storageClient.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+    
+    if (urlData && urlData.publicUrl) {
+      publicUrl = urlData.publicUrl;
+    } else {
+      // If public URL fails, try to create a signed URL (valid for 1 year)
+      const { data: signedUrlData, error: signedError } = await storageClient.storage
+        .from(BUCKET_NAME)
+        .createSignedUrl(filePath, 31536000); // 1 year in seconds
+      
+      if (signedError || !signedUrlData) {
+        throw new Error('Failed to get URL for uploaded file');
+      }
+      
+      publicUrl = signedUrlData.signedUrl;
+    }
+  } catch (urlError: any) {
+    throw new Error(`Failed to get URL for uploaded file: ${urlError.message || 'Unknown error'}`);
+  }
 
   return {
-    url: urlData.publicUrl,
+    url: publicUrl,
     path: filePath,
   };
 }

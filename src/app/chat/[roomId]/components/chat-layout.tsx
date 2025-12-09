@@ -180,6 +180,18 @@ export default function ChatLayout({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file size (10MB = 10485760 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_FILE_SIZE) {
+      toast({
+        title: 'Arquivo muito grande',
+        description: `O arquivo deve ter no máximo ${MAX_FILE_SIZE / 1024 / 1024}MB`,
+        variant: 'destructive',
+      });
+      e.target.value = '';
+      return;
+    }
+
     // Validate file type
     const detectedType = getMediaTypeFromFile(file);
     if (!detectedType || detectedType !== mediaType) {
@@ -188,6 +200,7 @@ export default function ChatLayout({
         description: `Por favor, selecione um arquivo ${mediaType === 'image' ? 'de imagem' : mediaType === 'video' ? 'de vídeo' : 'de áudio'}`,
         variant: 'destructive',
       });
+      e.target.value = '';
       return;
     }
 
@@ -209,11 +222,16 @@ export default function ChatLayout({
       });
 
       if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json();
+        const errorData = await uploadResponse.json().catch(() => ({ error: 'Erro desconhecido' }));
         throw new Error(errorData.error || 'Erro ao fazer upload da mídia');
       }
 
-      const { url } = await uploadResponse.json();
+      const uploadData = await uploadResponse.json().catch(() => null);
+      if (!uploadData || !uploadData.url) {
+        throw new Error('Resposta inválida do servidor');
+      }
+
+      const { url } = uploadData;
 
       // Send message with media
       const response = await fetch('/api/messages/send', {
@@ -325,16 +343,43 @@ export default function ChatLayout({
                     : 'bg-card text-card-foreground rounded-bl-none'
                 )}
               >
-                {message.mediaUrl && message.mediaType === 'image' && (
-                    <Image
+                {message.mediaUrl && (
+                  <div className="mb-2 rounded-lg overflow-hidden">
+                    {message.mediaType === 'image' && (
+                      <Image
                         src={message.mediaUrl}
-                        alt="Media content"
+                        alt="Imagem enviada"
                         width={300}
                         height={200}
-                        className="rounded-lg mb-2 object-cover"
-                    />
+                        className="rounded-lg object-cover w-full"
+                        unoptimized
+                      />
+                    )}
+                    {message.mediaType === 'video' && (
+                      <video
+                        src={message.mediaUrl}
+                        controls
+                        className="rounded-lg w-full max-h-64"
+                        preload="metadata"
+                      >
+                        Seu navegador não suporta o elemento de vídeo.
+                      </video>
+                    )}
+                    {message.mediaType === 'audio' && (
+                      <div className="p-4 bg-muted/50 rounded-lg">
+                        <audio
+                          src={message.mediaUrl}
+                          controls
+                          className="w-full"
+                          preload="metadata"
+                        >
+                          Seu navegador não suporta o elemento de áudio.
+                        </audio>
+                      </div>
+                    )}
+                  </div>
                 )}
-                <p>{message.text}</p>
+                {message.text && <p>{message.text}</p>}
                 <span className={cn(
                     "text-xs mt-1 self-end",
                      message.senderId === currentUser.id

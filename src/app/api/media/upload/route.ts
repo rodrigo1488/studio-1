@@ -44,11 +44,33 @@ export async function POST(request: NextRequest) {
     // Use admin client for upload (has proper permissions)
     const result = await uploadMedia(file, roomId, messageId, mediaType, supabaseAdmin);
 
+    if (!result.url) {
+      return NextResponse.json(
+        { error: 'Falha ao obter URL do arquivo' },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({ url: result.url, path: result.path });
   } catch (error: any) {
     console.error('Upload error:', error);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Erro ao fazer upload';
+    if (error.message) {
+      if (error.message.includes('File size')) {
+        errorMessage = error.message;
+      } else if (error.message.includes('Invalid file type')) {
+        errorMessage = error.message;
+      } else if (error.message.includes('Failed to upload')) {
+        errorMessage = 'Falha ao fazer upload do arquivo. Verifique as permissões do storage.';
+      } else {
+        errorMessage = error.message;
+      }
+    }
+
     return NextResponse.json(
-      { error: error.message || 'Erro ao fazer upload' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
