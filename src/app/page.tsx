@@ -1,9 +1,49 @@
+'use client';
+
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { MessageSquareHeart } from 'lucide-react';
 import { Logo } from '@/components/logo';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 export default function Home() {
+  const router = useRouter();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          // User is already logged in, redirect to dashboard
+          router.push('/dashboard');
+          router.refresh();
+        } else {
+          // User is not authenticated, show home page
+          setIsCheckingAuth(false);
+        }
+      } catch (error) {
+        // Error checking auth, show home page anyway
+        setIsCheckingAuth(false);
+      }
+    }
+    checkAuth();
+  }, [router]);
+
+  // Show loading state while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
+          <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="flex h-16 items-center px-4 md:px-6">
