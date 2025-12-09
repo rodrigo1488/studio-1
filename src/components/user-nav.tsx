@@ -11,7 +11,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { getCurrentUser } from '@/lib/data';
 import { LogOut, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -20,19 +19,35 @@ import type { User } from '@/lib/data';
 
 export function UserNav() {
   const [user, setUser] = useState<User | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    setUser(getCurrentUser());
+    async function fetchUser() {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data.user);
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchUser();
   }, []);
 
-  if (!user) {
-    return null;
-  }
-
-  const handleLogout = () => {
-    // In a real app, you'd handle logout logic here
-    router.push('/');
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/');
+      router.refresh();
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
 
   const getInitials = (name: string) => {
@@ -40,6 +55,16 @@ export function UserNav() {
     const initials = names.map((n) => n[0]).join('');
     return initials.slice(0, 2).toUpperCase();
   };
+
+  if (isLoading) {
+    return (
+      <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <DropdownMenu>

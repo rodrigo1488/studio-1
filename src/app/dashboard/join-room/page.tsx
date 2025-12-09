@@ -15,22 +15,56 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function JoinRoomPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleJoinRoom = (e: React.FormEvent) => {
+  const handleJoinRoom = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // In a real app, you would:
-    // 1. Validate the code.
-    // 2. Add the user to the room's members list in Firestore.
-    // 3. Redirect to the chat room.
-    toast({
+    setIsLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const code = formData.get('room-code') as string;
+
+    try {
+      const response = await fetch('/api/rooms/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code: code.toUpperCase() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast({
+          title: 'Erro ao entrar na sala',
+          description: data.error || 'Código inválido',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      toast({
         title: 'Você entrou na sala!',
         description: 'Redirecionando para o chat...',
-    })
-    router.push('/chat/room-1'); // Redirect to a mock room
+      });
+
+      router.push(`/chat/${data.room.id}`);
+      router.refresh();
+    } catch (error) {
+      toast({
+        title: 'Erro ao entrar na sala',
+        description: 'Ocorreu um erro inesperado. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -55,16 +89,18 @@ export default function JoinRoomPage() {
               <Label htmlFor="room-code">Código da Sala</Label>
               <Input
                 id="room-code"
+                name="room-code"
                 placeholder="Ex: A4B2C"
                 required
+                disabled={isLoading}
                 className="uppercase tracking-widest text-center text-lg h-12"
               />
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full sm:w-auto">
+            <Button type="submit" className="w-full sm:w-auto" disabled={isLoading}>
               <ArrowRight className="mr-2 h-4 w-4" />
-              Entrar na Sala
+              {isLoading ? 'Entrando...' : 'Entrar na Sala'}
             </Button>
           </CardFooter>
         </form>

@@ -1,15 +1,15 @@
 import { Button } from '@/components/ui/button';
 import { PlusCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import RoomList from './components/room-list';
+import { SidebarMenu } from '@/components/sidebar-menu';
 
 export default function DashboardPage() {
   return (
-    <div className="container mx-auto max-w-4xl">
+    <div className="container mx-auto max-w-6xl">
       <div className="flex flex-col items-start justify-between gap-4 border-b pb-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight font-headline">
-            Suas Salas de Chat
+            Suas Conversas
           </h1>
           <p className="text-muted-foreground">
             Conecte-se com sua família em espaços privados e seguros.
@@ -31,7 +31,7 @@ export default function DashboardPage() {
         </div>
       </div>
       <div className="mt-6">
-        <RoomList />
+        <SidebarMenu />
       </div>
     </div>
   );

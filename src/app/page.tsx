@@ -1,13 +1,9 @@
 import { Button } from '@/components/ui/button';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-import Image from 'next/image';
 import Link from 'next/link';
 import { MessageSquareHeart } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
 export default function Home() {
-  const landingImage = PlaceHolderImages.find((img) => img.id === 'landing-image');
-
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="flex h-16 items-center px-4 md:px-6">
@@ -15,16 +11,9 @@ export default function Home() {
       </header>
       <main className="flex flex-1 flex-col items-center justify-center p-4 text-center">
         <div className="mx-auto max-w-md space-y-6">
-          {landingImage && (
-            <Image
-              src={landingImage.imageUrl}
-              alt={landingImage.description}
-              width={250}
-              height={250}
-              className="mx-auto rounded-full aspect-square object-cover"
-              data-ai-hint={landingImage.imageHint}
-            />
-          )}
+          <div className="mx-auto flex h-64 w-64 items-center justify-center rounded-full bg-primary/10">
+            <MessageSquareHeart className="h-32 w-32 text-primary" />
+          </div>
           <div className="space-y-2">
             <h1 className="font-headline text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
               FamilyChat: Secure Connect

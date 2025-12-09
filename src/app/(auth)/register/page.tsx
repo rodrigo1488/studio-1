@@ -11,16 +11,71 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // In a real app, you'd handle registration here
-    router.push('/dashboard');
+    setIsLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const name = formData.get('name') as string;
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    if (password.length < 6) {
+      toast({
+        title: 'Senha muito curta',
+        description: 'A senha deve ter pelo menos 6 caracteres',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast({
+          title: 'Erro ao criar conta',
+          description: data.error || 'Ocorreu um erro ao criar sua conta',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      toast({
+        title: 'Conta criada com sucesso!',
+        description: 'Redirecionando...',
+      });
+
+      router.push('/dashboard');
+      router.refresh();
+    } catch (error) {
+      toast({
+        title: 'Erro ao criar conta',
+        description: 'Ocorreu um erro inesperado. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -35,20 +90,43 @@ export default function RegisterPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Nome</Label>
-            <Input id="name" placeholder="Seu Nome Completo" required />
+            <Input
+              id="name"
+              name="name"
+              placeholder="Seu Nome Completo"
+              required
+              disabled={isLoading}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="seu@email.com" required />
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="seu@email.com"
+              required
+              disabled={isLoading}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Senha</Label>
-            <Input id="password" type="password" required />
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+              disabled={isLoading}
+              minLength={6}
+            />
+            <p className="text-xs text-muted-foreground">
+              Mínimo de 6 caracteres
+            </p>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button className="w-full" type="submit">
-            Criar Conta
+          <Button className="w-full" type="submit" disabled={isLoading}>
+            {isLoading ? 'Criando conta...' : 'Criar Conta'}
           </Button>
           <p className="text-sm text-center text-muted-foreground">
             Já tem uma conta?{' '}

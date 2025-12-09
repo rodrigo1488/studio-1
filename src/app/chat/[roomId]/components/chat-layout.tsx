@@ -8,6 +8,7 @@ import {
   Image as ImageIcon,
   Mic,
   Video,
+  QrCode,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -31,6 +32,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { subscribeToMessages, unsubscribeFromChannel, convertMessageToAppFormat } from '@/lib/supabase/realtime';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import { useToast } from '@/hooks/use-toast';
+import { getMediaTypeFromFile } from '@/lib/supabase/storage';
+import { RoomCodeDisplay } from '@/components/room-code-display';
+import { CallButton } from '@/components/webrtc/call-button';
 
 interface ChatLayoutProps {
   room: Room;
@@ -56,11 +63,62 @@ const formatDate = (date: Date) => {
 
 export default function ChatLayout({
   room,
-  messages,
+  messages: initialMessages,
   currentUser,
 }: ChatLayoutProps) {
   const [messageText, setMessageText] = useState('');
+  const [messages, setMessages] = useState<(Message & { user?: User })[]>(initialMessages);
+  const [isSending, setIsSending] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const { toast } = useToast();
+
+  // Subscribe to realtime messages
+  useEffect(() => {
+    const channel = subscribeToMessages(room.id, async (newMessage) => {
+      // Fetch user data for the new message
+      try {
+        const userResponse = await fetch(`/api/users/${newMessage.sender_id}`);
+        let user = undefined;
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          user = userData.user;
+        }
+        const appMessage = convertMessageToAppFormat(newMessage, user);
+        
+        setMessages((prev) => {
+          // Check if message already exists
+          if (prev.find((m) => m.id === appMessage.id)) {
+            return prev;
+          }
+          return [...prev, appMessage];
+        });
+      } catch (error) {
+        console.error('Error fetching user for new message:', error);
+        // Still add message without user data
+        const appMessage = convertMessageToAppFormat(newMessage);
+        setMessages((prev) => {
+          if (prev.find((m) => m.id === appMessage.id)) {
+            return prev;
+          }
+          return [...prev, appMessage];
+        });
+      }
+    });
+
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current) {
+        unsubscribeFromChannel(channelRef.current);
+      }
+    };
+  }, [room.id]);
+
+  // Update messages when initialMessages change
+  useEffect(() => {
+    setMessages(initialMessages);
+  }, [initialMessages]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -74,13 +132,121 @@ export default function ChatLayout({
     }
   }, [messages]);
 
-
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (messageText.trim()) {
-      console.log('Sending message:', messageText);
-      // In a real app, this would send the message to Firestore
-      setMessageText('');
+    if (!messageText.trim() || isSending) return;
+
+    setIsSending(true);
+    const text = messageText.trim();
+    setMessageText('');
+
+    try {
+      const response = await fetch('/api/messages/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          roomId: room.id,
+          text,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        toast({
+          title: 'Erro ao enviar mensagem',
+          description: data.error || 'Tente novamente',
+          variant: 'destructive',
+        });
+        setMessageText(text); // Restore message text
+      }
+    } catch (error) {
+      toast({
+        title: 'Erro ao enviar mensagem',
+        description: 'Ocorreu um erro inesperado',
+        variant: 'destructive',
+      });
+      setMessageText(text); // Restore message text
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleMediaUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    mediaType: 'image' | 'video' | 'audio'
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const detectedType = getMediaTypeFromFile(file);
+    if (!detectedType || detectedType !== mediaType) {
+      toast({
+        title: 'Tipo de arquivo inválido',
+        description: `Por favor, selecione um arquivo ${mediaType === 'image' ? 'de imagem' : mediaType === 'video' ? 'de vídeo' : 'de áudio'}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSending(true);
+
+    try {
+      // Generate a temporary message ID for the upload path
+      const tempMessageId = crypto.randomUUID();
+
+      // Upload media via API route
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('roomId', room.id);
+      formData.append('messageId', tempMessageId);
+
+      const uploadResponse = await fetch('/api/media/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json();
+        throw new Error(errorData.error || 'Erro ao fazer upload da mídia');
+      }
+
+      const { url } = await uploadResponse.json();
+
+      // Send message with media
+      const response = await fetch('/api/messages/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          roomId: room.id,
+          text: mediaType === 'image' ? '📷 Imagem' : mediaType === 'video' ? '🎥 Vídeo' : '🎵 Áudio',
+          mediaUrl: url,
+          mediaType,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        toast({
+          title: 'Erro ao enviar mídia',
+          description: data.error || 'Tente novamente',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao enviar mídia',
+        description: error.message || 'Ocorreu um erro inesperado',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSending(false);
+      // Reset file input
+      e.target.value = '';
     }
   };
 
@@ -106,18 +272,32 @@ export default function ChatLayout({
             </div>
           </div>
         </div>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Phone className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Iniciar chamada de áudio</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <div className="flex items-center gap-2">
+          {room.code && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <RoomCodeDisplay
+                      code={room.code}
+                      roomName={room.name}
+                      showInModal={true}
+                      trigger={
+                        <Button variant="ghost" size="icon">
+                          <QrCode className="h-5 w-5" />
+                        </Button>
+                      }
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Ver código da sala</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          <CallButton room={room} currentUser={currentUser} />
+        </div>
       </header>
 
       {/* Message Area */}
@@ -183,9 +363,54 @@ export default function ChatLayout({
             </PopoverTrigger>
             <PopoverContent className="w-auto p-1">
               <div className="flex gap-1">
-                 <Button variant="ghost" size="icon"><ImageIcon/></Button>
-                 <Button variant="ghost" size="icon"><Video/></Button>
-                 <Button variant="ghost" size="icon"><Mic/></Button>
+                <input
+                  type="file"
+                  id="image-upload"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleMediaUpload(e, 'image')}
+                />
+                <input
+                  type="file"
+                  id="video-upload"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={(e) => handleMediaUpload(e, 'video')}
+                />
+                <input
+                  type="file"
+                  id="audio-upload"
+                  accept="audio/*"
+                  className="hidden"
+                  onChange={(e) => handleMediaUpload(e, 'audio')}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  onClick={() => document.getElementById('image-upload')?.click()}
+                  disabled={isSending}
+                >
+                  <ImageIcon />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  onClick={() => document.getElementById('video-upload')?.click()}
+                  disabled={isSending}
+                >
+                  <Video />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  onClick={() => document.getElementById('audio-upload')?.click()}
+                  disabled={isSending}
+                >
+                  <Mic />
+                </Button>
               </div>
             </PopoverContent>
           </Popover>
@@ -195,8 +420,9 @@ export default function ChatLayout({
             placeholder="Digite uma mensagem..."
             value={messageText}
             onChange={(e) => setMessageText(e.target.value)}
+            disabled={isSending}
           />
-          <Button type="submit" size="icon" disabled={!messageText.trim()}>
+          <Button type="submit" size="icon" disabled={!messageText.trim() || isSending}>
             <Send className="h-5 w-5" />
           </Button>
         </form>

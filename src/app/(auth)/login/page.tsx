@@ -11,16 +11,60 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // In a real app, you'd handle authentication here
-    router.push('/dashboard');
+    setIsLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast({
+          title: 'Erro ao fazer login',
+          description: data.error || 'Email ou senha incorretos',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      toast({
+        title: 'Login realizado com sucesso!',
+        description: 'Redirecionando...',
+      });
+
+      router.push('/dashboard');
+      router.refresh();
+    } catch (error) {
+      toast({
+        title: 'Erro ao fazer login',
+        description: 'Ocorreu um erro inesperado. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -37,20 +81,27 @@ export default function LoginPage() {
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
+              name="email"
               type="email"
               placeholder="seu@email.com"
               required
-              defaultValue="maria@example.com"
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Senha</Label>
-            <Input id="password" type="password" required defaultValue="password" />
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+              disabled={isLoading}
+            />
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button className="w-full" type="submit">
-            Entrar
+          <Button className="w-full" type="submit" disabled={isLoading}>
+            {isLoading ? 'Entrando...' : 'Entrar'}
           </Button>
           <p className="text-sm text-center text-muted-foreground">
             Não tem uma conta?{' '}
