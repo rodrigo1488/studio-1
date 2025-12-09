@@ -2,6 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent zoom on double tap and pinch */
+@layer base {
+  * {
+    touch-action: pan-x pan-y;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* Allow text selection in input fields and text areas */
+  input,
+  textarea {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
+}
+
 body {
   font-family: Arial, Helvetica, sans-serif;
 }
