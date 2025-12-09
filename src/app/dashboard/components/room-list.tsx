@@ -14,10 +14,13 @@ import { useEffect, useState } from 'react';
 import type { Room } from '@/lib/data';
 import { RoomCodeDisplay } from '@/components/room-code-display';
 import { Button } from '@/components/ui/button';
+import { useSidebar } from '@/components/dashboard-sidebar';
 
 export default function RoomList() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const sidebar = useSidebar();
+  const closeMobileSidebar = sidebar?.closeMobileSidebar;
 
   useEffect(() => {
     async function fetchRooms() {
@@ -39,7 +42,7 @@ export default function RoomList() {
 
   if (isLoading) {
     return (
-      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1">
         {[1, 2, 3].map((i) => (
           <Card key={i} className="h-32 animate-pulse bg-muted" />
         ))}
@@ -59,13 +62,17 @@ export default function RoomList() {
   }
 
   return (
-    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-3 sm:gap-4 grid-cols-1">
       {rooms.map((room) => (
         <Card
           key={room.id}
           className="h-full transition-all duration-300 ease-in-out hover:border-primary hover:shadow-lg hover:-translate-y-1 flex flex-col"
         >
-          <Link href={`/chat/${room.id}`} className="group flex-1 min-w-0">
+          <Link 
+            href={`/chat/${room.id}`} 
+            className="group flex-1 min-w-0"
+            onClick={() => closeMobileSidebar?.()}
+          >
             <CardHeader className="p-4 sm:p-6">
               <div className="flex items-start justify-between gap-2 min-w-0">
                 <CardTitle className="text-base sm:text-lg font-semibold truncate flex-1 min-w-0" title={room.name}>

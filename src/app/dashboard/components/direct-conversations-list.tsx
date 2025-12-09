@@ -8,6 +8,7 @@ import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import { getInitials } from '@/lib/utils';
 import type { User } from '@/lib/data';
+import { useSidebar } from '@/components/dashboard-sidebar';
 
 interface DirectConversation {
   id: string;
@@ -24,6 +25,8 @@ export default function DirectConversationsList() {
   const [conversations, setConversations] = useState<DirectConversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const sidebar = useSidebar();
+  const closeMobileSidebar = sidebar?.closeMobileSidebar;
 
   useEffect(() => {
     fetchConversations();
@@ -44,6 +47,7 @@ export default function DirectConversationsList() {
   };
 
   const handleConversationClick = (conversationId: string) => {
+    closeMobileSidebar?.();
     router.push(`/chat/${conversationId}`);
   };
 
@@ -68,28 +72,30 @@ export default function DirectConversationsList() {
   }
 
   return (
-    <div className="space-y-2 max-h-96 overflow-y-auto">
+    <div className="space-y-2 h-full overflow-y-auto">
       {conversations.map((conversation) => (
         <Card
           key={conversation.id}
-          className="p-3 cursor-pointer hover:bg-muted transition-colors"
+          className="p-3 sm:p-4 cursor-pointer hover:bg-muted transition-colors"
           onClick={() => handleConversationClick(conversation.id)}
         >
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
+          <div className="flex items-center gap-3 min-w-0">
+            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 shrink-0">
               <AvatarImage src={conversation.otherUser.avatarUrl} />
               <AvatarFallback>
                 {getInitials(conversation.otherUser.name)}
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">{conversation.otherUser.name}</p>
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <p className="font-medium truncate text-sm sm:text-base" title={conversation.otherUser.name}>
+                {conversation.otherUser.name}
+              </p>
               {conversation.lastMessage ? (
                 <>
-                  <p className="text-sm text-muted-foreground truncate">
+                  <p className="text-xs sm:text-sm text-muted-foreground truncate mt-1" title={conversation.lastMessage.text}>
                     {conversation.lastMessage.text}
                   </p>
-                  <p className="text-xs text-muted-foreground/80">
+                  <p className="text-xs text-muted-foreground/80 mt-1">
                     {formatDistanceToNow(conversation.lastMessage.timestamp, {
                       addSuffix: true,
                       locale: ptBR,
@@ -97,7 +103,7 @@ export default function DirectConversationsList() {
                   </p>
                 </>
               ) : (
-                <p className="text-sm text-muted-foreground">Nenhuma mensagem ainda</p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">Nenhuma mensagem ainda</p>
               )}
             </div>
           </div>

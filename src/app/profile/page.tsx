@@ -11,12 +11,13 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, LogOut, Camera } from 'lucide-react';
+import { ArrowLeft, LogOut, Camera, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import type { User } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
+import { getInitials } from '@/lib/utils';
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | undefined>(undefined);
@@ -24,6 +25,9 @@ export default function ProfilePage() {
   const [nickname, setNickname] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -49,6 +53,139 @@ export default function ProfilePage() {
     fetchUser();
   }, [router]);
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Tipo de arquivo inválido',
+        description: 'Por favor, selecione uma imagem',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate file size (5MB)
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      toast({
+        title: 'Arquivo muito grande',
+        description: `O arquivo deve ter no máximo ${MAX_FILE_SIZE / 1024 / 1024}MB`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAvatarPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    // Upload avatar
+    setIsUploadingAvatar(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const uploadResponse = await fetch('/api/profile/upload-avatar', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json().catch(() => ({ error: 'Erro desconhecido' }));
+        throw new Error(errorData.error || 'Erro ao fazer upload da imagem');
+      }
+
+      const uploadData = await uploadResponse.json();
+      if (!uploadData || !uploadData.url) {
+        throw new Error('Resposta inválida do servidor');
+      }
+
+      // Update profile with new avatar URL
+      const updateResponse = await fetch('/api/profile/update', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: name.trim() || user?.name,
+          nickname: nickname.trim() || null,
+          avatarUrl: uploadData.url,
+        }),
+      });
+
+      const updateData = await updateResponse.json();
+
+      if (!updateResponse.ok) {
+        throw new Error(updateData.error || 'Erro ao atualizar perfil');
+      }
+
+      setUser(updateData.user);
+      setAvatarPreview(null);
+      toast({
+        title: 'Foto atualizada!',
+        description: 'Sua foto de perfil foi atualizada com sucesso.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao atualizar foto',
+        description: error.message || 'Ocorreu um erro inesperado',
+        variant: 'destructive',
+      });
+      setAvatarPreview(null);
+    } finally {
+      setIsUploadingAvatar(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setIsUploadingAvatar(true);
+
+    try {
+      const response = await fetch('/api/profile/update', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: name.trim() || user?.name,
+          nickname: nickname.trim() || null,
+          avatarUrl: null,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao remover foto');
+      }
+
+      setUser(data.user);
+      setAvatarPreview(null);
+      toast({
+        title: 'Foto removida!',
+        description: 'Sua foto de perfil foi removida.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao remover foto',
+        description: error.message || 'Ocorreu um erro inesperado',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!name.trim()) {
       toast({
@@ -70,6 +207,7 @@ export default function ProfilePage() {
         body: JSON.stringify({
           name: name.trim(),
           nickname: nickname.trim() || null,
+          avatarUrl: user?.avatarUrl || null,
         }),
       });
 
@@ -145,15 +283,50 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center gap-4">
-            <div className="relative">
+            <div className="relative group">
               <Avatar className="h-20 w-20">
-                <AvatarImage src={user.avatarUrl} alt={user.name} />
+                <AvatarImage 
+                  src={avatarPreview || user.avatarUrl} 
+                  alt={user.name} 
+                />
                 <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
               </Avatar>
-              <Button size="icon" className="absolute bottom-0 right-0 rounded-full h-7 w-7">
-                <Camera className="h-4 w-4" />
-                <span className="sr-only">Change photo</span>
-              </Button>
+              {isUploadingAvatar && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-full">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+                disabled={isUploadingAvatar}
+              />
+              <div className="absolute bottom-0 right-0 flex gap-1">
+                <Button
+                  size="icon"
+                  className="rounded-full h-8 w-8 bg-primary hover:bg-primary/90"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingAvatar}
+                >
+                  <Camera className="h-4 w-4" />
+                  <span className="sr-only">Alterar foto</span>
+                </Button>
+                {user.avatarUrl && (
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    className="rounded-full h-8 w-8"
+                    onClick={handleRemoveAvatar}
+                    disabled={isUploadingAvatar}
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Remover foto</span>
+                  </Button>
+                )}
+              </div>
             </div>
             <div>
                 <h2 className="text-xl font-semibold">{user.name}</h2>

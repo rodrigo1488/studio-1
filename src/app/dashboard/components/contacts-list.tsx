@@ -163,21 +163,26 @@ export default function ContactsList() {
             </div>
 
             {searchResult && (
-              <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                <div className="flex items-center gap-3">
-                  <Avatar>
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-card gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <Avatar className="shrink-0">
                     <AvatarImage src={searchResult.avatarUrl} />
                     <AvatarFallback>{getInitials(searchResult.name)}</AvatarFallback>
                   </Avatar>
-                  <div>
-                    <p className="font-medium">{searchResult.name}</p>
-                    <p className="text-sm text-muted-foreground">@{searchResult.nickname}</p>
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <p className="font-medium truncate text-sm sm:text-base" title={searchResult.name}>
+                      {searchResult.name}
+                    </p>
+                    <p className="text-xs sm:text-sm text-muted-foreground truncate" title={`@${searchResult.nickname}`}>
+                      @{searchResult.nickname}
+                    </p>
                   </div>
                 </div>
                 <Button
                   size="sm"
                   onClick={() => handleAddContact(searchResult.id)}
                   disabled={contacts.some((c) => c.id === searchResult.id)}
+                  className="shrink-0 text-xs sm:text-sm"
                 >
                   {contacts.some((c) => c.id === searchResult.id) ? 'Já adicionado' : 'Adicionar'}
                 </Button>
@@ -193,20 +198,24 @@ export default function ContactsList() {
         </DialogContent>
       </Dialog>
 
-      <div className="space-y-2 max-h-64 overflow-y-auto">
+      <div className="space-y-2 h-full overflow-y-auto">
         {contacts.map((contact) => (
           <div
             key={contact.id}
-            className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
+            className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg hover:bg-muted transition-colors"
           >
-            <Avatar className="h-10 w-10">
+            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 shrink-0">
               <AvatarImage src={contact.avatarUrl} />
               <AvatarFallback>{getInitials(contact.name)}</AvatarFallback>
             </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">{contact.name}</p>
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <p className="font-medium truncate text-sm sm:text-base" title={contact.name}>
+                {contact.name}
+              </p>
               {contact.nickname && (
-                <p className="text-xs text-muted-foreground">@{contact.nickname}</p>
+                <p className="text-xs text-muted-foreground truncate" title={`@${contact.nickname}`}>
+                  @{contact.nickname}
+                </p>
               )}
             </div>
             <Button

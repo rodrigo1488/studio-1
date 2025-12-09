@@ -519,19 +519,21 @@ export default function ChatLayout({
   return (
     <div className="flex h-full w-full flex-col">
       {/* Chat Header */}
-      <header className="flex h-16 items-center justify-between border-b bg-background/80 px-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="icon" className="-ml-2">
+      <header className="flex h-16 items-center justify-between border-b bg-background/80 px-2 sm:px-4 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          <Button asChild variant="ghost" size="icon" className="-ml-2 shrink-0">
             <Link href="/dashboard">
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
-          <div className="flex items-center gap-2">
-            <Avatar className="h-9 w-9">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Avatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0">
               <AvatarFallback>{getInitials(room.name)}</AvatarFallback>
             </Avatar>
-            <div className="flex flex-col">
-              <span className="font-semibold">{room.name}</span>
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="font-semibold text-sm sm:text-base truncate" title={room.name}>
+                {room.name}
+              </span>
               <span className="text-xs text-muted-foreground">
                 {room.members.length} membros
               </span>
