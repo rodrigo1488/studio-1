@@ -9,6 +9,7 @@ import {
   Mic,
   Video,
   QrCode,
+  Camera,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -38,6 +39,8 @@ import { useToast } from '@/hooks/use-toast';
 import { getMediaTypeFromFile } from '@/lib/supabase/storage';
 import { RoomCodeDisplay } from '@/components/room-code-display';
 import { CallButton } from '@/components/webrtc/call-button';
+import { CameraCapture } from '@/components/media/camera-capture';
+import { AudioPlayer } from '@/components/media/audio-player';
 
 interface ChatLayoutProps {
   room: Room;
@@ -69,6 +72,15 @@ export default function ChatLayout({
   const [messageText, setMessageText] = useState('');
   const [messages, setMessages] = useState<(Message & { user?: User })[]>(initialMessages);
   const [isSending, setIsSending] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [shouldCancelRecording, setShouldCancelRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const micButtonRef = useRef<HTMLButtonElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const { toast } = useToast();
@@ -268,6 +280,242 @@ export default function ChatLayout({
     }
   };
 
+  const handleCameraCapture = async (file: File) => {
+    setIsSending(true);
+    try {
+      const tempMessageId = crypto.randomUUID();
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('roomId', room.id);
+      formData.append('messageId', tempMessageId);
+
+      const uploadResponse = await fetch('/api/media/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json().catch(() => ({ error: 'Erro desconhecido' }));
+        throw new Error(errorData.error || 'Erro ao fazer upload da foto');
+      }
+
+      const uploadData = await uploadResponse.json().catch(() => null);
+      if (!uploadData || !uploadData.url) {
+        throw new Error('Resposta inválida do servidor');
+      }
+
+      const { url } = uploadData;
+
+      const response = await fetch('/api/messages/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          roomId: room.id,
+          text: '📷 Foto',
+          mediaUrl: url,
+          mediaType: 'image',
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        toast({
+          title: 'Erro ao enviar foto',
+          description: data.error || 'Tente novamente',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao enviar foto',
+        description: error.message || 'Ocorreu um erro inesperado',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const startAudioRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus',
+      });
+
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecordingAudio(true);
+      setRecordingTime(0);
+
+      // Start timer
+      timerRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao acessar microfone',
+        description: error.message || 'Permissão negada',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const stopAudioRecording = async () => {
+    return new Promise<Blob | null>((resolve) => {
+      if (!mediaRecorderRef.current || !isRecordingAudio) {
+        resolve(null);
+        return;
+      }
+
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        
+        // Stop all tracks
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
+
+        // Clear timer
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+
+        setIsRecordingAudio(false);
+        setRecordingTime(0);
+        resolve(audioBlob);
+      };
+
+      mediaRecorderRef.current.stop();
+    });
+  };
+
+  const cancelAudioRecording = () => {
+    if (mediaRecorderRef.current && isRecordingAudio) {
+      mediaRecorderRef.current.stop();
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    audioChunksRef.current = [];
+    setIsRecordingAudio(false);
+    setRecordingTime(0);
+  };
+
+  const handleMicPress = async () => {
+    await startAudioRecording();
+  };
+
+  const handleMicRelease = async () => {
+    const currentTime = recordingTime;
+    const shouldCancel = shouldCancelRecording;
+    setShouldCancelRecording(false);
+    
+    const audioBlob = await stopAudioRecording();
+    
+    // Cancel if user dragged away or recording was too short
+    if (shouldCancel || !audioBlob || currentTime < 0.5) {
+      cancelAudioRecording();
+      return;
+    }
+    
+    // Send the audio
+    await sendAudioMessage(audioBlob);
+  };
+
+  const sendAudioMessage = async (audioBlob: Blob) => {
+    setIsSending(true);
+    
+    try {
+      // Convert blob to File
+      const audioFile = new File([audioBlob], `audio-${Date.now()}.webm`, {
+        type: 'audio/webm',
+      });
+
+      const tempMessageId = crypto.randomUUID();
+      const formData = new FormData();
+      formData.append('file', audioFile);
+      formData.append('roomId', room.id);
+      formData.append('messageId', tempMessageId);
+
+      const uploadResponse = await fetch('/api/media/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json().catch(() => ({ error: 'Erro desconhecido' }));
+        throw new Error(errorData.error || 'Erro ao fazer upload do áudio');
+      }
+
+      const uploadData = await uploadResponse.json().catch(() => null);
+      if (!uploadData || !uploadData.url) {
+        throw new Error('Resposta inválida do servidor');
+      }
+
+      const { url } = uploadData;
+
+      const response = await fetch('/api/messages/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          roomId: room.id,
+          text: '',
+          mediaUrl: url,
+          mediaType: 'audio',
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        toast({
+          title: 'Erro ao enviar áudio',
+          description: data.error || 'Tente novamente',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao enviar áudio',
+        description: error.message || 'Ocorreu um erro inesperado',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cancelAudioRecording();
+    };
+  }, []);
+
   return (
     <div className="flex h-full w-full flex-col">
       {/* Chat Header */}
@@ -344,7 +592,10 @@ export default function ChatLayout({
                 )}
               >
                 {message.mediaUrl && (
-                  <div className="mb-2 rounded-lg overflow-hidden">
+                  <div className={cn(
+                    "rounded-lg overflow-hidden",
+                    message.mediaType === 'audio' ? '' : 'mb-2'
+                  )}>
                     {message.mediaType === 'image' && (
                       <Image
                         src={message.mediaUrl}
@@ -366,20 +617,16 @@ export default function ChatLayout({
                       </video>
                     )}
                     {message.mediaType === 'audio' && (
-                      <div className="p-4 bg-muted/50 rounded-lg">
-                        <audio
-                          src={message.mediaUrl}
-                          controls
-                          className="w-full"
-                          preload="metadata"
-                        >
-                          Seu navegador não suporta o elemento de áudio.
-                        </audio>
+                      <div className="py-2">
+                        <AudioPlayer 
+                          src={message.mediaUrl} 
+                          isOwnMessage={message.senderId === currentUser.id}
+                        />
                       </div>
                     )}
                   </div>
                 )}
-                {message.text && <p>{message.text}</p>}
+                {message.text && !message.text.match(/^(📷|🎥|🎵)/) && <p>{message.text}</p>}
                 <span className={cn(
                     "text-xs mt-1 self-end",
                      message.senderId === currentUser.id
@@ -395,83 +642,222 @@ export default function ChatLayout({
       </ScrollArea>
 
       {/* Input Area */}
-      <footer className="border-t p-2 md:p-4 shrink-0">
+      <footer className="border-t bg-background shrink-0">
+        {isRecordingAudio && (
+          <div className={cn(
+            "px-4 py-2 border-b flex items-center justify-between transition-colors",
+            shouldCancelRecording 
+              ? "bg-destructive/20" 
+              : "bg-destructive/10"
+          )}>
+            <div className="flex items-center gap-2 flex-1">
+              <div className="h-3 w-3 rounded-full bg-destructive animate-pulse" />
+              <span className="text-sm font-mono">
+                {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+              </span>
+            </div>
+            <span className={cn(
+              "text-sm font-medium",
+              shouldCancelRecording 
+                ? "text-destructive" 
+                : "text-muted-foreground"
+            )}>
+              {shouldCancelRecording ? 'Solte para cancelar' : 'Solte para enviar'}
+            </span>
+          </div>
+        )}
         <form
-          className="flex w-full items-center gap-2"
+          className="flex w-full items-center gap-2 p-2 md:p-4"
           onSubmit={handleSendMessage}
         >
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Paperclip className="h-5 w-5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-1">
-              <div className="flex gap-1">
-                <input
-                  type="file"
-                  id="image-upload"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => handleMediaUpload(e, 'image')}
-                />
-                <input
-                  type="file"
-                  id="video-upload"
-                  accept="video/*"
-                  className="hidden"
-                  onChange={(e) => handleMediaUpload(e, 'video')}
-                />
-                <input
-                  type="file"
-                  id="audio-upload"
-                  accept="audio/*"
-                  className="hidden"
-                  onChange={(e) => handleMediaUpload(e, 'audio')}
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  type="button"
-                  onClick={() => document.getElementById('image-upload')?.click()}
-                  disabled={isSending}
-                >
-                  <ImageIcon />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  type="button"
-                  onClick={() => document.getElementById('video-upload')?.click()}
-                  disabled={isSending}
-                >
-                  <Video />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  type="button"
-                  onClick={() => document.getElementById('audio-upload')?.click()}
-                  disabled={isSending}
-                >
-                  <Mic />
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <div className="flex items-center gap-1">
+            <input
+              type="file"
+              id="image-upload"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleMediaUpload(e, 'image')}
+            />
+            <input
+              type="file"
+              id="video-upload"
+              accept="video/*"
+              className="hidden"
+              onChange={(e) => handleMediaUpload(e, 'video')}
+            />
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    onClick={() => setShowCamera(true)}
+                    disabled={isSending || isRecordingAudio}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <Camera className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Tirar foto</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    onClick={() => document.getElementById('image-upload')?.click()}
+                    disabled={isSending || isRecordingAudio}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <ImageIcon className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Enviar imagem</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    ref={micButtonRef}
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    disabled={isSending}
+                    className={cn(
+                      "text-muted-foreground hover:text-foreground",
+                      isRecordingAudio && "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    )}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      if (!isRecordingAudio) {
+                        handleMicPress();
+                      }
+                    }}
+                    onMouseUp={(e) => {
+                      e.preventDefault();
+                      if (isRecordingAudio) {
+                        handleMicRelease();
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (isRecordingAudio) {
+                        setShouldCancelRecording(true);
+                      }
+                    }}
+                    onMouseEnter={(e) => {
+                      if (isRecordingAudio) {
+                        setShouldCancelRecording(false);
+                      }
+                    }}
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      if (!isRecordingAudio) {
+                        handleMicPress();
+                      }
+                    }}
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      if (isRecordingAudio) {
+                        handleMicRelease();
+                      }
+                    }}
+                    onTouchMove={(e) => {
+                      if (isRecordingAudio && micButtonRef.current) {
+                        const touch = e.touches[0];
+                        const rect = micButtonRef.current.getBoundingClientRect();
+                        const isOutside = 
+                          touch.clientX < rect.left ||
+                          touch.clientX > rect.right ||
+                          touch.clientY < rect.top ||
+                          touch.clientY > rect.bottom;
+                        setShouldCancelRecording(isOutside);
+                      }
+                    }}
+                    onTouchCancel={(e) => {
+                      if (isRecordingAudio) {
+                        cancelAudioRecording();
+                      }
+                    }}
+                  >
+                    <Mic className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Segure para gravar áudio</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
 
           <Input
             autoComplete="off"
             placeholder="Digite uma mensagem..."
             value={messageText}
             onChange={(e) => setMessageText(e.target.value)}
-            disabled={isSending}
+            disabled={isSending || isRecordingAudio}
+            className="flex-1"
           />
-          <Button type="submit" size="icon" disabled={!messageText.trim() || isSending}>
-            <Send className="h-5 w-5" />
-          </Button>
+          
+          {messageText.trim() && !isRecordingAudio ? (
+            <Button type="submit" size="icon" disabled={isSending}>
+              <Send className="h-5 w-5" />
+            </Button>
+          ) : (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" type="button" disabled={isSending || isRecordingAudio}>
+                  <Paperclip className="h-5 w-5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-1">
+                <div className="flex gap-1">
+                  <input
+                    type="file"
+                    id="video-upload-popover"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={(e) => handleMediaUpload(e, 'video')}
+                  />
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          type="button"
+                          onClick={() => document.getElementById('video-upload-popover')?.click()}
+                          disabled={isSending}
+                        >
+                          <Video className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Enviar vídeo</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
         </form>
       </footer>
+
+      {/* Camera Capture Modal */}
+      <CameraCapture
+        isOpen={showCamera}
+        onCapture={handleCameraCapture}
+        onClose={() => setShowCamera(false)}
+      />
     </div>
   );
 }

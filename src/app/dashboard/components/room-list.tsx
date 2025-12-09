@@ -39,7 +39,7 @@ export default function RoomList() {
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {[1, 2, 3].map((i) => (
           <Card key={i} className="h-32 animate-pulse bg-muted" />
         ))}
@@ -49,9 +49,9 @@ export default function RoomList() {
 
   if (rooms.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/20 p-12 text-center">
-        <h3 className="text-xl font-semibold">Nenhuma sala encontrada</h3>
-        <p className="mt-2 text-sm text-muted-foreground">
+      <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/20 p-8 sm:p-12 text-center">
+        <h3 className="text-lg sm:text-xl font-semibold">Nenhuma sala encontrada</h3>
+        <p className="mt-2 text-sm text-muted-foreground px-4">
           Crie uma nova sala para começar a conversar com sua família.
         </p>
       </div>
@@ -59,26 +59,26 @@ export default function RoomList() {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
       {rooms.map((room) => (
         <Card
           key={room.id}
           className="h-full transition-all duration-300 ease-in-out hover:border-primary hover:shadow-lg hover:-translate-y-1 flex flex-col"
         >
-          <Link href={`/chat/${room.id}`} className="group flex-1">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold truncate">
+          <Link href={`/chat/${room.id}`} className="group flex-1 min-w-0">
+            <CardHeader className="p-4 sm:p-6">
+              <div className="flex items-start justify-between gap-2 min-w-0">
+                <CardTitle className="text-base sm:text-lg font-semibold truncate flex-1 min-w-0" title={room.name}>
                   {room.name}
                 </CardTitle>
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Users className="h-4 w-4" />
+                <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground shrink-0">
+                  <Users className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span>{room.memberCount || room.members.length}</span>
                 </div>
               </div>
               {room.lastMessage && (
-                <div className="pt-2">
-                  <p className="text-sm text-muted-foreground truncate">
+                <div className="pt-2 min-w-0">
+                  <p className="text-xs sm:text-sm text-muted-foreground truncate" title={room.lastMessage.text}>
                     {room.lastMessage.text}
                   </p>
                   <p className="text-xs text-muted-foreground/80 pt-1">
@@ -92,7 +92,7 @@ export default function RoomList() {
             </CardHeader>
           </Link>
           {room.code && (
-            <div className="px-6 pb-4 pt-0">
+            <div className="px-4 sm:px-6 pb-4 pt-0">
               <RoomCodeDisplay
                 code={room.code}
                 roomName={room.name}
@@ -101,10 +101,10 @@ export default function RoomList() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full"
+                    className="w-full text-xs sm:text-sm"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <QrCode className="mr-2 h-4 w-4" />
+                    <QrCode className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                     Ver Código
                   </Button>
                 }

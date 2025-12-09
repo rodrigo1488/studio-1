@@ -51,16 +51,44 @@ export async function uploadMedia(
     throw new Error('Supabase client not available');
   }
 
+  // Check if bucket exists (only for admin client)
+  if (client === supabaseAdmin || (typeof window === 'undefined' && !client)) {
+    const { data: buckets, error: bucketError } = await storageClient.storage.listBuckets();
+    if (bucketError) {
+      console.warn('Could not list buckets:', bucketError.message);
+    } else {
+      const bucketExists = buckets?.some(b => b.name === BUCKET_NAME);
+      if (!bucketExists) {
+        throw new Error(`Bucket "${BUCKET_NAME}" não existe. Por favor, crie o bucket no Supabase Storage.`);
+      }
+    }
+  }
+
   // Upload file
+  // Convert File to Blob for better compatibility with Supabase Storage
+  const blob = new Blob([file], { type: file.type });
+  
   const { data, error } = await storageClient.storage
     .from(BUCKET_NAME)
-    .upload(filePath, file, {
+    .upload(filePath, blob, {
       cacheControl: '3600',
       upsert: false,
+      contentType: file.type,
     });
 
   if (error) {
+    // Provide more specific error messages
+    if (error.message.includes('JWS') || error.message.includes('JWT')) {
+      throw new Error('Erro de autenticação. Verifique as configurações do Supabase.');
+    }
+    if (error.message.includes('Bucket')) {
+      throw new Error(`Bucket "${BUCKET_NAME}" não encontrado. Verifique se o bucket existe no Supabase.`);
+    }
     throw new Error(`Failed to upload file: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error('Upload concluído mas nenhum dado retornado');
   }
 
   // Get public URL - try public URL first, fallback to signed URL if needed

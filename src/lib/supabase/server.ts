@@ -15,11 +15,21 @@ if (!supabaseUrl || !supabaseServiceRoleKey) {
 }
 
 // Server-side client with service role key for admin operations
+// This client bypasses RLS and doesn't require JWT tokens
 export const supabaseAdmin = supabaseUrl && supabaseServiceRoleKey
   ? createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
+        detectSessionInUrl: false,
+      },
+      db: {
+        schema: 'public',
+      },
+      global: {
+        headers: {
+          'x-client-info': 'supabase-js-admin',
+        },
       },
     })
   : null;
