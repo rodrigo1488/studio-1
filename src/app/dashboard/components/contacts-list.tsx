@@ -163,7 +163,7 @@ export default function ContactsList() {
             </div>
 
             {searchResult && (
-              <div className="flex items-center justify-between p-3 rounded-lg border bg-card gap-3">
+              <div className="flex items-center justify-between p-3 rounded-xl border-2 border-primary/30 bg-gradient-to-r from-primary/10 to-secondary/10 gap-3 shadow-md">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <Avatar className="shrink-0">
                     <AvatarImage src={searchResult.avatarUrl} />
@@ -199,10 +199,25 @@ export default function ContactsList() {
       </Dialog>
 
       <div className="space-y-2 h-full overflow-y-auto">
-        {contacts.map((contact) => (
+        {contacts.map((contact, index) => {
+          const rainbowColors = [
+            'border-[#3B82F6]',
+            'border-[#EC4899]',
+            'border-[#10B981]',
+            'border-[#F59E0B]',
+            'border-[#8B5CF6]',
+            'border-[#EF4444]',
+          ];
+          const borderColor = rainbowColors[index % rainbowColors.length];
+          
+          return (
           <div
             key={contact.id}
-            className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg hover:bg-muted transition-colors"
+            className={cn(
+              "flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl border-2 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5",
+              borderColor,
+              "bg-gradient-to-r from-white to-primary/5"
+            )}
           >
             <Avatar className="h-10 w-10 sm:h-12 sm:w-12 shrink-0">
               <AvatarImage src={contact.avatarUrl} />
@@ -254,7 +269,8 @@ export default function ContactsList() {
               <MessageSquare className="h-4 w-4" />
             </Button>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

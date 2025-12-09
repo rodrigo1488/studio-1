@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
-import { getInitials } from '@/lib/utils';
+import { getInitials, cn } from '@/lib/utils';
 import type { User } from '@/lib/data';
 import { useSidebar } from '@/components/dashboard-sidebar';
 
@@ -71,12 +71,37 @@ export default function DirectConversationsList() {
     );
   }
 
+  const rainbowBorders = [
+    'border-[#3B82F6]',
+    'border-[#EC4899]',
+    'border-[#10B981]',
+    'border-[#F59E0B]',
+    'border-[#8B5CF6]',
+    'border-[#EF4444]',
+  ];
+  const rainbowBackgrounds = [
+    'bg-gradient-to-r from-[#3B82F6]/10 to-[#3B82F6]/5',
+    'bg-gradient-to-r from-[#EC4899]/10 to-[#EC4899]/5',
+    'bg-gradient-to-r from-[#10B981]/10 to-[#10B981]/5',
+    'bg-gradient-to-r from-[#F59E0B]/10 to-[#F59E0B]/5',
+    'bg-gradient-to-r from-[#8B5CF6]/10 to-[#8B5CF6]/5',
+    'bg-gradient-to-r from-[#EF4444]/10 to-[#EF4444]/5',
+  ];
+
   return (
     <div className="space-y-2 h-full overflow-y-auto">
-      {conversations.map((conversation) => (
+      {conversations.map((conversation, index) => {
+        const borderColor = rainbowBorders[index % rainbowBorders.length];
+        const bgGradient = rainbowBackgrounds[index % rainbowBackgrounds.length];
+        
+        return (
         <Card
           key={conversation.id}
-          className="p-3 sm:p-4 cursor-pointer hover:bg-muted transition-colors"
+          className={cn(
+            "p-3 sm:p-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-slide-in-color",
+            borderColor,
+            bgGradient
+          )}
           onClick={() => handleConversationClick(conversation.id)}
         >
           <div className="flex items-center gap-3 min-w-0">
@@ -108,7 +133,8 @@ export default function DirectConversationsList() {
             </div>
           </div>
         </Card>
-      ))}
+        );
+      })}
     </div>
   );
 }

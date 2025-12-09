@@ -18,7 +18,7 @@ export default function DashboardLayout({
     <CallProviderWrapper>
       <DashboardSidebarProvider>
         <div className="flex min-h-screen w-full flex-col">
-          <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-50">
+          <header className="sticky top-0 flex h-16 items-center gap-4 border-b-2 border-primary/30 bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 backdrop-blur-sm px-4 md:px-6 z-50 shadow-md">
             <DashboardSidebarMobile />
             <Logo />
             <div className="ml-auto">

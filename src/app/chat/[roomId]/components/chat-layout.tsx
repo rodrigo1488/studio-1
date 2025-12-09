@@ -519,7 +519,7 @@ export default function ChatLayout({
   return (
     <div className="flex h-full w-full flex-col">
       {/* Chat Header */}
-      <header className="flex h-16 items-center justify-between border-b bg-background/80 px-2 sm:px-4 shrink-0">
+      <header className="flex h-16 items-center justify-between border-b-2 border-primary/30 bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 backdrop-blur-sm px-2 sm:px-4 shrink-0 shadow-md">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <Button asChild variant="ghost" size="icon" className="-ml-2 shrink-0">
             <Link href="/dashboard">
@@ -571,11 +571,32 @@ export default function ChatLayout({
       {/* Message Area */}
       <ScrollArea className="flex-1" ref={scrollAreaRef}>
         <div className="p-4 space-y-4">
-          {messages.map((message) => (
+          {messages.map((message, index) => {
+            // Generate rainbow colors for messages
+            const rainbowColors = [
+              'bg-[#3B82F6]', // Blue
+              'bg-[#EC4899]', // Pink
+              'bg-[#10B981]', // Green
+              'bg-[#F59E0B]', // Amber
+              'bg-[#8B5CF6]', // Purple
+              'bg-[#EF4444]', // Red
+            ];
+            const rainbowPastels = [
+              'bg-[#BFDBFE]', // Light Blue
+              'bg-[#FBCFE8]', // Light Pink
+              'bg-[#A7F3D0]', // Light Green
+              'bg-[#FDE68A]', // Light Amber
+              'bg-[#DDD6FE]', // Light Purple
+              'bg-[#FECACA]', // Light Red
+            ];
+            const ownColor = rainbowColors[index % rainbowColors.length];
+            const otherColor = rainbowPastels[index % rainbowPastels.length];
+            
+            return (
             <div
               key={message.id}
               className={cn(
-                'flex items-end gap-2',
+                'flex items-end gap-2 animate-slide-in-color',
                 message.senderId === currentUser.id ? 'justify-end' : 'justify-start'
               )}
             >
@@ -587,10 +608,10 @@ export default function ChatLayout({
               )}
               <div
                 className={cn(
-                  'max-w-xs md:max-w-md lg:max-w-lg rounded-xl p-3 text-sm flex flex-col',
+                  'max-w-xs md:max-w-md lg:max-w-lg rounded-3xl p-4 text-sm flex flex-col shadow-md',
                   message.senderId === currentUser.id
-                    ? 'bg-primary text-primary-foreground rounded-br-none'
-                    : 'bg-card text-card-foreground rounded-bl-none'
+                    ? `${ownColor} text-white rounded-br-none`
+                    : `${otherColor} text-foreground rounded-bl-none border-2 border-primary/20`
                 )}
               >
                 {message.mediaUrl && (
@@ -632,19 +653,20 @@ export default function ChatLayout({
                 <span className={cn(
                     "text-xs mt-1 self-end",
                      message.senderId === currentUser.id
-                    ? 'text-primary-foreground/70'
+                    ? 'text-white/80'
                     : 'text-muted-foreground'
                 )}>
                   {format(message.timestamp, 'p', { locale: ptBR })}
                 </span>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </ScrollArea>
 
       {/* Input Area */}
-      <footer className="border-t bg-background shrink-0">
+      <footer className="border-t-2 border-primary/30 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 shrink-0">
         {isRecordingAudio && (
           <div className={cn(
             "px-4 py-2 border-b flex items-center justify-between transition-colors",

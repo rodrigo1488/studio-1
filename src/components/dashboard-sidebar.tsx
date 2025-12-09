@@ -28,14 +28,14 @@ function SidebarContent() {
   return (
     <div className="flex flex-col h-full">
       {/* Navigation Tabs */}
-      <div className="flex border-b shrink-0">
+      <div className="flex border-b-2 border-primary/20 shrink-0 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5">
         <button
           onClick={() => setActiveView('groups')}
           className={cn(
-            'flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2',
+            'flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
             activeView === 'groups'
-              ? 'border-primary text-primary bg-primary/5'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              ? 'border-b-4 border-[#3B82F6] text-[#3B82F6] bg-[#3B82F6]/10 shadow-sm'
+              : 'border-transparent text-muted-foreground hover:text-[#3B82F6] hover:bg-[#3B82F6]/5'
           )}
         >
           <Users className="h-4 w-4" />
@@ -44,10 +44,10 @@ function SidebarContent() {
         <button
           onClick={() => setActiveView('conversations')}
           className={cn(
-            'flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2',
+            'flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
             activeView === 'conversations'
-              ? 'border-primary text-primary bg-primary/5'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              ? 'border-b-4 border-[#EC4899] text-[#EC4899] bg-[#EC4899]/10 shadow-sm'
+              : 'border-transparent text-muted-foreground hover:text-[#EC4899] hover:bg-[#EC4899]/5'
           )}
         >
           <MessageSquare className="h-4 w-4" />
@@ -56,10 +56,10 @@ function SidebarContent() {
         <button
           onClick={() => setActiveView('contacts')}
           className={cn(
-            'flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2',
+            'flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
             activeView === 'contacts'
-              ? 'border-primary text-primary bg-primary/5'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              ? 'border-b-4 border-[#10B981] text-[#10B981] bg-[#10B981]/10 shadow-sm'
+              : 'border-transparent text-muted-foreground hover:text-[#10B981] hover:bg-[#10B981]/5'
           )}
         >
           <UserPlus className="h-4 w-4" />
