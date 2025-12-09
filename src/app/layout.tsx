@@ -29,12 +29,19 @@ export default function RootLayout({
       </head>
       <body
         className={cn(
-          'min-h-screen bg-background font-body antialiased',
+          'min-h-screen bg-background font-body antialiased flex flex-col',
           fredoka.variable
         )}
         suppressHydrationWarning
       >
-        {children}
+        <div className="flex-1">
+          {children}
+        </div>
+        <footer className="w-full py-3 px-4 text-center text-xs sm:text-sm text-muted-foreground border-t border-primary/20 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5">
+          <p className="font-medium">
+            Feito com ❤️ de <span className="text-primary font-semibold">Rodrigo Gomes</span> para <span className="text-secondary font-semibold">Laura Vitoria</span>
+          </p>
+        </footer>
         <Toaster />
       </body>
     </html>

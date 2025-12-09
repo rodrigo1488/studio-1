@@ -25,7 +25,7 @@ export default function DashboardLayout({
               <UserNav />
             </div>
           </header>
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 overflow-hidden pb-12">
             <DashboardSidebarDesktop />
             <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8 overflow-auto min-w-0">
               {children}

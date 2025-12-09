@@ -43,6 +43,7 @@ import { CameraCapture } from '@/components/media/camera-capture';
 import { AudioPlayer } from '@/components/media/audio-player';
 import { addMessageToCache, saveMessagesToCache } from '@/lib/storage/messages-cache';
 import { addNotification, markNotificationsAsRead } from '@/lib/storage/notifications';
+import { getCachedUser } from '@/lib/storage/room-cache';
 
 interface ChatLayoutProps {
   room: Room;
@@ -724,7 +725,7 @@ export default function ChatLayout({
 
       {/* Message Area */}
       <ScrollArea className="flex-1" ref={scrollAreaRef}>
-        <div className="p-4 space-y-4">
+        <div className="p-2 sm:p-4 space-y-2 sm:space-y-4">
           {isLoadingMore && (
             <div className="flex justify-center py-2">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -823,11 +824,12 @@ export default function ChatLayout({
             </div>
             );
           })}
+          <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 
-      {/* Input Area */}
-      <footer className="border-t-2 border-primary/30 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 shrink-0">
+      {/* Input Area - Fixed at bottom */}
+      <footer className="fixed bottom-0 left-0 right-0 border-t-2 border-primary/30 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 shadow-md z-20 bg-background">
         {isRecordingAudio && (
           <div className={cn(
             "px-4 py-2 border-b flex items-center justify-between transition-colors",
@@ -918,8 +920,8 @@ export default function ChatLayout({
                     type="button"
                     disabled={isSending}
                     className={cn(
-                      "text-muted-foreground hover:text-foreground",
-                      isRecordingAudio && "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      "text-muted-foreground hover:text-foreground hover:bg-primary/10",
+                      isRecordingAudio && "bg-gradient-to-r from-[#EF4444] to-[#DC2626] text-white hover:from-[#DC2626] hover:to-[#B91C1C] shadow-lg animate-pulse"
                     )}
                     onMouseDown={(e) => {
                       e.preventDefault();

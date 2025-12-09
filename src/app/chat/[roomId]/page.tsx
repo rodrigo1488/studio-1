@@ -255,7 +255,7 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">
+    <div className="flex h-[calc(100vh-4rem-3rem)] flex-col">
       <ChatLayout room={room} messages={messages} currentUser={currentUser} />
     </div>
   );
