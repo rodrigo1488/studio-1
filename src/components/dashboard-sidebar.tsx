@@ -2,7 +2,7 @@
 
 import { useState, createContext, useContext } from 'react';
 import { Button } from '@/components/ui/button';
-import { Users, MessageSquare, UserPlus, Menu, PlusCircle, ArrowRight } from 'lucide-react';
+import { Users, MessageSquare, UserPlus, Menu, PlusCircle, ArrowRight, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import RoomList from '@/app/dashboard/components/room-list';
 import DirectConversationsList from '@/app/dashboard/components/direct-conversations-list';
@@ -10,7 +10,7 @@ import ContactsList from '@/app/dashboard/components/contacts-list';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
-type SidebarView = 'groups' | 'conversations' | 'contacts';
+type SidebarView = 'groups' | 'conversations' | 'contacts' | 'feed';
 
 const SidebarContext = createContext<{
   activeView: SidebarView;
@@ -66,6 +66,18 @@ function SidebarContent() {
           <UserPlus className="h-4 w-4" />
           <span className="hidden sm:inline">Contatos</span>
         </button>
+        <button
+          onClick={() => setActiveView('feed')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
+            activeView === 'feed'
+              ? 'border-b-4 border-[#F59E0B] text-[#F59E0B] bg-[#F59E0B]/10 shadow-sm'
+              : 'border-transparent text-muted-foreground hover:text-[#F59E0B] hover:bg-[#F59E0B]/5'
+          )}
+        >
+          <ImageIcon className="h-4 w-4" />
+          <span className="hidden sm:inline">Feed</span>
+        </button>
       </div>
 
       {/* Content Area */}
@@ -91,6 +103,16 @@ function SidebarContent() {
         )}
         {activeView === 'conversations' && <DirectConversationsList />}
         {activeView === 'contacts' && <ContactsList />}
+        {activeView === 'feed' && (
+          <div className="text-center py-8">
+            <Button asChild className="w-full">
+              <Link href="/feed">
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Ver Feed
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

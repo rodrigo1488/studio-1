@@ -1,6 +1,6 @@
 import { supabase } from './client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import type { Message } from '@/lib/data';
+import type { Message, User } from '@/lib/data';
 
 export interface MessageInsert {
   id: string;

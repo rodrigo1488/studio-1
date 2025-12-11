@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { NotificationPopup } from './notification-popup';
 import { NotificationCarousel } from './notification-carousel';
 import { addNotification, getNotifications, markNotificationsAsRead } from '@/lib/storage/notifications';
 import type { Message, User } from '@/lib/data';
 import { useRouter } from 'next/navigation';
 import { getCachedUser, getCachedRoom } from '@/lib/storage/room-cache';
+import { supabase } from '@/lib/supabase/client';
+import { convertMessageToAppFormat } from '@/lib/supabase/realtime';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface NotificationItem {
   roomId: string;
@@ -22,7 +25,154 @@ export function NotificationManager() {
   const [activeNotification, setActiveNotification] = useState<NotificationItem | null>(null);
   const [pendingNotifications, setPendingNotifications] = useState<NotificationItem[]>([]);
   const [showCarousel, setShowCarousel] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [userRooms, setUserRooms] = useState<string[]>([]);
+  const channelsRef = useRef<RealtimeChannel[]>([]);
   const router = useRouter();
+
+  // Buscar usuário atual e suas salas
+  useEffect(() => {
+    const fetchUserAndRooms = async () => {
+      try {
+        // Buscar usuário atual
+        const userResponse = await fetch('/api/auth/me');
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          setCurrentUserId(userData.user?.id || null);
+
+          // Buscar salas do usuário (incluindo conversas diretas)
+          if (userData.user?.id) {
+            // Buscar salas de grupos
+            const roomsResponse = await fetch('/api/rooms/list');
+            let groupRoomIds: string[] = [];
+            if (roomsResponse.ok) {
+              const roomsData = await roomsResponse.json();
+              groupRoomIds = (roomsData.rooms || []).map((r: any) => r.id);
+            }
+
+            // Buscar conversas diretas
+            const conversationsResponse = await fetch('/api/direct-conversations/list');
+            let directRoomIds: string[] = [];
+            if (conversationsResponse.ok) {
+              const conversationsData = await conversationsResponse.json();
+              directRoomIds = (conversationsData.conversations || []).map((c: any) => c.roomId);
+            }
+
+            // Combinar todas as salas
+            const allRoomIds = [...groupRoomIds, ...directRoomIds];
+            setUserRooms(allRoomIds);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user and rooms:', error);
+      }
+    };
+
+    fetchUserAndRooms();
+  }, []);
+
+  // Escutar mensagens em tempo real de todas as salas do usuário
+  useEffect(() => {
+    if (!currentUserId || userRooms.length === 0) return;
+
+    // Limpar canais anteriores
+    channelsRef.current.forEach((channel) => {
+      supabase.removeChannel(channel);
+    });
+    channelsRef.current = [];
+
+    // Criar canais para cada sala
+    userRooms.forEach((roomId) => {
+      const channel = supabase
+        .channel(`notifications:${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `room_id=eq.${roomId}`,
+          },
+          async (payload) => {
+            const newMessage = payload.new as any;
+            
+            // Verificar se a mensagem não é do próprio usuário
+            if (newMessage.sender_id === currentUserId) {
+              return;
+            }
+
+            // Verificar se estamos na sala atual
+            const currentPath = window.location.pathname;
+            const isInCurrentRoom = currentPath.includes(`/chat/${roomId}`);
+            if (isInCurrentRoom) {
+              return; // Não mostrar notificação se estiver na sala
+            }
+
+            // Buscar informações do remetente
+            let senderData: User | null = getCachedUser(newMessage.sender_id);
+            if (!senderData) {
+              try {
+                const response = await fetch(`/api/users/${newMessage.sender_id}`);
+                if (response.ok) {
+                  const data = await response.json();
+                  senderData = data.user;
+                }
+              } catch (error) {
+                console.error('Error fetching sender:', error);
+              }
+            }
+
+            // Buscar informações da sala
+            let roomName = 'Sala';
+            const room = getCachedRoom(roomId);
+            if (room) {
+              roomName = room.name;
+            } else {
+              try {
+                const response = await fetch(`/api/rooms/${roomId}`);
+                if (response.ok) {
+                  const data = await response.json();
+                  roomName = data.room?.name || 'Sala';
+                }
+              } catch (error) {
+                console.error('Error fetching room:', error);
+              }
+            }
+
+            if (senderData) {
+              // Converter mensagem para formato do app
+              const appMessage = convertMessageToAppFormat(newMessage, senderData);
+
+              // Adicionar ao storage
+              addNotification(roomId, appMessage);
+
+              // Criar notificação
+              const notification: NotificationItem = {
+                roomId,
+                roomName,
+                sender: senderData,
+                message: appMessage,
+                timestamp: Date.now(),
+              };
+
+              // Mostrar popup
+              setActiveNotification(notification);
+            }
+          }
+        )
+        .subscribe();
+
+      channelsRef.current.push(channel);
+    });
+
+    return () => {
+      // Limpar canais ao desmontar
+      channelsRef.current.forEach((channel) => {
+        supabase.removeChannel(channel);
+      });
+      channelsRef.current = [];
+    };
+  }, [currentUserId, userRooms]);
 
   // Detectar quando o app foi fechado e reaberto
   useEffect(() => {
