@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Loader2,
   RotateCcw,
+  Info,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -77,6 +78,7 @@ export default function ChatLayout({
   messages: initialMessages,
   currentUser,
 }: ChatLayoutProps) {
+  const [otherUser, setOtherUser] = useState<User | null>(null);
   const [messageText, setMessageText] = useState('');
   const [messages, setMessages] = useState<(Message & { user?: User })[]>(initialMessages);
   const [isSending, setIsSending] = useState(false);
@@ -94,7 +96,31 @@ export default function ChatLayout({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const [showRoomDetails, setShowRoomDetails] = useState(false);
   const { toast } = useToast();
+
+  // Buscar o outro usuário se for conversa direta
+  useEffect(() => {
+    async function fetchOtherUser() {
+      // Verificar se é conversa direta (código começa com "DM-")
+      if (!room.code?.startsWith('DM-')) {
+        return;
+      }
+
+      // Buscar o outro usuário da conversa direta
+      try {
+        const response = await fetch(`/api/direct-conversations/${room.id}/other-user`);
+        if (response.ok) {
+          const data = await response.json();
+          setOtherUser(data.user);
+        }
+      } catch (error) {
+        console.error('Error fetching other user:', error);
+      }
+    }
+
+    fetchOtherUser();
+  }, [room.id, room.code]);
 
   // Scroll to bottom when messages change or component mounts
   useEffect(() => {
@@ -964,20 +990,21 @@ export default function ChatLayout({
           </Button>
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <Avatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0">
-              <AvatarFallback>{getInitials(room.name)}</AvatarFallback>
+              <AvatarImage src={otherUser?.avatarUrl} />
+              <AvatarFallback>{getInitials(otherUser?.name || room.name)}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="font-semibold text-sm sm:text-base truncate" title={room.name}>
-                {room.name}
+              <span className="font-semibold text-sm sm:text-base truncate" title={otherUser?.name || room.name}>
+                {otherUser?.name || room.name}
               </span>
               <span className="text-xs text-muted-foreground">
-                {room.members.length} membros
+                {room.code?.startsWith('DM-') ? 'Conversa direta' : `${room.members.length} membros`}
               </span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {room.code && (
+          {room.code && !room.code.startsWith('DM-') && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -996,6 +1023,24 @@ export default function ChatLayout({
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Ver código da sala</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {!room.code?.startsWith('DM-') && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => setShowRoomDetails(true)}
+                  >
+                    <Info className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Detalhes da sala</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -1063,14 +1108,17 @@ export default function ChatLayout({
                     message.mediaType === 'audio' ? '' : 'mb-2'
                   )}>
                     {message.mediaType === 'image' && (
-                      <Image
-                        src={message.mediaUrl}
-                        alt="Imagem enviada"
-                        width={300}
-                        height={200}
-                        className="rounded-lg object-cover w-full"
-                        unoptimized
-                      />
+                      <div className="relative w-full max-w-sm">
+                        <Image
+                          src={message.mediaUrl}
+                          alt="Imagem enviada"
+                          width={400}
+                          height={400}
+                          className="rounded-lg object-contain w-full h-auto"
+                          style={{ maxHeight: '400px' }}
+                          unoptimized
+                        />
+                      </div>
                     )}
                     {message.mediaType === 'video' && (
                       <video
@@ -1391,6 +1439,14 @@ export default function ChatLayout({
         onCapture={handleCameraCapture}
         onClose={() => setShowCamera(false)}
       />
+      {!room.code?.startsWith('DM-') && (
+        <RoomDetails
+          room={room}
+          currentUser={currentUser}
+          open={showRoomDetails}
+          onOpenChange={setShowRoomDetails}
+        />
+      )}
     </div>
   );
 }

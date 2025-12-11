@@ -6,26 +6,46 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Users, QrCode } from 'lucide-react';
+import { Users, QrCode, Info } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEffect, useState } from 'react';
-import type { Room } from '@/lib/data';
+import type { Room, User } from '@/lib/data';
 import { RoomCodeDisplay } from '@/components/room-code-display';
+import { RoomDetails } from '@/components/room-details';
 import { Button } from '@/components/ui/button';
 import { useSidebar } from '@/components/dashboard-sidebar';
 import { cn } from '@/lib/utils';
 import { getAllUnreadCounts, getUnreadCount } from '@/lib/storage/notifications';
 import { Badge } from '@/components/ui/badge';
 import { getCachedRooms, saveRoomsToCache } from '@/lib/storage/lists-cache';
+import { getCachedCurrentUser } from '@/lib/storage/room-cache';
 
 export default function RoomList() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const sidebar = useSidebar();
   const closeMobileSidebar = sidebar?.closeMobileSidebar;
+
+  useEffect(() => {
+    const user = getCachedCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+    } else {
+      fetch('/api/auth/me')
+        .then(res => res.json())
+        .then(data => {
+          if (data.user) {
+            setCurrentUser(data.user);
+          }
+        });
+    }
+  }, []);
 
   // Load unread counts
   useEffect(() => {
@@ -162,8 +182,8 @@ export default function RoomList() {
               )}
             </CardHeader>
           </Link>
-          {room.code && (
-            <div className="px-4 sm:px-6 pb-4 pt-0">
+          <div className="px-4 sm:px-6 pb-4 pt-0 space-y-2">
+            {room.code && !room.code.startsWith('DM-') && (
               <RoomCodeDisplay
                 code={room.code}
                 roomName={room.name}
@@ -180,11 +200,34 @@ export default function RoomList() {
                   </Button>
                 }
               />
-            </div>
-          )}
+            )}
+            {!room.code?.startsWith('DM-') && currentUser && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs sm:text-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedRoom(room);
+                  setShowDetails(true);
+                }}
+              >
+                <Info className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                Detalhes
+              </Button>
+            )}
+          </div>
         </Card>
         );
       })}
+      {selectedRoom && currentUser && (
+        <RoomDetails
+          room={selectedRoom}
+          currentUser={currentUser}
+          open={showDetails}
+          onOpenChange={setShowDetails}
+        />
+      )}
     </div>
   );
 }

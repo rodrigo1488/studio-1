@@ -23,6 +23,7 @@ export type Room = {
   ownerId: string;
   members: string[];
   code?: string;
+  avatarUrl?: string;
   lastMessage?: {
     text: string;
     timestamp: Date;
