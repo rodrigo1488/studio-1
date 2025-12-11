@@ -5,7 +5,6 @@ import { UserNav } from '@/components/user-nav';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { ContactRequestsNotification } from '@/components/notifications/contact-requests-notification';
 import { CallProviderWrapper } from '@/components/webrtc/call-provider-wrapper';
-import { NotificationManager } from '@/components/notifications/notification-manager';
 import {
   DashboardSidebarProvider,
   DashboardSidebarMobile,
@@ -36,7 +35,6 @@ export default function DashboardLayout({
               {children}
             </main>
           </div>
-          <NotificationManager />
         </div>
       </DashboardSidebarProvider>
     </CallProviderWrapper>
