@@ -10,6 +10,11 @@ import {
   Video,
   QrCode,
   Camera,
+  Check,
+  CheckCheck,
+  AlertCircle,
+  Loader2,
+  RotateCcw,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -130,13 +135,36 @@ export default function ChatLayout({
       }
       
       const appMessage = convertMessageToAppFormat(newMessage, user);
+      appMessage.status = 'sent'; // Marcar como enviada quando confirmada pelo servidor
       
-      // Check if message already exists
+      // Check if message already exists or if it's an optimistic update
       setMessages((prev) => {
-        if (prev.find((m) => m.id === appMessage.id)) {
-          return prev;
+        const existingIndex = prev.findIndex((m) => m.id === appMessage.id);
+        
+        // Se a mensagem já existe (veio do servidor), atualizar status
+        if (existingIndex !== -1) {
+          const updated = [...prev];
+          updated[existingIndex] = { ...updated[existingIndex], ...appMessage, status: 'sent' };
+          return updated;
         }
         
+        // Verificar se é uma mensagem otimista nossa (mesmo texto e remetente)
+        const optimisticIndex = prev.findIndex(
+          (m) => 
+            m.status === 'sending' && 
+            m.senderId === currentUser.id &&
+            m.text === appMessage.text &&
+            Math.abs(m.timestamp.getTime() - appMessage.timestamp.getTime()) < 5000 // Dentro de 5 segundos
+        );
+        
+        if (optimisticIndex !== -1) {
+          // Substituir mensagem otimista pela real
+          const updated = [...prev];
+          updated[optimisticIndex] = { ...appMessage, status: 'sent' };
+          return updated;
+        }
+        
+        // Nova mensagem de outro usuário
         // Add to cache
         addMessageToCache(room.id, appMessage);
         
@@ -307,6 +335,21 @@ export default function ChatLayout({
     const text = messageText.trim();
     setMessageText('');
 
+    // Criar mensagem otimista (optimistic update)
+    const tempId = `temp-${Date.now()}-${Math.random()}`;
+    const optimisticMessage: Message & { user?: User } = {
+      id: tempId,
+      roomId: room.id,
+      senderId: currentUser.id,
+      text,
+      timestamp: new Date(),
+      status: 'sending',
+      user: currentUser,
+    };
+
+    // Adicionar mensagem otimista imediatamente
+    setMessages((prev) => [...prev, optimisticMessage]);
+
     try {
       const response = await fetch('/api/messages/send', {
         method: 'POST',
@@ -321,14 +364,47 @@ export default function ChatLayout({
 
       if (!response.ok) {
         const data = await response.json();
+        
+        // Atualizar status da mensagem otimista para erro
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempId
+              ? { ...msg, status: 'error' as const }
+              : msg
+          )
+        );
+
         toast({
           title: 'Erro ao enviar mensagem',
           description: data.error || 'Tente novamente',
           variant: 'destructive',
         });
         setMessageText(text); // Restore message text
+      } else {
+        // Mensagem enviada com sucesso - será atualizada via realtime
+        // Mas podemos atualizar o status para 'sent' temporariamente
+        const data = await response.json();
+        if (data.message?.id) {
+          // Substituir mensagem temporária pela real quando chegar via realtime
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === tempId
+                ? { ...msg, id: data.message.id, status: 'sent' as const }
+                : msg
+            )
+          );
+        }
       }
     } catch (error) {
+      // Atualizar status da mensagem otimista para erro
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tempId
+            ? { ...msg, status: 'error' as const }
+            : msg
+        )
+      );
+
       toast({
         title: 'Erro ao enviar mensagem',
         description: 'Ocorreu um erro inesperado',
@@ -373,6 +449,25 @@ export default function ChatLayout({
 
     setIsSending(true);
 
+    // Criar mensagem otimista
+    const tempId = `temp-${Date.now()}-${Math.random()}`;
+    const text = mediaType === 'image' ? '📷 Imagem' : mediaType === 'video' ? '🎥 Vídeo' : '🎵 Áudio';
+    const optimisticMessage: Message & { user?: User } = {
+      id: tempId,
+      roomId: room.id,
+      senderId: currentUser.id,
+      text,
+      timestamp: new Date(),
+      status: 'sending',
+      user: currentUser,
+      mediaType,
+      // Criar URL temporária para preview
+      mediaUrl: URL.createObjectURL(file),
+    };
+
+    // Adicionar mensagem otimista imediatamente
+    setMessages((prev) => [...prev, optimisticMessage]);
+
     try {
       // Generate a temporary message ID for the upload path
       const tempMessageId = crypto.randomUUID();
@@ -408,7 +503,7 @@ export default function ChatLayout({
         },
         body: JSON.stringify({
           roomId: room.id,
-          text: mediaType === 'image' ? '📷 Imagem' : mediaType === 'video' ? '🎥 Vídeo' : '🎵 Áudio',
+          text,
           mediaUrl: url,
           mediaType,
         }),
@@ -416,13 +511,44 @@ export default function ChatLayout({
 
       if (!response.ok) {
         const data = await response.json();
+        
+        // Atualizar status da mensagem otimista para erro
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempId
+              ? { ...msg, status: 'error' as const }
+              : msg
+          )
+        );
+
         toast({
           title: 'Erro ao enviar mídia',
           description: data.error || 'Tente novamente',
           variant: 'destructive',
         });
+      } else {
+        const data = await response.json();
+        if (data.message?.id) {
+          // Atualizar mensagem otimista com ID real e URL do servidor
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === tempId
+                ? { ...msg, id: data.message.id, mediaUrl: url, status: 'sent' as const }
+                : msg
+            )
+          );
+        }
       }
     } catch (error: any) {
+      // Atualizar status da mensagem otimista para erro
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tempId
+            ? { ...msg, status: 'error' as const }
+            : msg
+        )
+      );
+
       toast({
         title: 'Erro ao enviar mídia',
         description: error.message || 'Ocorreu um erro inesperado',
@@ -437,6 +563,25 @@ export default function ChatLayout({
 
   const handleCameraCapture = async (file: File) => {
     setIsSending(true);
+    
+    // Criar mensagem otimista
+    const tempId = `temp-${Date.now()}-${Math.random()}`;
+    const text = '📷 Imagem';
+    const optimisticMessage: Message & { user?: User } = {
+      id: tempId,
+      roomId: room.id,
+      senderId: currentUser.id,
+      text,
+      timestamp: new Date(),
+      status: 'sending',
+      user: currentUser,
+      mediaType: 'image',
+      mediaUrl: URL.createObjectURL(file),
+    };
+
+    // Adicionar mensagem otimista imediatamente
+    setMessages((prev) => [...prev, optimisticMessage]);
+
     try {
       const tempMessageId = crypto.randomUUID();
       const formData = new FormData();
@@ -468,7 +613,7 @@ export default function ChatLayout({
         },
         body: JSON.stringify({
           roomId: room.id,
-          text: '📷 Foto',
+          text,
           mediaUrl: url,
           mediaType: 'image',
         }),
@@ -476,13 +621,44 @@ export default function ChatLayout({
 
       if (!response.ok) {
         const data = await response.json();
+        
+        // Atualizar status da mensagem otimista para erro
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempId
+              ? { ...msg, status: 'error' as const }
+              : msg
+          )
+        );
+
         toast({
           title: 'Erro ao enviar foto',
           description: data.error || 'Tente novamente',
           variant: 'destructive',
         });
+      } else {
+        const data = await response.json();
+        if (data.message?.id) {
+          // Atualizar mensagem otimista com ID real e URL do servidor
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === tempId
+                ? { ...msg, id: data.message.id, mediaUrl: url, status: 'sent' as const }
+                : msg
+            )
+          );
+        }
       }
     } catch (error: any) {
+      // Atualizar status da mensagem otimista para erro
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tempId
+            ? { ...msg, status: 'error' as const }
+            : msg
+        )
+      );
+
       toast({
         title: 'Erro ao enviar foto',
         description: error.message || 'Ocorreu um erro inesperado',
@@ -490,6 +666,7 @@ export default function ChatLayout({
       });
     } finally {
       setIsSending(false);
+      setShowCamera(false);
     }
   };
 
@@ -603,6 +780,25 @@ export default function ChatLayout({
   const sendAudioMessage = async (audioBlob: Blob) => {
     setIsSending(true);
     
+    // Criar mensagem otimista
+    const tempId = `temp-${Date.now()}-${Math.random()}`;
+    const text = '🎵 Áudio';
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const optimisticMessage: Message & { user?: User } = {
+      id: tempId,
+      roomId: room.id,
+      senderId: currentUser.id,
+      text,
+      timestamp: new Date(),
+      status: 'sending',
+      user: currentUser,
+      mediaType: 'audio',
+      mediaUrl: audioUrl,
+    };
+
+    // Adicionar mensagem otimista imediatamente
+    setMessages((prev) => [...prev, optimisticMessage]);
+    
     try {
       // Convert blob to File
       const audioFile = new File([audioBlob], `audio-${Date.now()}.webm`, {
@@ -647,13 +843,44 @@ export default function ChatLayout({
 
       if (!response.ok) {
         const data = await response.json();
+        
+        // Atualizar status da mensagem otimista para erro
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempId
+              ? { ...msg, status: 'error' as const }
+              : msg
+          )
+        );
+
         toast({
           title: 'Erro ao enviar áudio',
           description: data.error || 'Tente novamente',
           variant: 'destructive',
         });
+      } else {
+        const data = await response.json();
+        if (data.message?.id) {
+          // Atualizar mensagem otimista com ID real e URL do servidor
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === tempId
+                ? { ...msg, id: data.message.id, mediaUrl: url, status: 'sent' as const }
+                : msg
+            )
+          );
+        }
       }
     } catch (error: any) {
+      // Atualizar status da mensagem otimista para erro
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tempId
+            ? { ...msg, status: 'error' as const }
+            : msg
+        )
+      );
+
       toast({
         title: 'Erro ao enviar áudio',
         description: error.message || 'Ocorreu um erro inesperado',
@@ -812,14 +1039,75 @@ export default function ChatLayout({
                   </div>
                 )}
                 {message.text && !message.text.match(/^(📷|🎥|🎵)/) && <p>{message.text}</p>}
-                <span className={cn(
-                    "text-xs mt-1 self-end",
-                     message.senderId === currentUser.id
-                    ? 'text-white/80'
-                    : 'text-muted-foreground'
-                )}>
-                  {format(message.timestamp, 'p', { locale: ptBR })}
-                </span>
+                <div className="flex items-center gap-1 mt-1 self-end">
+                  <span className={cn(
+                      "text-xs",
+                       message.senderId === currentUser.id
+                      ? 'text-white/80'
+                      : 'text-muted-foreground'
+                  )}>
+                    {format(message.timestamp, 'p', { locale: ptBR })}
+                  </span>
+                  {message.senderId === currentUser.id && (
+                    <div className="flex items-center">
+                      {message.status === 'sending' && (
+                        <Loader2 className="h-3 w-3 text-white/60 animate-spin ml-1" />
+                      )}
+                      {message.status === 'sent' && (
+                        <CheckCheck className="h-3 w-3 text-white/80 ml-1" />
+                      )}
+                      {message.status === 'error' && (
+                        <div className="flex items-center gap-1 ml-1">
+                          <AlertCircle className="h-3 w-3 text-red-300" />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-4 w-4 p-0 text-red-300 hover:text-red-200 hover:bg-red-500/20"
+                            onClick={async () => {
+                              // Retry sending the message
+                              const text = message.text;
+                              setMessages((prev) => prev.filter((m) => m.id !== message.id));
+                              
+                              setIsSending(true);
+                              try {
+                                const response = await fetch('/api/messages/send', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                  },
+                                  body: JSON.stringify({
+                                    roomId: room.id,
+                                    text,
+                                  }),
+                                });
+
+                                if (!response.ok) {
+                                  const data = await response.json();
+                                  toast({
+                                    title: 'Erro ao reenviar mensagem',
+                                    description: data.error || 'Tente novamente',
+                                    variant: 'destructive',
+                                  });
+                                }
+                              } catch (error) {
+                                toast({
+                                  title: 'Erro ao reenviar mensagem',
+                                  description: 'Ocorreu um erro inesperado',
+                                  variant: 'destructive',
+                                });
+                              } finally {
+                                setIsSending(false);
+                              }
+                            }}
+                            title="Tentar novamente"
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             );
@@ -996,7 +1284,11 @@ export default function ChatLayout({
           
           {messageText.trim() && !isRecordingAudio ? (
             <Button type="submit" size="icon" disabled={isSending}>
-              <Send className="h-5 w-5" />
+              {isSending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Send className="h-5 w-5" />
+              )}
             </Button>
           ) : (
             <Popover>

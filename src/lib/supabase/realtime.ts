@@ -57,6 +57,7 @@ export function convertMessageToAppFormat(dbMessage: MessageInsert, user?: { id:
     timestamp: new Date(dbMessage.created_at),
     mediaUrl: dbMessage.media_url || undefined,
     mediaType: dbMessage.media_type || undefined,
+    status: 'sent', // Mensagens do banco sempre estão enviadas
     user: user ? {
       id: user.id,
       name: user.name,

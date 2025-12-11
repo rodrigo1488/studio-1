@@ -14,6 +14,7 @@ export type Message = {
   timestamp: Date;
   mediaUrl?: string;
   mediaType?: 'image' | 'video' | 'audio';
+  status?: 'sending' | 'sent' | 'error'; // Status de envio da mensagem
 };
 
 export type Room = {
