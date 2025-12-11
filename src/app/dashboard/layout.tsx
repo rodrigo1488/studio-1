@@ -3,6 +3,7 @@
 import { Logo } from '@/components/logo';
 import { UserNav } from '@/components/user-nav';
 import { CallProviderWrapper } from '@/components/webrtc/call-provider-wrapper';
+import { NotificationManager } from '@/components/notifications/notification-manager';
 import {
   DashboardSidebarProvider,
   DashboardSidebarMobile,
@@ -31,6 +32,7 @@ export default function DashboardLayout({
               {children}
             </main>
           </div>
+          <NotificationManager />
         </div>
       </DashboardSidebarProvider>
     </CallProviderWrapper>

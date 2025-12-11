@@ -44,12 +44,13 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
 import { getMediaTypeFromFile } from '@/lib/supabase/storage';
 import { RoomCodeDisplay } from '@/components/room-code-display';
+import { RoomDetails } from '@/components/room-details';
 import { CallButton } from '@/components/webrtc/call-button';
 import { CameraCapture } from '@/components/media/camera-capture';
 import { AudioPlayer } from '@/components/media/audio-player';
 import { addMessageToCache, saveMessagesToCache } from '@/lib/storage/messages-cache';
 import { addNotification, markNotificationsAsRead } from '@/lib/storage/notifications';
-import { getCachedUser } from '@/lib/storage/room-cache';
+import { getCachedUser, saveUserToCache } from '@/lib/storage/room-cache';
 
 interface ChatLayoutProps {
   room: Room;
@@ -156,7 +157,9 @@ export default function ChatLayout({
             const userData = await userResponse.json();
             user = userData.user;
             // Save to cache
-            saveUserToCache(user);
+            if (user) {
+              saveUserToCache(user);
+            }
           }
         } catch (error) {
           console.error('Error fetching user for new message:', error);
@@ -218,6 +221,23 @@ export default function ChatLayout({
         // Only add notification if message is not from current user
         if (serverSenderId !== currentUser.id) {
           addNotification(room.id, appMessage);
+          
+          // Disparar evento customizado para notificação em tempo real
+          // Apenas se não estiver na sala atual
+          const currentPath = window.location.pathname;
+          const isInCurrentRoom = currentPath.includes(`/chat/${room.id}`);
+          
+          if (!isInCurrentRoom) {
+            window.dispatchEvent(
+              new CustomEvent('newMessageNotification', {
+                detail: {
+                  roomId: room.id,
+                  message: appMessage,
+                  currentRoomId: currentPath.split('/chat/')[1]?.split('/')[0] || null,
+                },
+              })
+            );
+          }
         }
         
         // Adicionar mensagem com senderId do servidor

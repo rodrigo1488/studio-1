@@ -48,7 +48,10 @@ export async function unsubscribeFromChannel(channel: RealtimeChannel): Promise<
 /**
  * Convert database message to app message format
  */
-export function convertMessageToAppFormat(dbMessage: MessageInsert, user?: { id: string; name: string; avatarUrl?: string }): Message & { user?: { id: string; name: string; avatarUrl?: string } } {
+export function convertMessageToAppFormat(
+  dbMessage: MessageInsert, 
+  user?: User
+): Message & { user?: User } {
   return {
     id: dbMessage.id,
     roomId: dbMessage.room_id,
@@ -58,11 +61,7 @@ export function convertMessageToAppFormat(dbMessage: MessageInsert, user?: { id:
     mediaUrl: dbMessage.media_url || undefined,
     mediaType: dbMessage.media_type || undefined,
     status: 'sent', // Mensagens do banco sempre estão enviadas
-    user: user ? {
-      id: user.id,
-      name: user.name,
-      avatarUrl: user.avatarUrl,
-    } : undefined,
+    user: user || undefined,
   };
 }
 
