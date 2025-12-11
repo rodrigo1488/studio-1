@@ -42,7 +42,17 @@ export default function FeedPage() {
       const response = await fetch('/api/feed/list');
       if (response.ok) {
         const data = await response.json();
-        setPosts(data.posts || []);
+        // Convert ISO strings back to Date objects
+        const postsWithDates = (data.posts || []).map((post: any) => ({
+          ...post,
+          createdAt: new Date(post.createdAt),
+          updatedAt: new Date(post.updatedAt),
+          media: (post.media || []).map((m: any) => ({
+            ...m,
+            createdAt: new Date(m.createdAt),
+          })),
+        }));
+        setPosts(postsWithDates);
       } else {
         toast({
           title: 'Erro ao carregar feed',

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/supabase/middleware';
 import { createPost } from '@/lib/supabase/feed';
-import { uploadMedia } from '@/lib/supabase/storage';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,6 +29,10 @@ export async function POST(request: NextRequest) {
       if (!allowedTypes.includes(file.type)) {
         return NextResponse.json({ error: `File ${file.name} is not a valid image type.` }, { status: 400 });
       }
+    }
+
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Supabase admin client not initialized' }, { status: 500 });
     }
 
     // Upload all files to Supabase Storage
@@ -67,7 +71,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error || 'Failed to create post' }, { status: 500 });
     }
 
-    return NextResponse.json({ post }, { status: 201 });
+    // Serialize dates for JSON response
+    const serializedPost = {
+      ...post,
+      createdAt: post.createdAt instanceof Date ? post.createdAt.toISOString() : post.createdAt,
+      updatedAt: post.updatedAt instanceof Date ? post.updatedAt.toISOString() : post.updatedAt,
+      media: post.media.map((m) => ({
+        ...m,
+        createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : m.createdAt,
+      })),
+    };
+
+    return NextResponse.json({ post: serializedPost }, { status: 201 });
   } catch (error: any) {
     console.error('Error creating post:', error);
     return NextResponse.json({ error: error.message || 'Failed to create post' }, { status: 500 });

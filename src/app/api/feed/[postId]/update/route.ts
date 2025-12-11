@@ -22,7 +22,18 @@ export async function PATCH(
       return NextResponse.json({ error: error || 'Failed to update post' }, { status: 500 });
     }
 
-    return NextResponse.json({ post });
+    // Serialize dates for JSON response
+    const serializedPost = {
+      ...post,
+      createdAt: post.createdAt instanceof Date ? post.createdAt.toISOString() : post.createdAt,
+      updatedAt: post.updatedAt instanceof Date ? post.updatedAt.toISOString() : post.updatedAt,
+      media: post.media.map((m) => ({
+        ...m,
+        createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : m.createdAt,
+      })),
+    };
+
+    return NextResponse.json({ post: serializedPost });
   } catch (error: any) {
     console.error('Error updating post:', error);
     return NextResponse.json({ error: error.message || 'Failed to update post' }, { status: 500 });

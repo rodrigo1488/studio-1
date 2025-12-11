@@ -33,6 +33,9 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
   const [showModal, setShowModal] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
 
+  // Ensure createdAt is a Date object
+  const createdAt = post.createdAt instanceof Date ? post.createdAt : new Date(post.createdAt);
+
   const isOwner = post.userId === currentUserId;
   const hasMultipleImages = post.media.length > 1;
 
@@ -81,7 +84,7 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
               <div>
                 <p className="font-semibold text-sm">{post.user?.name || 'Usuário'}</p>
                 <p className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(post.createdAt, { addSuffix: true, locale: ptBR })}
+                  {formatDistanceToNow(createdAt, { addSuffix: true, locale: ptBR })}
                 </p>
               </div>
             </div>

@@ -29,9 +29,15 @@ export async function GET(request: NextRequest) {
       getPostsCommentCounts(postIds),
     ]);
 
-    // Enrich posts with counts
+    // Enrich posts with counts and ensure dates are serialized correctly
     const enrichedPosts = posts.map((post) => ({
       ...post,
+      createdAt: post.createdAt instanceof Date ? post.createdAt.toISOString() : post.createdAt,
+      updatedAt: post.updatedAt instanceof Date ? post.updatedAt.toISOString() : post.updatedAt,
+      media: post.media.map((m) => ({
+        ...m,
+        createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : m.createdAt,
+      })),
       likesCount: likeCounts[post.id] || 0,
       commentsCount: commentCounts[post.id] || 0,
       isLiked: userLikes[post.id] || false,

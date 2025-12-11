@@ -91,6 +91,21 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
         throw new Error(data.error || 'Failed to create post');
       }
 
+      const data = await response.json();
+      
+      // Convert ISO strings back to Date objects
+      if (data.post) {
+        const postWithDates = {
+          ...data.post,
+          createdAt: new Date(data.post.createdAt),
+          updatedAt: new Date(data.post.updatedAt),
+          media: (data.post.media || []).map((m: any) => ({
+            ...m,
+            createdAt: new Date(m.createdAt),
+          })),
+        };
+      }
+
       toast({
         title: 'Post criado!',
         description: 'Seu post foi publicado com sucesso.',

@@ -23,7 +23,14 @@ export async function GET(
       return NextResponse.json({ error }, { status: 500 });
     }
 
-    return NextResponse.json({ comments });
+    // Serialize dates for JSON response
+    const serializedComments = comments.map((comment) => ({
+      ...comment,
+      createdAt: comment.createdAt instanceof Date ? comment.createdAt.toISOString() : comment.createdAt,
+      updatedAt: comment.updatedAt instanceof Date ? comment.updatedAt.toISOString() : comment.updatedAt,
+    }));
+
+    return NextResponse.json({ comments: serializedComments });
   } catch (error: any) {
     console.error('Error fetching comments:', error);
     return NextResponse.json({ error: error.message || 'Failed to fetch comments' }, { status: 500 });

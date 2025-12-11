@@ -31,6 +31,12 @@ export async function GET(
 
     const enrichedPost = {
       ...post,
+      createdAt: post.createdAt instanceof Date ? post.createdAt.toISOString() : post.createdAt,
+      updatedAt: post.updatedAt instanceof Date ? post.updatedAt.toISOString() : post.updatedAt,
+      media: post.media.map((m) => ({
+        ...m,
+        createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : m.createdAt,
+      })),
       likesCount: likeCount,
       commentsCount: commentCount,
       isLiked: liked,

@@ -297,8 +297,8 @@ function convertToPost(dbPost: any): Post {
     id: dbPost.id,
     userId: dbPost.user_id,
     description: dbPost.description || undefined,
-    createdAt: new Date(dbPost.created_at),
-    updatedAt: new Date(dbPost.updated_at),
+    createdAt: dbPost.created_at instanceof Date ? dbPost.created_at : new Date(dbPost.created_at),
+    updatedAt: dbPost.updated_at instanceof Date ? dbPost.updated_at : new Date(dbPost.updated_at),
     media,
     user: dbPost.users
       ? {

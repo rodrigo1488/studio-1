@@ -39,6 +39,9 @@ export function PostModal({ post, currentUserId, onClose, onLike, onDelete, onEd
   const [isLiking, setIsLiking] = useState(false);
   const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0);
 
+  // Ensure createdAt is a Date object
+  const createdAt = post.createdAt instanceof Date ? post.createdAt : new Date(post.createdAt);
+
   const isOwner = post.userId === currentUserId;
   const hasMultipleImages = post.media.length > 1;
 
@@ -52,7 +55,13 @@ export function PostModal({ post, currentUserId, onClose, onLike, onDelete, onEd
       const response = await fetch(`/api/feed/${post.id}/comments`);
       if (response.ok) {
         const data = await response.json();
-        setComments(data.comments || []);
+        // Convert ISO strings back to Date objects
+        const commentsWithDates = (data.comments || []).map((comment: any) => ({
+          ...comment,
+          createdAt: comment.createdAt instanceof Date ? comment.createdAt : new Date(comment.createdAt),
+          updatedAt: comment.updatedAt instanceof Date ? comment.updatedAt : new Date(comment.updatedAt),
+        }));
+        setComments(commentsWithDates);
       }
     } catch (error) {
       console.error('Error loading comments:', error);
@@ -197,7 +206,7 @@ export function PostModal({ post, currentUserId, onClose, onLike, onDelete, onEd
                 <div>
                   <p className="font-semibold text-sm">{post.user?.name || 'Usuário'}</p>
                   <p className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(post.createdAt, { addSuffix: true, locale: ptBR })}
+                    {formatDistanceToNow(createdAt, { addSuffix: true, locale: ptBR })}
                   </p>
                 </div>
               </div>
