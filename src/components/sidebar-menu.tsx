@@ -79,9 +79,7 @@ export function SidebarMenu() {
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
-              <FeedPreview />
-            </div>
+            <FeedPreview />
           )}
         </TabsContent>
       </Tabs>
