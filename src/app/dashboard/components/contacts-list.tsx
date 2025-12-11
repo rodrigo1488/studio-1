@@ -11,9 +11,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Search, MessageSquare } from 'lucide-react';
+import { UserPlus, Search, MessageSquare, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { User } from '@/lib/data';
+import type { User, ContactRequest } from '@/lib/data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getInitials, cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -21,6 +21,7 @@ import { getCachedContacts, saveContactsToCache } from '@/lib/storage/lists-cach
 
 export default function ContactsList() {
   const [contacts, setContacts] = useState<User[]>([]);
+  const [sentRequests, setSentRequests] = useState<ContactRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [nickname, setNickname] = useState('');
@@ -31,6 +32,7 @@ export default function ContactsList() {
 
   useEffect(() => {
     fetchContacts();
+    fetchSentRequests();
   }, []);
 
   const fetchContacts = async () => {
@@ -54,6 +56,64 @@ export default function ContactsList() {
       console.error('Error fetching contacts:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchSentRequests = async () => {
+    try {
+      const response = await fetch('/api/contact-requests/sent');
+      if (response.ok) {
+        const data = await response.json();
+        const requestsWithDates = (data.requests || []).map((req: any) => ({
+          ...req,
+          createdAt: new Date(req.createdAt),
+          updatedAt: new Date(req.updatedAt),
+        }));
+        setSentRequests(requestsWithDates);
+      }
+    } catch (error) {
+      console.error('Error fetching sent requests:', error);
+    }
+  };
+
+  const getRequestStatus = (userId: string): 'contact' | 'pending' | 'none' => {
+    if (contacts.some((c) => c.id === userId)) {
+      return 'contact';
+    }
+    if (sentRequests.some((r) => r.requestedId === userId && r.status === 'pending')) {
+      return 'pending';
+    }
+    return 'none';
+  };
+
+  const handleCancelRequest = async (requestId: string) => {
+    try {
+      const response = await fetch('/api/contact-requests/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId }),
+      });
+
+      if (response.ok) {
+        setSentRequests((prev) => prev.filter((r) => r.id !== requestId));
+        toast({
+          title: 'Solicitação cancelada',
+          description: 'A solicitação foi cancelada com sucesso.',
+        });
+      } else {
+        const data = await response.json();
+        toast({
+          title: 'Erro',
+          description: data.error || 'Não foi possível cancelar a solicitação',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Ocorreu um erro inesperado',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -105,16 +165,16 @@ export default function ContactsList() {
       });
 
       if (response.ok) {
+        const data = await response.json();
         toast({
-          title: 'Contato adicionado!',
-          description: 'O contato foi adicionado com sucesso.',
+          title: 'Solicitação enviada!',
+          description: 'A solicitação de amizade foi enviada. Aguarde a resposta.',
         });
         setSearchResult(null);
         setNickname('');
         setIsDialogOpen(false);
-        // Clear cache and refetch
-        saveContactsToCache([]);
-        fetchContacts();
+        // Refetch sent requests
+        fetchSentRequests();
       } else {
         const data = await response.json();
         toast({
@@ -191,14 +251,46 @@ export default function ContactsList() {
                     </p>
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={() => handleAddContact(searchResult.id)}
-                  disabled={contacts.some((c) => c.id === searchResult.id)}
-                  className="shrink-0 text-xs sm:text-sm"
-                >
-                  {contacts.some((c) => c.id === searchResult.id) ? 'Já adicionado' : 'Adicionar'}
-                </Button>
+                {(() => {
+                  const status = getRequestStatus(searchResult.id);
+                  if (status === 'contact') {
+                    return (
+                      <Button
+                        size="sm"
+                        disabled
+                        variant="outline"
+                        className="shrink-0 text-xs sm:text-sm"
+                      >
+                        <CheckCircle className="mr-1 h-3 w-3" />
+                        Contato
+                      </Button>
+                    );
+                  }
+                  if (status === 'pending') {
+                    const request = sentRequests.find((r) => r.requestedId === searchResult.id);
+                    return (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => request && handleCancelRequest(request.id)}
+                        className="shrink-0 text-xs sm:text-sm"
+                      >
+                        <Clock className="mr-1 h-3 w-3" />
+                        Pendente
+                      </Button>
+                    );
+                  }
+                  return (
+                    <Button
+                      size="sm"
+                      onClick={() => handleAddContact(searchResult.id)}
+                      className="shrink-0 text-xs sm:text-sm"
+                    >
+                      <UserPlus className="mr-1 h-3 w-3" />
+                      Adicionar
+                    </Button>
+                  );
+                })()}
               </div>
             )}
 

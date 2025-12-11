@@ -2,6 +2,8 @@
 
 import { Logo } from '@/components/logo';
 import { UserNav } from '@/components/user-nav';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { ContactRequestsNotification } from '@/components/notifications/contact-requests-notification';
 import { CallProviderWrapper } from '@/components/webrtc/call-provider-wrapper';
 import { NotificationManager } from '@/components/notifications/notification-manager';
 import {
@@ -22,7 +24,9 @@ export default function DashboardLayout({
           <header className="sticky top-0 flex h-16 items-center gap-4 border-b-2 border-primary/30 bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 backdrop-blur-sm px-4 md:px-6 z-50 shadow-md">
             <DashboardSidebarMobile />
             <Logo />
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <ContactRequestsNotification />
+              <ThemeToggle />
               <UserNav />
             </div>
           </header>

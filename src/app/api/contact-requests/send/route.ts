@@ -7,23 +7,19 @@ export async function POST(request: NextRequest) {
     const user = await getCurrentUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Não autenticado' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
-    const { contactId } = await request.json();
+    const { requestedId } = await request.json();
 
-    if (!contactId) {
+    if (!requestedId) {
       return NextResponse.json(
-        { error: 'ID do contato é obrigatório' },
+        { error: 'ID do usuário é obrigatório' },
         { status: 400 }
       );
     }
 
-    // Create contact request instead of adding directly
-    const result = await sendContactRequest(user.id, contactId);
+    const result = await sendContactRequest(user.id, requestedId);
 
     if (result.error || !result.request) {
       return NextResponse.json(
@@ -32,17 +28,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
       request: {
         ...result.request,
         createdAt: result.request.createdAt.toISOString(),
         updatedAt: result.request.updatedAt.toISOString(),
-      }
+      },
     });
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json(
-      { error: 'Erro ao enviar solicitação' },
+      { error: error.message || 'Erro ao enviar solicitação' },
       { status: 500 }
     );
   }

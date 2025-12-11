@@ -69,3 +69,14 @@ export type PostComment = {
   updatedAt: Date;
   user?: User;
 };
+
+export type ContactRequest = {
+  id: string;
+  requesterId: string;
+  requestedId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: Date;
+  updatedAt: Date;
+  requester?: User;
+  requested?: User;
+};
