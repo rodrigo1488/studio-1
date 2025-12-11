@@ -58,10 +58,17 @@ export function NotificationManager() {
               // A API retorna objetos com 'id', não 'roomId'
               // O 'id' da conversa direta é usado como room_id na tabela messages
               directRoomIds = (conversationsData.conversations || []).map((c: any) => c.id);
+              console.log('[Notifications] Direct conversations found:', directRoomIds);
             }
 
             // Combinar todas as salas
             const allRoomIds = [...groupRoomIds, ...directRoomIds];
+            console.log('[Notifications] All room IDs to subscribe:', {
+              groups: groupRoomIds.length,
+              direct: directRoomIds.length,
+              total: allRoomIds.length,
+              ids: allRoomIds
+            });
             setUserRooms(allRoomIds);
           }
         }
@@ -87,21 +94,35 @@ export function NotificationManager() {
     userRooms.forEach((roomId) => {
       let channel;
       try {
+        const channelName = `notifications:${roomId}`;
+        console.log(`[Notifications] Creating channel for room: ${roomId} (${channelName})`);
+        
+        // Usar UUID formatado corretamente no filtro
+        const filter = `room_id=eq.${roomId}`;
+        console.log(`[Notifications] Filter: ${filter}`);
+        
         channel = supabase
-          .channel(`notifications:${roomId}`)
+          .channel(channelName)
           .on(
             'postgres_changes',
             {
               event: 'INSERT',
               schema: 'public',
               table: 'messages',
-              filter: `room_id=eq.${roomId}`,
+              filter: filter,
             },
             async (payload) => {
             const newMessage = payload.new as any;
+            console.log(`[Notifications] New message received for room ${roomId}:`, {
+              messageId: newMessage.id,
+              senderId: newMessage.sender_id,
+              currentUserId,
+              roomId: newMessage.room_id
+            });
             
             // Verificar se a mensagem não é do próprio usuário
             if (newMessage.sender_id === currentUserId) {
+              console.log(`[Notifications] Ignoring own message from ${currentUserId}`);
               return;
             }
 
@@ -109,6 +130,7 @@ export function NotificationManager() {
             const currentPath = window.location.pathname;
             const isInCurrentRoom = currentPath === `/chat/${roomId}`;
             if (isInCurrentRoom) {
+              console.log(`[Notifications] User is in current room ${roomId}, skipping notification`);
               return; // Não mostrar notificação se estiver na sala
             }
 
@@ -131,25 +153,36 @@ export function NotificationManager() {
             const room = getCachedRoom(roomId);
             if (room) {
               roomName = room.name;
+              console.log(`[Notifications] Room found in cache: ${roomName}`);
             } else {
-              // Verificar se é uma conversa direta (tenta buscar o outro usuário)
+              // Verificar se é uma conversa direta (tenta buscar o outro usuário primeiro)
               try {
+                console.log(`[Notifications] Room not in cache, checking if DM: ${roomId}`);
                 const otherUserResponse = await fetch(`/api/direct-conversations/${roomId}/other-user`);
                 if (otherUserResponse.ok) {
                   const otherUserData = await otherUserResponse.json();
                   if (otherUserData.user) {
                     roomName = otherUserData.user.name || 'Conversa';
+                    console.log(`[Notifications] DM found, other user: ${roomName}`);
                   }
                 } else {
                   // Se não for conversa direta, tentar buscar como sala de grupo
+                  console.log(`[Notifications] Not a DM, checking as group room: ${roomId}`);
                   const response = await fetch(`/api/rooms/${roomId}`);
                   if (response.ok) {
                     const data = await response.json();
                     roomName = data.room?.name || 'Sala';
+                    console.log(`[Notifications] Group room found: ${roomName}`);
+                  } else {
+                    console.warn(`[Notifications] Room not found: ${roomId}`);
+                    // Fallback: usar nome do remetente se disponível
+                    if (senderData) {
+                      roomName = senderData.name;
+                    }
                   }
                 }
               } catch (error) {
-                console.error('Error fetching room/conversation info:', error);
+                console.error(`[Notifications] Error fetching room/conversation info for ${roomId}:`, error);
                 // Fallback: usar nome do remetente se disponível
                 if (senderData) {
                   roomName = senderData.name;
@@ -179,6 +212,8 @@ export function NotificationManager() {
                 timestamp: Date.now(),
               };
 
+              console.log(`[Notifications] Showing notification for room ${roomId} (${roomName}) from ${senderData.name}`);
+              
               // Mostrar popup
               setActiveNotification(notification);
             } catch (error) {
@@ -186,16 +221,16 @@ export function NotificationManager() {
             }
           }
         )
-        .subscribe((status) => {
+        .subscribe((status, err) => {
           if (status === 'SUBSCRIBED') {
-            console.log(`[Notifications] Subscribed to room: ${roomId}`);
+            console.log(`[Notifications] ✅ Successfully subscribed to room: ${roomId}`);
             if (channel) {
               channelsRef.current.push(channel);
             }
-          } else if (status === 'CHANNEL_ERROR') {
-            console.error(`[Notifications] Error subscribing to room: ${roomId}`);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            console.error(`[Notifications] ❌ Error subscribing to room ${roomId}:`, status, err);
           } else {
-            console.warn(`[Notifications] Channel status for room ${roomId}: ${status}`);
+            console.warn(`[Notifications] ⚠️ Channel status for room ${roomId}: ${status}`, err);
           }
         });
       } catch (error) {
