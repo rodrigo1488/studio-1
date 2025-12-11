@@ -55,7 +55,9 @@ export function NotificationManager() {
             let directRoomIds: string[] = [];
             if (conversationsResponse.ok) {
               const conversationsData = await conversationsResponse.json();
-              directRoomIds = (conversationsData.conversations || []).map((c: any) => c.roomId);
+              // A API retorna objetos com 'id', não 'roomId'
+              // O 'id' da conversa direta é usado como room_id na tabela messages
+              directRoomIds = (conversationsData.conversations || []).map((c: any) => c.id);
             }
 
             // Combinar todas as salas
@@ -83,17 +85,19 @@ export function NotificationManager() {
 
     // Criar canais para cada sala
     userRooms.forEach((roomId) => {
-      const channel = supabase
-        .channel(`notifications:${roomId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `room_id=eq.${roomId}`,
-          },
-          async (payload) => {
+      let channel;
+      try {
+        channel = supabase
+          .channel(`notifications:${roomId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'messages',
+              filter: `room_id=eq.${roomId}`,
+            },
+            async (payload) => {
             const newMessage = payload.new as any;
             
             // Verificar se a mensagem não é do próprio usuário
@@ -101,9 +105,9 @@ export function NotificationManager() {
               return;
             }
 
-            // Verificar se estamos na sala atual
+            // Verificar se estamos na sala atual (comparação exata)
             const currentPath = window.location.pathname;
-            const isInCurrentRoom = currentPath.includes(`/chat/${roomId}`);
+            const isInCurrentRoom = currentPath === `/chat/${roomId}`;
             if (isInCurrentRoom) {
               return; // Não mostrar notificação se estiver na sala
             }
@@ -122,24 +126,44 @@ export function NotificationManager() {
               }
             }
 
-            // Buscar informações da sala
+            // Buscar informações da sala ou conversa direta
             let roomName = 'Sala';
             const room = getCachedRoom(roomId);
             if (room) {
               roomName = room.name;
             } else {
+              // Verificar se é uma conversa direta (tenta buscar o outro usuário)
               try {
-                const response = await fetch(`/api/rooms/${roomId}`);
-                if (response.ok) {
-                  const data = await response.json();
-                  roomName = data.room?.name || 'Sala';
+                const otherUserResponse = await fetch(`/api/direct-conversations/${roomId}/other-user`);
+                if (otherUserResponse.ok) {
+                  const otherUserData = await otherUserResponse.json();
+                  if (otherUserData.user) {
+                    roomName = otherUserData.user.name || 'Conversa';
+                  }
+                } else {
+                  // Se não for conversa direta, tentar buscar como sala de grupo
+                  const response = await fetch(`/api/rooms/${roomId}`);
+                  if (response.ok) {
+                    const data = await response.json();
+                    roomName = data.room?.name || 'Sala';
+                  }
                 }
               } catch (error) {
-                console.error('Error fetching room:', error);
+                console.error('Error fetching room/conversation info:', error);
+                // Fallback: usar nome do remetente se disponível
+                if (senderData) {
+                  roomName = senderData.name;
+                }
               }
             }
 
-            if (senderData) {
+            // Validar dados antes de criar notificação
+            if (!senderData) {
+              console.warn(`[Notifications] Sender data not available for message from ${newMessage.sender_id}`);
+              return;
+            }
+
+            try {
               // Converter mensagem para formato do app
               const appMessage = convertMessageToAppFormat(newMessage, senderData);
 
@@ -157,12 +181,26 @@ export function NotificationManager() {
 
               // Mostrar popup
               setActiveNotification(notification);
+            } catch (error) {
+              console.error(`[Notifications] Error processing notification for room ${roomId}:`, error);
             }
           }
         )
-        .subscribe();
-
-      channelsRef.current.push(channel);
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log(`[Notifications] Subscribed to room: ${roomId}`);
+            if (channel) {
+              channelsRef.current.push(channel);
+            }
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error(`[Notifications] Error subscribing to room: ${roomId}`);
+          } else {
+            console.warn(`[Notifications] Channel status for room ${roomId}: ${status}`);
+          }
+        });
+      } catch (error) {
+        console.error(`[Notifications] Error creating channel for room ${roomId}:`, error);
+      }
     });
 
     return () => {

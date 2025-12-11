@@ -132,14 +132,38 @@ export async function POST(request: NextRequest) {
     }
 
     // Serialize dates for JSON response
+    // Ensure all dates are properly converted to ISO strings
     const serializedPost = {
       ...post,
-      createdAt: post.createdAt instanceof Date ? post.createdAt.toISOString() : post.createdAt,
-      updatedAt: post.updatedAt instanceof Date ? post.updatedAt.toISOString() : post.updatedAt,
+      createdAt: post.createdAt instanceof Date 
+        ? post.createdAt.toISOString() 
+        : typeof post.createdAt === 'string' 
+          ? post.createdAt 
+          : new Date(post.createdAt).toISOString(),
+      updatedAt: post.updatedAt instanceof Date 
+        ? post.updatedAt.toISOString() 
+        : typeof post.updatedAt === 'string' 
+          ? post.updatedAt 
+          : new Date(post.updatedAt).toISOString(),
       media: post.media.map((m) => ({
-        ...m,
-        createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : m.createdAt,
+        id: m.id,
+        postId: m.postId,
+        mediaUrl: m.mediaUrl,
+        mediaType: m.mediaType,
+        orderIndex: m.orderIndex,
+        createdAt: m.createdAt instanceof Date 
+          ? m.createdAt.toISOString() 
+          : typeof m.createdAt === 'string' 
+            ? m.createdAt 
+            : new Date(m.createdAt).toISOString(),
       })),
+      user: post.user ? {
+        id: post.user.id,
+        name: post.user.name,
+        email: post.user.email,
+        avatarUrl: post.user.avatarUrl || null,
+        nickname: post.user.nickname || null,
+      } : null,
     };
 
     return NextResponse.json({ post: serializedPost }, { status: 201 });

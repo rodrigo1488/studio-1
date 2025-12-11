@@ -14,7 +14,6 @@ import { useSidebar } from '@/components/dashboard-sidebar';
 import { getAllUnreadCounts } from '@/lib/storage/notifications';
 import { Badge } from '@/components/ui/badge';
 import { getCachedConversations, saveConversationsToCache } from '@/lib/storage/lists-cache';
-import { Image as ImageIcon } from 'lucide-react';
 
 interface DirectConversation {
   id: string;
@@ -159,12 +158,6 @@ export default function DashboardPage() {
             Conecte-se com sua família em espaços privados e seguros.
           </p>
         </div>
-        <Button asChild variant="outline" className="shrink-0">
-          <Link href="/feed">
-            <ImageIcon className="mr-2 h-4 w-4" />
-            Ver Feed
-          </Link>
-        </Button>
       </div>
       <div className="mt-4 sm:mt-6 space-y-2">
         {conversations.map((conversation, index) => {

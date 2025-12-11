@@ -1,7 +1,6 @@
 'use client';
 
 import { CallProviderWrapper } from '@/components/webrtc/call-provider-wrapper';
-import { NotificationManager } from '@/components/notifications/notification-manager';
 
 export default function ChatLayout({
   children,
@@ -11,7 +10,6 @@ export default function ChatLayout({
   return (
     <CallProviderWrapper>
       {children}
-      <NotificationManager />
     </CallProviderWrapper>
   );
 }

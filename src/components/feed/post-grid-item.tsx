@@ -27,10 +27,12 @@ export function PostGridItem({ post, currentUserId, onLike, onDelete, onEdit }: 
   return (
     <>
       <div
-        className="relative aspect-square w-full cursor-pointer group overflow-hidden rounded-lg"
+        className="relative aspect-square w-full cursor-pointer group overflow-hidden rounded-md sm:rounded-lg"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={() => setShowModal(true)}
+        onTouchStart={() => setIsHovered(true)}
+        onTouchEnd={() => setIsHovered(false)}
       >
         <Image
           src={firstImage.mediaUrl}
@@ -39,10 +41,10 @@ export function PostGridItem({ post, currentUserId, onLike, onDelete, onEdit }: 
           className="object-cover transition-transform duration-300 group-hover:scale-110"
         />
         
-        {/* Overlay on hover */}
+        {/* Overlay on hover - apenas desktop */}
         <div
           className={cn(
-            'absolute inset-0 bg-black/40 flex items-center justify-center gap-6 transition-opacity',
+            'absolute inset-0 bg-black/40 hidden sm:flex items-center justify-center gap-4 sm:gap-6 transition-opacity',
             isHovered ? 'opacity-100' : 'opacity-0'
           )}
         >

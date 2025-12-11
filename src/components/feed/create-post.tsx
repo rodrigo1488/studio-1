@@ -143,7 +143,7 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh]">
+      <DialogContent className="max-w-2xl max-h-[90vh] sm:max-h-[90vh] h-[100vh] sm:h-auto w-full sm:w-auto m-0 sm:m-auto rounded-none sm:rounded-lg">
         <DialogHeader>
           <DialogTitle>Criar nova publicação</DialogTitle>
         </DialogHeader>
@@ -172,7 +172,7 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
 
           {/* Previews */}
           {previews.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4 max-h-[40vh] sm:max-h-none overflow-y-auto">
               {previews.map((preview, index) => (
                 <div key={index} className="relative aspect-square rounded-lg overflow-hidden border">
                   <Image

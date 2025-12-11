@@ -157,34 +157,39 @@ export default function FeedPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Feed</h1>
-        <div className="flex items-center gap-4">
+    <div className="space-y-3 sm:space-y-4 md:space-y-6 px-2 sm:px-4 md:px-6 pb-20 sm:pb-6">
+      {/* Header - Mobile First */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 pt-2 sm:pt-4">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">Feed</h1>
+        <div className="flex items-center gap-2 sm:gap-4">
           <FeedViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
-          <Button onClick={() => setShowCreatePost(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nova publicação
+          <Button 
+            onClick={() => setShowCreatePost(true)}
+            size="sm"
+            className="text-xs sm:text-sm"
+          >
+            <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Nova publicação</span>
+            <span className="sm:hidden">Novo</span>
           </Button>
         </div>
       </div>
 
       {/* Posts */}
       {isLoading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="flex items-center justify-center h-48 sm:h-64">
+          <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-muted-foreground" />
         </div>
       ) : posts.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground mb-4">Nenhuma publicação ainda</p>
-          <Button onClick={() => setShowCreatePost(true)}>
+        <div className="text-center py-8 sm:py-12">
+          <p className="text-sm sm:text-base text-muted-foreground mb-4">Nenhuma publicação ainda</p>
+          <Button onClick={() => setShowCreatePost(true)} size="sm">
             <Plus className="h-4 w-4 mr-2" />
             Criar primeira publicação
           </Button>
         </div>
       ) : viewMode === 'timeline' ? (
-        <div className="space-y-6 max-w-2xl mx-auto">
+        <div className="space-y-3 sm:space-y-4 md:space-y-6">
           {posts.map((post) => (
             <PostCard
               key={post.id}
@@ -197,7 +202,7 @@ export default function FeedPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1 sm:gap-2 md:gap-4">
           {posts.map((post) => (
             <PostGridItem
               key={post.id}
@@ -210,6 +215,15 @@ export default function FeedPage() {
           ))}
         </div>
       )}
+
+      {/* FAB para mobile */}
+      <Button
+        onClick={() => setShowCreatePost(true)}
+        className="fixed bottom-20 right-4 sm:hidden h-14 w-14 rounded-full shadow-lg z-50"
+        size="icon"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
 
       <CreatePost
         open={showCreatePost}

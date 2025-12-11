@@ -74,16 +74,16 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
   return (
     <>
       <Card className="w-full">
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0">
                 <AvatarImage src={post.user?.avatarUrl} />
-                <AvatarFallback>{getInitials(post.user?.name || 'U')}</AvatarFallback>
+                <AvatarFallback className="text-xs">{getInitials(post.user?.name || 'U')}</AvatarFallback>
               </Avatar>
-              <div>
-                <p className="font-semibold text-sm">{post.user?.name || 'Usuário'}</p>
-                <p className="text-xs text-muted-foreground">
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-xs sm:text-sm truncate">{post.user?.name || 'Usuário'}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">
                   {formatDistanceToNow(createdAt, { addSuffix: true, locale: ptBR })}
                 </p>
               </div>
@@ -91,8 +91,8 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
             {isOwner && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreVertical className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 shrink-0">
+                    <MoreVertical className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -117,7 +117,7 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
 
         <CardContent className="p-0">
           {/* Image Carousel */}
-          <div className="relative aspect-square w-full bg-muted">
+          <div className="relative aspect-square sm:aspect-video w-full bg-muted">
             {post.media.length > 0 && (
               <>
                 <Image
@@ -132,18 +132,18 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                      className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-black/50 hover:bg-black/70 text-white touch-manipulation"
                       onClick={handlePreviousImage}
                     >
-                      <ChevronLeft className="h-4 w-4" />
+                      <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                      className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-black/50 hover:bg-black/70 text-white touch-manipulation"
                       onClick={handleNextImage}
                     >
-                      <ChevronRight className="h-4 w-4" />
+                      <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
                     <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
                       {post.media.map((_, index) => (
@@ -165,42 +165,42 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
           </div>
 
           {/* Actions */}
-          <div className="p-4 space-y-2">
-            <div className="flex items-center gap-4">
+          <div className="p-2 sm:p-4 space-y-1.5 sm:space-y-2">
+            <div className="flex items-center gap-3 sm:gap-4">
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn('h-9 w-9', isLiked && 'text-red-500')}
+                className={cn('h-8 w-8 sm:h-9 sm:w-9 touch-manipulation', isLiked && 'text-red-500')}
                 onClick={handleLike}
                 disabled={isLiking}
               >
-                <Heart className={cn('h-6 w-6', isLiked && 'fill-current')} />
+                <Heart className={cn('h-5 w-5 sm:h-6 sm:w-6', isLiked && 'fill-current')} />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9"
+                className="h-8 w-8 sm:h-9 sm:w-9 touch-manipulation"
                 onClick={() => setShowModal(true)}
               >
-                <MessageCircle className="h-6 w-6" />
+                <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
               </Button>
             </div>
 
             {likesCount > 0 && (
-              <p className="text-sm font-semibold">{likesCount} curtida{likesCount !== 1 ? 's' : ''}</p>
+              <p className="text-xs sm:text-sm font-semibold">{likesCount} curtida{likesCount !== 1 ? 's' : ''}</p>
             )}
 
             {post.description && (
-              <div className="text-sm">
+              <div className="text-xs sm:text-sm leading-relaxed">
                 <span className="font-semibold">{post.user?.name || 'Usuário'}</span>{' '}
-                <span>{post.description}</span>
+                <span className="break-words">{post.description}</span>
               </div>
             )}
 
             {post.commentsCount && post.commentsCount > 0 && (
               <Button
                 variant="ghost"
-                className="text-muted-foreground p-0 h-auto font-normal"
+                className="text-muted-foreground p-0 h-auto font-normal text-xs sm:text-sm"
                 onClick={() => setShowModal(true)}
               >
                 Ver todos os {post.commentsCount} comentário{post.commentsCount !== 1 ? 's' : ''}

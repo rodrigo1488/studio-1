@@ -3,14 +3,18 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, MessageSquare, UserPlus, PlusCircle, ArrowRight, Image as ImageIcon } from 'lucide-react';
+import { Users, MessageSquare, UserPlus, PlusCircle, ArrowRight, Image as ImageIcon, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import RoomList from '@/app/dashboard/components/room-list';
 import DirectConversationsList from '@/app/dashboard/components/direct-conversations-list';
 import ContactsList from '@/app/dashboard/components/contacts-list';
+import { FeedPreview } from '@/components/feed/feed-preview';
 
 export function SidebarMenu() {
   const [activeTab, setActiveTab] = useState('direct');
+  const pathname = usePathname();
+  const isInFeed = pathname === '/feed';
 
   return (
     <div className="flex flex-col h-full">
@@ -61,15 +65,24 @@ export function SidebarMenu() {
           </div>
         </TabsContent>
 
-        <TabsContent value="feed" className="flex-1 overflow-auto mt-0">
-          <div className="text-center py-8">
-            <Button asChild className="w-full">
-              <Link href="/feed">
-                <ImageIcon className="mr-2 h-4 w-4" />
-                Ver Feed
-              </Link>
-            </Button>
-          </div>
+        <TabsContent value="feed" className="flex-1 overflow-auto mt-0 p-2 sm:p-4">
+          {isInFeed ? (
+            <div className="space-y-3">
+              <Button asChild variant="outline" size="sm" className="w-full">
+                <Link href="/dashboard">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Voltar
+                </Link>
+              </Button>
+              <p className="text-xs sm:text-sm text-muted-foreground text-center">
+                Você está visualizando o feed completo
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <FeedPreview />
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
