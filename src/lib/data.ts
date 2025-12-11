@@ -29,3 +29,43 @@ export type Room = {
     timestamp: Date;
   };
 };
+
+export type PostMedia = {
+  id: string;
+  postId: string;
+  mediaUrl: string;
+  mediaType: 'image' | 'video';
+  orderIndex: number;
+  createdAt: Date;
+};
+
+export type Post = {
+  id: string;
+  userId: string;
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  media: PostMedia[];
+  user?: User;
+  likesCount?: number;
+  commentsCount?: number;
+  isLiked?: boolean;
+};
+
+export type PostLike = {
+  id: string;
+  postId: string;
+  userId: string;
+  createdAt: Date;
+  user?: User;
+};
+
+export type PostComment = {
+  id: string;
+  postId: string;
+  userId: string;
+  text: string;
+  createdAt: Date;
+  updatedAt: Date;
+  user?: User;
+};

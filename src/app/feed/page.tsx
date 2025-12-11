@@ -1,0 +1,212 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { PostCard } from '@/components/feed/post-card';
+import { PostGridItem } from '@/components/feed/post-grid-item';
+import { CreatePost } from '@/components/feed/create-post';
+import { FeedViewToggle } from '@/components/feed/feed-view-toggle';
+import { Button } from '@/components/ui/button';
+import { Plus, Loader2 } from 'lucide-react';
+import type { Post } from '@/lib/data';
+import { useToast } from '@/hooks/use-toast';
+
+export default function FeedPage() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'timeline' | 'grid'>('timeline');
+  const [showCreatePost, setShowCreatePost] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isLiking, setIsLiking] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchCurrentUser();
+    fetchPosts();
+  }, []);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentUserId(data.user?.id || null);
+      }
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+    }
+  };
+
+  const fetchPosts = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/feed/list');
+      if (response.ok) {
+        const data = await response.json();
+        setPosts(data.posts || []);
+      } else {
+        toast({
+          title: 'Erro ao carregar feed',
+          description: 'Não foi possível carregar as publicações.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+      toast({
+        title: 'Erro ao carregar feed',
+        description: 'Ocorreu um erro ao carregar as publicações.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLike = async (postId: string) => {
+    if (isLiking === postId) return;
+
+    setIsLiking(postId);
+    try {
+      const response = await fetch(`/api/feed/${postId}/like`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle like');
+      }
+
+      const data = await response.json();
+      
+      // Update local state
+      setPosts((prev) =>
+        prev.map((post) => {
+          if (post.id === postId) {
+            const newLiked = data.liked;
+            return {
+              ...post,
+              isLiked: newLiked,
+              likesCount: newLiked ? (post.likesCount || 0) + 1 : Math.max(0, (post.likesCount || 0) - 1),
+            };
+          }
+          return post;
+        })
+      );
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível curtir o post.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLiking(null);
+    }
+  };
+
+  const handleDelete = async (postId: string) => {
+    if (!confirm('Tem certeza que deseja excluir este post?')) return;
+
+    try {
+      const response = await fetch(`/api/feed/${postId}/delete`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setPosts((prev) => prev.filter((post) => post.id !== postId));
+        toast({
+          title: 'Post excluído',
+          description: 'O post foi excluído com sucesso.',
+        });
+      } else {
+        throw new Error('Failed to delete post');
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível excluir o post.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleEdit = (postId: string) => {
+    // TODO: Implement edit functionality
+    toast({
+      title: 'Em breve',
+      description: 'A edição de posts estará disponível em breve.',
+    });
+  };
+
+  if (!currentUserId) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Feed</h1>
+        <div className="flex items-center gap-4">
+          <FeedViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+          <Button onClick={() => setShowCreatePost(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nova publicação
+          </Button>
+        </div>
+      </div>
+
+      {/* Posts */}
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : posts.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground mb-4">Nenhuma publicação ainda</p>
+          <Button onClick={() => setShowCreatePost(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Criar primeira publicação
+          </Button>
+        </div>
+      ) : viewMode === 'timeline' ? (
+        <div className="space-y-6 max-w-2xl mx-auto">
+          {posts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              currentUserId={currentUserId}
+              onLike={handleLike}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {posts.map((post) => (
+            <PostGridItem
+              key={post.id}
+              post={post}
+              currentUserId={currentUserId}
+              onLike={handleLike}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
+            />
+          ))}
+        </div>
+      )}
+
+      <CreatePost
+        open={showCreatePost}
+        onClose={() => setShowCreatePost(false)}
+        onPostCreated={fetchPosts}
+      />
+    </div>
+  );
+}
+

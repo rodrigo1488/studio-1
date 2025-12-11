@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, MessageSquare, UserPlus, PlusCircle, ArrowRight } from 'lucide-react';
+import { Users, MessageSquare, UserPlus, PlusCircle, ArrowRight, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import RoomList from '@/app/dashboard/components/room-list';
 import DirectConversationsList from '@/app/dashboard/components/direct-conversations-list';
@@ -15,7 +15,7 @@ export function SidebarMenu() {
   return (
     <div className="flex flex-col h-full">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-        <TabsList className="grid w-full grid-cols-2 mb-4">
+        <TabsList className="grid w-full grid-cols-3 mb-4">
           <TabsTrigger value="groups" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Grupos
@@ -23,6 +23,10 @@ export function SidebarMenu() {
           <TabsTrigger value="direct" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
             Conversas
+          </TabsTrigger>
+          <TabsTrigger value="feed" className="flex items-center gap-2">
+            <ImageIcon className="h-4 w-4" />
+            Feed
           </TabsTrigger>
         </TabsList>
 
@@ -54,6 +58,17 @@ export function SidebarMenu() {
               <h3 className="text-sm font-semibold mb-2">Conversas Diretas</h3>
               <DirectConversationsList />
             </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="feed" className="flex-1 overflow-auto mt-0">
+          <div className="text-center py-8">
+            <Button asChild className="w-full">
+              <Link href="/feed">
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Ver Feed
+              </Link>
+            </Button>
           </div>
         </TabsContent>
       </Tabs>
