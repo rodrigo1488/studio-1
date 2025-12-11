@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, MessageSquare, UserPlus } from 'lucide-react';
+import { Users, MessageSquare, UserPlus, PlusCircle, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 import RoomList from '@/app/dashboard/components/room-list';
 import DirectConversationsList from '@/app/dashboard/components/direct-conversations-list';
 import ContactsList from '@/app/dashboard/components/contacts-list';
 
 export function SidebarMenu() {
-  const [activeTab, setActiveTab] = useState('groups');
+  const [activeTab, setActiveTab] = useState('direct');
 
   return (
     <div className="flex flex-col h-full">
@@ -25,7 +26,21 @@ export function SidebarMenu() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="groups" className="flex-1 overflow-auto mt-0">
+        <TabsContent value="groups" className="flex-1 overflow-auto mt-0 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
+            <Button asChild className="w-full sm:w-auto text-sm">
+              <Link href="/dashboard/create-room">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Criar Sala
+              </Link>
+            </Button>
+            <Button asChild variant="secondary" className="w-full sm:w-auto text-sm">
+              <Link href="/dashboard/join-room">
+                <ArrowRight className="mr-2 h-4 w-4" />
+                Entrar com Código
+              </Link>
+            </Button>
+          </div>
           <RoomList />
         </TabsContent>
 

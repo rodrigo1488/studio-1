@@ -2,7 +2,8 @@
 
 import { useState, createContext, useContext } from 'react';
 import { Button } from '@/components/ui/button';
-import { Users, MessageSquare, UserPlus, Menu } from 'lucide-react';
+import { Users, MessageSquare, UserPlus, Menu, PlusCircle, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 import RoomList from '@/app/dashboard/components/room-list';
 import DirectConversationsList from '@/app/dashboard/components/direct-conversations-list';
 import ContactsList from '@/app/dashboard/components/contacts-list';
@@ -69,7 +70,25 @@ function SidebarContent() {
 
       {/* Content Area */}
       <div className="flex-1 overflow-auto p-4">
-        {activeView === 'groups' && <RoomList />}
+        {activeView === 'groups' && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button asChild className="w-full sm:w-auto text-sm">
+                <Link href="/dashboard/create-room">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Criar Sala
+                </Link>
+              </Button>
+              <Button asChild variant="secondary" className="w-full sm:w-auto text-sm">
+                <Link href="/dashboard/join-room">
+                  <ArrowRight className="mr-2 h-4 w-4" />
+                  Entrar com Código
+                </Link>
+              </Button>
+            </div>
+            <RoomList />
+          </div>
+        )}
         {activeView === 'conversations' && <DirectConversationsList />}
         {activeView === 'contacts' && <ContactsList />}
       </div>
@@ -114,7 +133,7 @@ export function DashboardSidebarDesktop() {
 }
 
 export function DashboardSidebarProvider({ children }: { children: React.ReactNode }) {
-  const [activeView, setActiveView] = useState<SidebarView>('groups');
+  const [activeView, setActiveView] = useState<SidebarView>('conversations');
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const closeMobileSidebar = () => {

@@ -1,8 +1,150 @@
-import { Button } from '@/components/ui/button';
-import { PlusCircle, ArrowRight } from 'lucide-react';
-import Link from 'next/link';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Card } from '@/components/ui/card';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { useRouter } from 'next/navigation';
+import { getInitials, cn } from '@/lib/utils';
+import type { User } from '@/lib/data';
+import { useSidebar } from '@/components/dashboard-sidebar';
+import { getAllUnreadCounts } from '@/lib/storage/notifications';
+import { Badge } from '@/components/ui/badge';
+import { getCachedConversations, saveConversationsToCache } from '@/lib/storage/lists-cache';
+
+interface DirectConversation {
+  id: string;
+  user1Id: string;
+  user2Id: string;
+  otherUser: User;
+  lastMessage?: {
+    text: string;
+    timestamp: Date;
+  };
+}
 
 export default function DashboardPage() {
+  const [conversations, setConversations] = useState<DirectConversation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const router = useRouter();
+  const sidebar = useSidebar();
+  const closeMobileSidebar = sidebar?.closeMobileSidebar;
+
+  // Load unread counts
+  useEffect(() => {
+    const loadUnreadCounts = () => {
+      setUnreadCounts(getAllUnreadCounts());
+    };
+    
+    loadUnreadCounts();
+    
+    // Listen for unread count updates
+    const handleUpdate = () => loadUnreadCounts();
+    window.addEventListener('unreadCountUpdated', handleUpdate);
+    
+    return () => {
+      window.removeEventListener('unreadCountUpdated', handleUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    fetchConversations();
+  }, []);
+
+  const fetchConversations = async () => {
+    // Try to load from cache first
+    const cachedConversations = getCachedConversations();
+    if (cachedConversations && cachedConversations.length >= 0) {
+      setConversations(cachedConversations);
+      setIsLoading(false);
+    }
+
+    // Fetch from server (update cache in background)
+    try {
+      const response = await fetch('/api/direct-conversations/list');
+      if (response.ok) {
+        const data = await response.json();
+        const conversations = data.conversations || [];
+        setConversations(conversations);
+        saveConversationsToCache(conversations);
+      }
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConversationClick = (conversationId: string) => {
+    closeMobileSidebar?.();
+    router.push(`/chat/${conversationId}`);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="w-full max-w-6xl mx-auto">
+        <div className="flex flex-col items-start justify-between gap-4 border-b pb-4 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight font-headline truncate">
+              Suas Conversas
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
+              Conecte-se com sua família em espaços privados e seguros.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 sm:mt-6 space-y-2">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="h-20 animate-pulse bg-muted" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (conversations.length === 0) {
+    return (
+      <div className="w-full max-w-6xl mx-auto">
+        <div className="flex flex-col items-start justify-between gap-4 border-b pb-4 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight font-headline truncate">
+              Suas Conversas
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
+              Conecte-se com sua família em espaços privados e seguros.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 sm:mt-6">
+          <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/20 p-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              Nenhuma conversa direta ainda. Adicione contatos para começar a conversar!
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const rainbowBorders = [
+    'border-[#3B82F6]',
+    'border-[#EC4899]',
+    'border-[#10B981]',
+    'border-[#F59E0B]',
+    'border-[#8B5CF6]',
+    'border-[#EF4444]',
+  ];
+  const rainbowBackgrounds = [
+    'bg-gradient-to-r from-[#3B82F6]/10 to-[#3B82F6]/5',
+    'bg-gradient-to-r from-[#EC4899]/10 to-[#EC4899]/5',
+    'bg-gradient-to-r from-[#10B981]/10 to-[#10B981]/5',
+    'bg-gradient-to-r from-[#F59E0B]/10 to-[#F59E0B]/5',
+    'bg-gradient-to-r from-[#8B5CF6]/10 to-[#8B5CF6]/5',
+    'bg-gradient-to-r from-[#EF4444]/10 to-[#EF4444]/5',
+  ];
+
   return (
     <div className="w-full max-w-6xl mx-auto">
       <div className="flex flex-col items-start justify-between gap-4 border-b pb-4 sm:flex-row sm:items-center">
@@ -14,25 +156,60 @@ export default function DashboardPage() {
             Conecte-se com sua família em espaços privados e seguros.
           </p>
         </div>
-        <div className="flex w-full shrink-0 gap-2 sm:w-auto">
-          <Button asChild className="w-full sm:w-auto text-sm">
-            <Link href="/dashboard/create-room">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Criar Sala
-            </Link>
-          </Button>
-          <Button asChild variant="secondary" className="w-full sm:w-auto text-sm">
-            <Link href="/dashboard/join-room">
-              <ArrowRight className="mr-2 h-4 w-4" />
-              Entrar com Código
-            </Link>
-          </Button>
-        </div>
       </div>
-      <div className="mt-4 sm:mt-6">
-        <p className="text-sm text-muted-foreground">
-          Use o menu lateral para navegar entre Grupos, Conversas e Contatos.
-        </p>
+      <div className="mt-4 sm:mt-6 space-y-2">
+        {conversations.map((conversation, index) => {
+          const borderColor = rainbowBorders[index % rainbowBorders.length];
+          const bgGradient = rainbowBackgrounds[index % rainbowBackgrounds.length];
+          
+          return (
+            <Card
+              key={conversation.id}
+              className={cn(
+                "p-3 sm:p-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-slide-in-color",
+                borderColor,
+                bgGradient
+              )}
+              onClick={() => handleConversationClick(conversation.id)}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <Avatar className="h-10 w-10 sm:h-12 sm:w-12 shrink-0">
+                  <AvatarImage src={conversation.otherUser.avatarUrl} />
+                  <AvatarFallback>
+                    {getInitials(conversation.otherUser.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium truncate text-sm sm:text-base flex-1" title={conversation.otherUser.name}>
+                      {conversation.otherUser.name}
+                    </p>
+                    {unreadCounts[conversation.id] > 0 && (
+                      <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-xs shrink-0">
+                        {unreadCounts[conversation.id] > 99 ? '99+' : unreadCounts[conversation.id]}
+                      </Badge>
+                    )}
+                  </div>
+                  {conversation.lastMessage ? (
+                    <>
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate mt-1" title={conversation.lastMessage.text}>
+                        {conversation.lastMessage.text}
+                      </p>
+                      <p className="text-xs text-muted-foreground/80 mt-1">
+                        {formatDistanceToNow(conversation.lastMessage.timestamp, {
+                          addSuffix: true,
+                          locale: ptBR,
+                        })}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">Nenhuma mensagem ainda</p>
+                  )}
+                </div>
+              </div>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
