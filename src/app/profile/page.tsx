@@ -15,9 +15,11 @@ import { ArrowLeft, LogOut, Camera, X, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
-import type { User } from '@/lib/data';
+import type { User, Post } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { getInitials } from '@/lib/utils';
+import { PostGridItem } from '@/components/feed/post-grid-item';
+import { Loader2 } from 'lucide-react';
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | undefined>(undefined);
@@ -27,6 +29,8 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { toast } = useToast();
@@ -40,6 +44,11 @@ export default function ProfilePage() {
           setUser(data.user);
           setName(data.user.name);
           setNickname(data.user.nickname || '');
+          
+          // Buscar posts do usuário
+          if (data.user?.id) {
+            fetchUserPosts(data.user.id);
+          }
         } else {
           router.push('/login');
         }
@@ -52,6 +61,31 @@ export default function ProfilePage() {
 
     fetchUser();
   }, [router]);
+
+  const fetchUserPosts = async (userId: string) => {
+    try {
+      setIsLoadingPosts(true);
+      const response = await fetch(`/api/feed/user/${userId}?limit=6`);
+      if (response.ok) {
+        const data = await response.json();
+        // Convert ISO strings back to Date objects
+        const postsWithDates = (data.posts || []).map((post: any) => ({
+          ...post,
+          createdAt: new Date(post.createdAt),
+          updatedAt: new Date(post.updatedAt),
+          media: (post.media || []).map((m: any) => ({
+            ...m,
+            createdAt: new Date(m.createdAt),
+          })),
+        }));
+        setPosts(postsWithDates);
+      }
+    } catch (error) {
+      console.error('Error fetching user posts:', error);
+    } finally {
+      setIsLoadingPosts(false);
+    }
+  };
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -373,6 +407,94 @@ export default function ProfilePage() {
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Seção de Posts */}
+      <Card className="mt-6">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Minhas Publicações</CardTitle>
+              <CardDescription>
+                {posts.length > 0 
+                  ? `${posts.length} publicação${posts.length !== 1 ? 'ões' : ''}`
+                  : 'Nenhuma publicação ainda'}
+              </CardDescription>
+            </div>
+            {posts.length > 0 && (
+              <Button asChild variant="outline" size="sm">
+                <Link href="/profile/posts">
+                  Ver Todas
+                </Link>
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoadingPosts ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : posts.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-sm text-muted-foreground mb-4">
+                Você ainda não tem publicações
+              </p>
+              <Button asChild>
+                <Link href="/feed">
+                  <ImageIcon className="mr-2 h-4 w-4" />
+                  Criar primeira publicação
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              {posts.slice(0, 6).map((post) => {
+                const firstImage = post.media[0];
+                if (!firstImage) return null;
+
+                return (
+                  <Link
+                    key={post.id}
+                    href="/profile/posts"
+                    className="relative aspect-square rounded-lg overflow-hidden border border-border/50 hover:border-primary/50 transition-colors group"
+                  >
+                    <img
+                      src={firstImage.mediaUrl}
+                      alt={post.description || 'Post'}
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Overlay com stats */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
+                      <div className="flex items-center gap-1 text-white text-xs">
+                        <ImageIcon className="h-3 w-3" />
+                        <span>{post.media.length}</span>
+                      </div>
+                    </div>
+                    {/* Indicador de múltiplas imagens */}
+                    {post.media.length > 1 && (
+                      <div className="absolute top-2 right-2">
+                        <svg
+                          className="w-4 h-4 text-white drop-shadow-lg"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
