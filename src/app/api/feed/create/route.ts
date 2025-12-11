@@ -3,14 +3,28 @@ import { getCurrentUser } from '@/lib/supabase/middleware';
 import { createPost } from '@/lib/supabase/feed';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
+// Increase timeout for file uploads (Vercel has 10s limit on Hobby plan, 60s on Pro)
+export const maxDuration = 60; // 60 seconds
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser(request);
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const formData = await request.formData();
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (error: any) {
+      console.error('Error parsing form data:', error);
+      return NextResponse.json(
+        { error: 'Erro ao processar os dados do formulário. Verifique se os arquivos não excedem o tamanho máximo.' },
+        { status: 400 }
+      );
+    }
+
     const description = formData.get('description') as string | null;
     const files = formData.getAll('files') as File[];
 
@@ -32,18 +46,64 @@ export async function POST(request: NextRequest) {
     }
 
     if (!supabaseAdmin) {
-      return NextResponse.json({ error: 'Supabase admin client not initialized' }, { status: 500 });
+      console.error('Supabase admin client not initialized. Check environment variables:');
+      console.error('- NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Missing');
+      console.error('- SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Missing');
+      return NextResponse.json(
+        { 
+          error: 'Serviço de armazenamento não disponível. Verifique as variáveis de ambiente na Vercel.',
+          details: 'SUPABASE_SERVICE_ROLE_KEY não configurada'
+        },
+        { status: 500 }
+      );
+    }
+
+    // Verify bucket exists
+    const BUCKET_NAME = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'media';
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: 'Supabase admin client not initialized' },
+        { status: 500 }
+      );
+    }
+    
+    const { data: buckets, error: bucketListError } = await supabaseAdmin.storage.listBuckets();
+    
+    if (bucketListError) {
+      console.error('Error listing buckets:', bucketListError);
+      return NextResponse.json(
+        { error: `Erro ao acessar o storage: ${bucketListError.message}` },
+        { status: 500 }
+      );
+    }
+
+    const bucketExists = buckets?.some(b => b.name === BUCKET_NAME);
+    if (!bucketExists) {
+      return NextResponse.json(
+        { error: `Bucket "${BUCKET_NAME}" não encontrado. Por favor, crie o bucket no Supabase Storage.` },
+        { status: 500 }
+      );
     }
 
     // Upload all files to Supabase Storage
+    // Convert files to ArrayBuffer for better compatibility with Vercel
     const uploadPromises = files.map(async (file, index) => {
-      const fileExt = file.name.split('.').pop();
+      const fileExt = file.name.split('.').pop() || 'jpg';
       const fileName = `${Date.now()}-${index}.${fileExt}`;
       const filePath = `feed/${user.id}/${fileName}`;
 
+      // Convert File to ArrayBuffer for Vercel compatibility
+      const arrayBuffer = await file.arrayBuffer();
+
+      if (!supabaseAdmin) {
+        throw new Error('Supabase admin client not available');
+      }
+
       const { data, error } = await supabaseAdmin.storage
-        .from(process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'media')
-        .upload(filePath, file, {
+        .from(BUCKET_NAME)
+        .upload(filePath, arrayBuffer, {
+          cacheControl: '3600',
+          upsert: false,
           contentType: file.type,
         });
 
@@ -52,7 +112,7 @@ export async function POST(request: NextRequest) {
       }
 
       const { data: urlData } = supabaseAdmin.storage
-        .from(process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'media')
+        .from(BUCKET_NAME)
         .getPublicUrl(filePath);
 
       return {

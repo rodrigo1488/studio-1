@@ -84,11 +84,14 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
       const response = await fetch('/api/feed/create', {
         method: 'POST',
         body: formData,
+        // Don't set Content-Type header, browser will set it with boundary for FormData
       });
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to create post');
+        const errorMessage = data.error || 'Erro ao criar post';
+        const errorDetails = data.details ? `\n\nDetalhes: ${data.details}` : '';
+        throw new Error(errorMessage + errorDetails);
       }
 
       const data = await response.json();
