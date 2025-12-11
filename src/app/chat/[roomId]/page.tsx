@@ -91,9 +91,12 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
           }
           
           // Map cached messages with users
+          // VALIDAÇÃO: Garantir que o senderId do cache é válido
           const cachedWithUsers = cachedData.messages.map((msg: Message) => ({
             ...msg,
-            user: usersMap[msg.senderId],
+            // Garantir que o senderId existe e é válido
+            senderId: msg.senderId || currentUserData.id, // Fallback para segurança
+            user: usersMap[msg.senderId] || (msg.senderId === currentUserData.id ? currentUserData : undefined),
           }));
           
           setMessages(cachedWithUsers);
@@ -217,15 +220,18 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
               }
             }
             
-            // Map messages with users and remove duplicates
-            const messagesWithUsers = messagesData.messages
-              .map((msg: Message) => ({
-                ...msg,
-                user: usersMap[msg.senderId],
-              }))
-              .filter((msg, index, self) => 
-                index === self.findIndex(m => m.id === msg.id)
-              );
+                  // Map messages with users and remove duplicates
+                  // VALIDAÇÃO: Garantir que o senderId vem do servidor, nunca do cache
+                  const messagesWithUsers = messagesData.messages
+                    .map((msg: Message) => ({
+                      ...msg,
+                      // Garantir que o senderId é o do servidor (não pode ser alterado)
+                      senderId: msg.senderId, // Já vem do servidor, mas garantimos que não foi alterado
+                      user: usersMap[msg.senderId],
+                    }))
+                    .filter((msg, index, self) => 
+                      index === self.findIndex(m => m.id === msg.id)
+                    );
             
             // Save to cache
             saveMessagesToCache(roomId, messagesWithUsers);

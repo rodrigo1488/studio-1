@@ -22,11 +22,21 @@ export async function sendMessage(
   mediaType?: 'image' | 'video' | 'audio'
 ): Promise<{ message: Message; error: null } | { message: null; error: string }> {
   try {
+    // VALIDAÇÃO: Garantir que senderId não está vazio
+    if (!senderId || senderId.trim() === '') {
+      return { message: null, error: 'SenderId é obrigatório' };
+    }
+
+    // VALIDAÇÃO: Garantir que roomId não está vazio
+    if (!roomId || roomId.trim() === '') {
+      return { message: null, error: 'RoomId é obrigatório' };
+    }
+
     const { data, error } = await supabase
       .from('messages')
       .insert({
         room_id: roomId,
-        sender_id: senderId,
+        sender_id: senderId, // Este senderId vem do servidor (sessão autenticada)
         text: text || '',
         media_url: mediaUrl,
         media_type: mediaType,
@@ -38,11 +48,17 @@ export async function sendMessage(
       return { message: null, error: error.message };
     }
 
+    // VALIDAÇÃO: Garantir que o senderId retornado é o mesmo que foi enviado
+    if (data.sender_id !== senderId) {
+      console.error(`SenderId mismatch in database: expected ${senderId}, got ${data.sender_id}`);
+      // Ainda assim retornar a mensagem, mas com o senderId do banco (fonte da verdade)
+    }
+
     return {
       message: {
         id: data.id,
         roomId: data.room_id,
-        senderId: data.sender_id,
+        senderId: data.sender_id, // SEMPRE usar o senderId do banco de dados (fonte da verdade)
         text: data.text,
         timestamp: new Date(data.created_at),
         mediaUrl: data.media_url || undefined,
@@ -84,17 +100,19 @@ export async function getRoomMessages(
     }
 
     // Reverse to get chronological order (oldest first)
+    // VALIDAÇÃO: Garantir que o senderId sempre vem do banco de dados
     const messages = data
       .reverse()
       .map((msg) => ({
         id: msg.id,
         roomId: msg.room_id,
-        senderId: msg.sender_id,
+        senderId: msg.sender_id, // SEMPRE usar o senderId do banco (fonte da verdade)
         text: msg.text,
         timestamp: new Date(msg.created_at),
         mediaUrl: msg.media_url || undefined,
         mediaType: msg.media_type || undefined,
-      }));
+      }))
+      .filter((msg) => msg.senderId && msg.senderId.trim() !== ''); // Filtrar mensagens sem senderId válido
 
     const hasMore = count ? offset + limit < count : false;
 

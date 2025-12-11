@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { roomId, text, mediaUrl, mediaType } = await request.json();
+    const { roomId, text, mediaUrl, mediaType, senderId } = await request.json();
 
     if (!roomId) {
       return NextResponse.json(
@@ -29,7 +29,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await sendMessage(roomId, user.id, text || '', mediaUrl, mediaType);
+    // VALIDAÇÃO CRÍTICA: O senderId SEMPRE vem do servidor (user.id da sessão)
+    // Ignorar qualquer senderId enviado pelo cliente por segurança
+    // O servidor é a única fonte confiável para identificar o remetente
+    const actualSenderId = user.id;
+    
+    // Se o cliente enviou um senderId diferente, logar como warning mas usar o correto
+    if (senderId && senderId !== actualSenderId) {
+      console.warn(`SenderId mismatch: client sent ${senderId}, but server using ${actualSenderId}`);
+    }
+
+    const result = await sendMessage(roomId, actualSenderId, text || '', mediaUrl, mediaType);
 
     if (result.error) {
       return NextResponse.json(

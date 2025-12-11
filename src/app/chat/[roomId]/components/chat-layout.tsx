@@ -163,46 +163,68 @@ export default function ChatLayout({
         }
       }
       
+      // CRÍTICO: O senderId SEMPRE vem do servidor (newMessage.sender_id)
+      // NUNCA confiar no estado local ou em mensagens otimistas
       const appMessage = convertMessageToAppFormat(newMessage, user);
       appMessage.status = 'sent'; // Marcar como enviada quando confirmada pelo servidor
+      
+      // VALIDAÇÃO: Garantir que o senderId da mensagem do servidor é sempre usado
+      // Não importa o que está no estado local, o servidor é a fonte da verdade
+      const serverSenderId = newMessage.sender_id;
       
       // Check if message already exists or if it's an optimistic update
       setMessages((prev) => {
         const existingIndex = prev.findIndex((m) => m.id === appMessage.id);
         
-        // Se a mensagem já existe (veio do servidor), atualizar status
+        // Se a mensagem já existe (veio do servidor), substituir completamente
+        // para garantir que o senderId do servidor seja usado
         if (existingIndex !== -1) {
           const updated = [...prev];
-          updated[existingIndex] = { ...updated[existingIndex], ...appMessage, status: 'sent' };
+          // Substituir completamente pela mensagem do servidor (fonte da verdade)
+          updated[existingIndex] = {
+            ...appMessage,
+            status: 'sent',
+            senderId: serverSenderId, // SEMPRE usar o senderId do servidor
+          };
           return updated;
         }
         
         // Verificar se é uma mensagem otimista nossa (mesmo texto e remetente)
+        // Mas SEMPRE usar o senderId do servidor quando substituir
         const optimisticIndex = prev.findIndex(
           (m) => 
             m.status === 'sending' && 
             m.senderId === currentUser.id &&
             m.text === appMessage.text &&
-            Math.abs(m.timestamp.getTime() - appMessage.timestamp.getTime()) < 5000 // Dentro de 5 segundos
+            Math.abs(m.timestamp.getTime() - appMessage.timestamp.getTime()) < 10000 // Dentro de 10 segundos
         );
         
         if (optimisticIndex !== -1) {
-          // Substituir mensagem otimista pela real
+          // Substituir mensagem otimista pela real do servidor
+          // IMPORTANTE: Usar o senderId do servidor, não do estado local
           const updated = [...prev];
-          updated[optimisticIndex] = { ...appMessage, status: 'sent' };
+          updated[optimisticIndex] = {
+            ...appMessage,
+            status: 'sent',
+            senderId: serverSenderId, // SEMPRE usar o senderId do servidor
+          };
           return updated;
         }
         
-        // Nova mensagem de outro usuário
+        // Nova mensagem de outro usuário ou do servidor
         // Add to cache
         addMessageToCache(room.id, appMessage);
         
         // Only add notification if message is not from current user
-        if (appMessage.senderId !== currentUser.id) {
+        if (serverSenderId !== currentUser.id) {
           addNotification(room.id, appMessage);
         }
         
-        return [...prev, appMessage];
+        // Adicionar mensagem com senderId do servidor
+        return [...prev, {
+          ...appMessage,
+          senderId: serverSenderId, // SEMPRE usar o senderId do servidor
+        }];
       });
     });
 
@@ -424,15 +446,20 @@ export default function ChatLayout({
           });
           setMessageText(text); // Restore message text
         } else {
-          // Mensagem enviada com sucesso - será atualizada via realtime
-          // Mas podemos atualizar o status para 'sent' temporariamente
+          // Mensagem enviada com sucesso
           const data = await response.json();
-          if (data.message?.id) {
-            // Substituir mensagem temporária pela real quando chegar via realtime
+          if (data.message?.id && data.message?.senderId) {
+            // IMPORTANTE: Usar o senderId do servidor (data.message.senderId)
+            // Substituir a mensagem otimista pela real do servidor
             setMessages((prev) =>
               prev.map((msg) =>
                 msg.id === tempId
-                  ? { ...msg, id: data.message.id, status: 'sent' as const }
+                  ? { 
+                      ...msg, 
+                      id: data.message.id,
+                      senderId: data.message.senderId, // SEMPRE usar o senderId do servidor
+                      status: 'sent' as const,
+                    }
                   : msg
               )
             );
