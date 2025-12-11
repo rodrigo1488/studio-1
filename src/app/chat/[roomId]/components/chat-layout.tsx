@@ -98,9 +98,12 @@ export default function ChatLayout({
 
   // Scroll to bottom when messages change or component mounts
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    // Usar requestAnimationFrame para garantir que o DOM foi atualizado
+    requestAnimationFrame(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
   }, [messages.length]);
 
   // Scroll to bottom on initial load
@@ -331,11 +334,9 @@ export default function ChatLayout({
     e.preventDefault();
     if (!messageText.trim() || isSending) return;
 
-    setIsSending(true);
     const text = messageText.trim();
-    setMessageText('');
-
-    // Criar mensagem otimista (optimistic update)
+    
+    // Criar mensagem otimista ANTES de qualquer coisa
     const tempId = `temp-${Date.now()}-${Math.random()}`;
     const optimisticMessage: Message & { user?: User } = {
       id: tempId,
@@ -347,24 +348,71 @@ export default function ChatLayout({
       user: currentUser,
     };
 
-    // Adicionar mensagem otimista imediatamente
+    // 1. Limpar input IMEDIATAMENTE para feedback visual instantâneo
+    setMessageText('');
+    
+    // 2. Adicionar mensagem ao estado IMEDIATAMENTE (antes de qualquer requisição)
     setMessages((prev) => [...prev, optimisticMessage]);
+    
+    // 3. Fazer scroll para a nova mensagem imediatamente
+    requestAnimationFrame(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
 
-    try {
-      const response = await fetch('/api/messages/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          roomId: room.id,
-          text,
-        }),
-      });
+    // 4. Marcar como enviando (mas a mensagem já está visível)
+    setIsSending(true);
 
-      if (!response.ok) {
-        const data = await response.json();
-        
+    // 5. Enviar para o servidor em segundo plano (não bloqueia a UI)
+    // Usar setTimeout para garantir que a UI seja atualizada primeiro
+    setTimeout(async () => {
+      try {
+        const response = await fetch('/api/messages/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            roomId: room.id,
+            text,
+          }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          
+          // Atualizar status da mensagem otimista para erro
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === tempId
+                ? { ...msg, status: 'error' as const }
+                : msg
+            )
+          );
+
+          toast({
+            title: 'Erro ao enviar mensagem',
+            description: data.error || 'Tente novamente',
+            variant: 'destructive',
+          });
+          setMessageText(text); // Restore message text
+        } else {
+          // Mensagem enviada com sucesso - será atualizada via realtime
+          // Mas podemos atualizar o status para 'sent' temporariamente
+          const data = await response.json();
+          if (data.message?.id) {
+            // Substituir mensagem temporária pela real quando chegar via realtime
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === tempId
+                  ? { ...msg, id: data.message.id, status: 'sent' as const }
+                  : msg
+              )
+            );
+          }
+        }
+      } catch (error) {
         // Atualizar status da mensagem otimista para erro
         setMessages((prev) =>
           prev.map((msg) =>
@@ -376,44 +424,14 @@ export default function ChatLayout({
 
         toast({
           title: 'Erro ao enviar mensagem',
-          description: data.error || 'Tente novamente',
+          description: 'Ocorreu um erro inesperado',
           variant: 'destructive',
         });
         setMessageText(text); // Restore message text
-      } else {
-        // Mensagem enviada com sucesso - será atualizada via realtime
-        // Mas podemos atualizar o status para 'sent' temporariamente
-        const data = await response.json();
-        if (data.message?.id) {
-          // Substituir mensagem temporária pela real quando chegar via realtime
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === tempId
-                ? { ...msg, id: data.message.id, status: 'sent' as const }
-                : msg
-            )
-          );
-        }
+      } finally {
+        setIsSending(false);
       }
-    } catch (error) {
-      // Atualizar status da mensagem otimista para erro
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === tempId
-            ? { ...msg, status: 'error' as const }
-            : msg
-        )
-      );
-
-      toast({
-        title: 'Erro ao enviar mensagem',
-        description: 'Ocorreu um erro inesperado',
-        variant: 'destructive',
-      });
-      setMessageText(text); // Restore message text
-    } finally {
-      setIsSending(false);
-    }
+    }, 0); // Delay 0 para executar no próximo tick, garantindo que a UI seja atualizada primeiro
   };
 
   const handleMediaUpload = async (
@@ -447,9 +465,7 @@ export default function ChatLayout({
       return;
     }
 
-    setIsSending(true);
-
-    // Criar mensagem otimista
+    // Criar mensagem otimista ANTES de qualquer coisa
     const tempId = `temp-${Date.now()}-${Math.random()}`;
     const text = mediaType === 'image' ? '📷 Imagem' : mediaType === 'video' ? '🎥 Vídeo' : '🎵 Áudio';
     const optimisticMessage: Message & { user?: User } = {
@@ -465,10 +481,25 @@ export default function ChatLayout({
       mediaUrl: URL.createObjectURL(file),
     };
 
-    // Adicionar mensagem otimista imediatamente
+    // 1. Adicionar mensagem ao estado IMEDIATAMENTE (antes de qualquer requisição)
     setMessages((prev) => [...prev, optimisticMessage]);
+    
+    // 2. Fazer scroll para a nova mensagem imediatamente
+    requestAnimationFrame(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
 
-    try {
+    // 3. Marcar como enviando (mas a mensagem já está visível)
+    setIsSending(true);
+
+    // 4. Resetar input imediatamente
+    e.target.value = '';
+
+    // 5. Enviar para o servidor em segundo plano
+    setTimeout(async () => {
+      try {
       // Generate a temporary message ID for the upload path
       const tempMessageId = crypto.randomUUID();
 
@@ -554,17 +585,14 @@ export default function ChatLayout({
         description: error.message || 'Ocorreu um erro inesperado',
         variant: 'destructive',
       });
-    } finally {
-      setIsSending(false);
-      // Reset file input
-      e.target.value = '';
-    }
+      } finally {
+        setIsSending(false);
+      }
+    }, 0); // Delay 0 para executar no próximo tick
   };
 
   const handleCameraCapture = async (file: File) => {
-    setIsSending(true);
-    
-    // Criar mensagem otimista
+    // Criar mensagem otimista ANTES de qualquer coisa
     const tempId = `temp-${Date.now()}-${Math.random()}`;
     const text = '📷 Imagem';
     const optimisticMessage: Message & { user?: User } = {
@@ -579,10 +607,25 @@ export default function ChatLayout({
       mediaUrl: URL.createObjectURL(file),
     };
 
-    // Adicionar mensagem otimista imediatamente
+    // 1. Adicionar mensagem ao estado IMEDIATAMENTE
     setMessages((prev) => [...prev, optimisticMessage]);
+    
+    // 2. Fazer scroll para a nova mensagem imediatamente
+    requestAnimationFrame(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
 
-    try {
+    // 3. Fechar câmera imediatamente
+    setShowCamera(false);
+
+    // 4. Marcar como enviando (mas a mensagem já está visível)
+    setIsSending(true);
+
+    // 5. Enviar para o servidor em segundo plano
+    setTimeout(async () => {
+      try {
       const tempMessageId = crypto.randomUUID();
       const formData = new FormData();
       formData.append('file', file);
@@ -664,10 +707,10 @@ export default function ChatLayout({
         description: error.message || 'Ocorreu um erro inesperado',
         variant: 'destructive',
       });
-    } finally {
-      setIsSending(false);
-      setShowCamera(false);
-    }
+      } finally {
+        setIsSending(false);
+      }
+    }, 0); // Delay 0 para executar no próximo tick
   };
 
   const startAudioRecording = async () => {
@@ -778,9 +821,7 @@ export default function ChatLayout({
   };
 
   const sendAudioMessage = async (audioBlob: Blob) => {
-    setIsSending(true);
-    
-    // Criar mensagem otimista
+    // Criar mensagem otimista ANTES de qualquer coisa
     const tempId = `temp-${Date.now()}-${Math.random()}`;
     const text = '🎵 Áudio';
     const audioUrl = URL.createObjectURL(audioBlob);
@@ -796,10 +837,22 @@ export default function ChatLayout({
       mediaUrl: audioUrl,
     };
 
-    // Adicionar mensagem otimista imediatamente
+    // 1. Adicionar mensagem ao estado IMEDIATAMENTE
     setMessages((prev) => [...prev, optimisticMessage]);
     
-    try {
+    // 2. Fazer scroll para a nova mensagem imediatamente
+    requestAnimationFrame(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+
+    // 3. Marcar como enviando (mas a mensagem já está visível)
+    setIsSending(true);
+
+    // 4. Enviar para o servidor em segundo plano
+    setTimeout(async () => {
+      try {
       // Convert blob to File
       const audioFile = new File([audioBlob], `audio-${Date.now()}.webm`, {
         type: 'audio/webm',
@@ -886,9 +939,10 @@ export default function ChatLayout({
         description: error.message || 'Ocorreu um erro inesperado',
         variant: 'destructive',
       });
-    } finally {
-      setIsSending(false);
-    }
+      } finally {
+        setIsSending(false);
+      }
+    }, 0); // Delay 0 para executar no próximo tick
   };
 
   // Cleanup on unmount
