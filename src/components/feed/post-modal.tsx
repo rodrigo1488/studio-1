@@ -119,16 +119,24 @@ export function PostModal({ post, currentUserId, onClose, onLike, onDelete, onEd
 
       if (response.ok) {
         const data = await response.json();
-        setComments((prev) => prev.map((c) => (c.id === tempComment.id ? data.comment : c)));
+        const newComment = {
+          ...data.comment,
+          createdAt: new Date(data.comment.createdAt),
+          updatedAt: new Date(data.comment.updatedAt),
+        };
+        setComments((prev) => prev.map((c) => (c.id === tempComment.id ? newComment : c)));
       } else {
+        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
         // Revert on error
         setComments((prev) => prev.filter((c) => c.id !== tempComment.id));
         setCommentsCount((prev) => prev - 1);
+        alert(errorData.error || 'Erro ao enviar comentário');
       }
     } catch (error) {
       // Revert on error
       setComments((prev) => prev.filter((c) => c.id !== tempComment.id));
       setCommentsCount((prev) => prev - 1);
+      alert('Erro ao enviar comentário. Tente novamente.');
     } finally {
       setIsSubmittingComment(false);
     }
@@ -144,8 +152,8 @@ export function PostModal({ post, currentUserId, onClose, onLike, onDelete, onEd
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0 gap-0">
-        <div className="flex flex-col md:flex-row h-[90vh]">
+      <DialogContent className="max-w-4xl max-h-[90vh] sm:max-h-[95vh] p-0 gap-0 w-full h-full sm:h-auto">
+        <div className="flex flex-col md:flex-row h-[100vh] sm:h-[90vh]">
           {/* Image Section */}
           <div className="relative flex-1 bg-black flex items-center justify-center">
             {post.media.length > 0 && (
@@ -246,77 +254,101 @@ export function PostModal({ post, currentUserId, onClose, onLike, onDelete, onEd
               </div>
             )}
 
-            {/* Comments */}
-            <ScrollArea className="flex-1">
-              <div className="p-4 space-y-4">
-                {isLoadingComments ? (
-                  <div className="text-center text-muted-foreground py-8">Carregando comentários...</div>
-                ) : comments.length === 0 ? (
-                  <div className="text-center text-muted-foreground py-8">Nenhum comentário ainda</div>
-                ) : (
-                  comments.map((comment) => (
-                    <div key={comment.id} className="flex gap-3">
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarImage src={comment.user?.avatarUrl} />
-                        <AvatarFallback>{getInitials(comment.user?.name || 'U')}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="text-sm">
-                          <span className="font-semibold">{comment.user?.name || 'Usuário'}</span>{' '}
-                          <span>{comment.text}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {formatDistanceToNow(comment.createdAt, { addSuffix: true, locale: ptBR })}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
+            {/* Comments Section */}
+            <div className="flex flex-col flex-1 min-h-0">
+              <div className="px-4 py-2 border-b">
+                <h3 className="text-sm font-semibold">
+                  {commentsCount > 0 ? `${commentsCount} comentário${commentsCount !== 1 ? 's' : ''}` : 'Comentários'}
+                </h3>
               </div>
-            </ScrollArea>
+              <ScrollArea className="flex-1">
+                <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+                  {isLoadingComments ? (
+                    <div className="text-center text-muted-foreground py-8 text-sm">
+                      Carregando comentários...
+                    </div>
+                  ) : comments.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-8 text-sm">
+                      Nenhum comentário ainda. Seja o primeiro a comentar!
+                    </div>
+                  ) : (
+                    comments.map((comment) => (
+                      <div key={comment.id} className="flex gap-2 sm:gap-3 pb-2 sm:pb-3 border-b last:border-0">
+                        <Avatar className="h-7 w-7 sm:h-8 sm:w-8 shrink-0">
+                          <AvatarImage src={comment.user?.avatarUrl} />
+                          <AvatarFallback className="text-xs">
+                            {getInitials(comment.user?.name || 'U')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs sm:text-sm">
+                                <span className="font-semibold">{comment.user?.name || 'Usuário'}</span>
+                              </div>
+                              <p className="text-xs sm:text-sm mt-1 break-words">{comment.text}</p>
+                              <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                {formatDistanceToNow(comment.createdAt, { addSuffix: true, locale: ptBR })}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
 
             {/* Actions */}
-            <div className="p-4 border-t space-y-3">
-              <div className="flex items-center gap-4">
+            <div className="p-3 sm:p-4 border-t space-y-2 sm:space-y-3 bg-muted/30">
+              <div className="flex items-center gap-3 sm:gap-4">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={cn('h-9 w-9', isLiked && 'text-red-500')}
+                  className={cn('h-8 w-8 sm:h-9 sm:w-9 touch-manipulation', isLiked && 'text-red-500')}
                   onClick={handleLike}
                   disabled={isLiking}
                 >
-                  <Heart className={cn('h-6 w-6', isLiked && 'fill-current')} />
+                  <Heart className={cn('h-5 w-5 sm:h-6 sm:w-6', isLiked && 'fill-current')} />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-9 w-9">
-                  <MessageCircle className="h-6 w-6" />
-                </Button>
+                <div className="flex items-center gap-1 text-sm sm:text-base">
+                  <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span className="font-medium">{commentsCount}</span>
+                </div>
               </div>
 
               {likesCount > 0 && (
-                <p className="text-sm font-semibold">{likesCount} curtida{likesCount !== 1 ? 's' : ''}</p>
+                <p className="text-xs sm:text-sm font-semibold">
+                  {likesCount} curtida{likesCount !== 1 ? 's' : ''}
+                </p>
               )}
 
               {/* Comment Input */}
-              <div className="flex gap-2">
-                <Textarea
-                  placeholder="Adicione um comentário..."
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSubmitComment();
-                    }
-                  }}
-                  className="min-h-[60px] resize-none"
-                />
-                <Button
-                  size="icon"
-                  onClick={handleSubmitComment}
-                  disabled={!commentText.trim() || isSubmittingComment}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
+              <div className="flex gap-2 items-end">
+                <div className="flex-1 relative">
+                  <Textarea
+                    placeholder="Adicione um comentário..."
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSubmitComment();
+                      }
+                    }}
+                    className="min-h-[50px] sm:min-h-[60px] max-h-[120px] resize-none pr-10 text-xs sm:text-sm"
+                    rows={2}
+                  />
+                  <Button
+                    size="icon"
+                    className="absolute bottom-2 right-2 h-7 w-7 sm:h-8 sm:w-8"
+                    onClick={handleSubmitComment}
+                    disabled={!commentText.trim() || isSubmittingComment}
+                  >
+                    <Send className="h-3 w-3 sm:h-4 sm:w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

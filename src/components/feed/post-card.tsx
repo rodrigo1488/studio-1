@@ -200,10 +200,20 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
             {post.commentsCount && post.commentsCount > 0 && (
               <Button
                 variant="ghost"
-                className="text-muted-foreground p-0 h-auto font-normal text-xs sm:text-sm"
+                className="text-muted-foreground p-0 h-auto font-normal text-xs sm:text-sm hover:text-primary"
                 onClick={() => setShowModal(true)}
               >
-                Ver todos os {post.commentsCount} comentário{post.commentsCount !== 1 ? 's' : ''}
+                Ver {post.commentsCount} comentário{post.commentsCount !== 1 ? 's' : ''}
+              </Button>
+            )}
+            
+            {(!post.commentsCount || post.commentsCount === 0) && (
+              <Button
+                variant="ghost"
+                className="text-muted-foreground p-0 h-auto font-normal text-xs sm:text-sm hover:text-primary"
+                onClick={() => setShowModal(true)}
+              >
+                Comentar
               </Button>
             )}
           </div>

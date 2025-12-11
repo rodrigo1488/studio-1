@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, LogOut, Camera, X } from 'lucide-react';
+import { ArrowLeft, LogOut, Camera, X, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
@@ -356,14 +356,22 @@ export default function ProfilePage() {
               <Input id="email" type="email" value={user.email} disabled />
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+          <div className="space-y-3">
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/profile/posts">
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Gerenciar Minhas Publicações
+              </Link>
             </Button>
-            <Button variant="destructive" onClick={handleLogout} disabled={isSaving}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Sair
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button onClick={handleSave} disabled={isSaving} className="flex-1">
+                {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+              <Button variant="destructive" onClick={handleLogout} disabled={isSaving}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Sair
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

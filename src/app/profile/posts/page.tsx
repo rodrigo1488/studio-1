@@ -5,7 +5,8 @@ import { PostCard } from '@/components/feed/post-card';
 import { PostGridItem } from '@/components/feed/post-grid-item';
 import { FeedViewToggle } from '@/components/feed/feed-view-toggle';
 import { Button } from '@/components/ui/button';
-import { Loader2, Trash2, Edit } from 'lucide-react';
+import { Loader2, Trash2, Edit, ArrowLeft, Plus } from 'lucide-react';
+import Link from 'next/link';
 import type { Post } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -211,11 +212,26 @@ export default function ProfilePostsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Minhas Publicações</h1>
-        <FeedViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+    <div className="space-y-3 sm:space-y-4 md:space-y-6 px-2 sm:px-4 md:px-6 pb-20 sm:pb-6">
+      {/* Header - Mobile First */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 pt-2 sm:pt-4">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" asChild>
+            <Link href="/profile">
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="sr-only">Voltar ao perfil</span>
+            </Link>
+          </Button>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">Minhas Publicações</h1>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <FeedViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+          <Button onClick={() => router.push('/feed')} size="sm" className="text-xs sm:text-sm">
+            <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Nova Publicação</span>
+            <span className="sm:hidden">Novo</span>
+          </Button>
+        </div>
       </div>
 
       {/* Posts */}
@@ -231,7 +247,7 @@ export default function ProfilePostsPage() {
           </Button>
         </div>
       ) : viewMode === 'timeline' ? (
-        <div className="space-y-6 max-w-2xl mx-auto">
+        <div className="space-y-3 sm:space-y-4 md:space-y-6">
           {posts.map((post) => (
             <PostCard
               key={post.id}
@@ -244,7 +260,7 @@ export default function ProfilePostsPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1 sm:gap-2 md:gap-4">
           {posts.map((post) => (
             <PostGridItem
               key={post.id}
@@ -260,7 +276,7 @@ export default function ProfilePostsPage() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editingPost} onOpenChange={(open) => !open && setEditingPost(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-lg w-full mx-4">
           <DialogHeader>
             <DialogTitle>Editar Post</DialogTitle>
             <DialogDescription>Atualize a descrição do seu post</DialogDescription>
@@ -270,13 +286,22 @@ export default function ProfilePostsPage() {
               placeholder="Escreva uma legenda..."
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}
-              className="min-h-[120px] resize-none"
+              className="min-h-[100px] sm:min-h-[120px] resize-none text-sm sm:text-base"
+              rows={4}
             />
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setEditingPost(null)}>
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setEditingPost(null)}
+                className="w-full sm:w-auto"
+              >
                 Cancelar
               </Button>
-              <Button onClick={handleSaveEdit} disabled={isSaving}>
+              <Button 
+                onClick={handleSaveEdit} 
+                disabled={isSaving}
+                className="w-full sm:w-auto"
+              >
                 {isSaving ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
