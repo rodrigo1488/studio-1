@@ -7,7 +7,7 @@ export interface MessageInsert {
   sender_id: string;
   text: string;
   media_url?: string;
-  media_type?: 'image' | 'video' | 'audio';
+  media_type?: 'image' | 'video' | 'audio' | 'gif';
   created_at: string;
 }
 
@@ -19,7 +19,7 @@ export async function sendMessage(
   senderId: string,
   text: string,
   mediaUrl?: string,
-  mediaType?: 'image' | 'video' | 'audio',
+  mediaType?: 'image' | 'video' | 'audio' | 'gif',
   replyToId?: string
 ): Promise<{ message: Message; error: null } | { message: null; error: string }> {
   try {

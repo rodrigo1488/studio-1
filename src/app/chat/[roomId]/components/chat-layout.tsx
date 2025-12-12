@@ -16,6 +16,7 @@ import {
   Loader2,
   RotateCcw,
   Info,
+  Smile,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -55,6 +56,7 @@ import { MessageReactions } from '@/components/chat/message-reactions';
 import { MessageReply } from '@/components/chat/message-reply';
 import { ForwardMessageDialog } from '@/components/chat/forward-message-dialog';
 import { MessageSearch } from '@/components/chat/message-search';
+import { GifPicker } from '@/components/chat/gif-picker';
 
 interface ChatLayoutProps {
   room: Room;
@@ -105,6 +107,7 @@ export default function ChatLayout({
   const [replyingTo, setReplyingTo] = useState<(Message & { user?: User }) | null>(null);
   const [forwardingMessage, setForwardingMessage] = useState<(Message & { user?: User }) | null>(null);
   const [showSearch, setShowSearch] = useState(false);
+  const [showGifPicker, setShowGifPicker] = useState(false);
   const { toast } = useToast();
 
   // Buscar o outro usuário se for conversa direta
@@ -320,7 +323,7 @@ export default function ChatLayout({
 
       // Fetch older messages
       const response = await fetch(
-        `/api/messages/${room.id}?limit=8&before=${beforeDate.toISOString()}`
+        `/api/messages/room/${room.id}?limit=8&before=${beforeDate.toISOString()}`
       );
 
       if (response.ok) {
@@ -683,6 +686,109 @@ export default function ChatLayout({
         setIsSending(false);
       }
     }, 0); // Delay 0 para executar no próximo tick
+  };
+
+  const handleSendGif = async (gifUrl: string) => {
+    if (!gifUrl || isSending) return;
+
+    const tempId = `temp-${Date.now()}`;
+    const replyToId = replyingTo?.id;
+
+    // 1. Criar mensagem otimista
+    const optimisticMessage: Message & { user?: User } = {
+      id: tempId,
+      roomId: room.id,
+      senderId: currentUser.id,
+      text: '🎬 GIF',
+      timestamp: new Date(),
+      mediaUrl: gifUrl,
+      mediaType: 'gif',
+      status: 'sending',
+      replyToId,
+      replyTo: replyingTo || undefined,
+      user: currentUser,
+    };
+
+    // 2. Adicionar mensagem otimista imediatamente
+    setMessages((prev) => [...prev, optimisticMessage]);
+    setReplyingTo(null);
+
+    // 3. Scroll para o final
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+
+    // 4. Marcar como enviando
+    setIsSending(true);
+
+    // 5. Enviar para o servidor
+    setTimeout(async () => {
+      try {
+        const response = await fetch('/api/messages/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            roomId: room.id,
+            text: '🎬 GIF',
+            mediaUrl: gifUrl,
+            mediaType: 'gif',
+            replyToId,
+          }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === tempId
+                ? { ...msg, status: 'error' as const }
+                : msg
+            )
+          );
+
+          toast({
+            title: 'Erro ao enviar GIF',
+            description: data.error || 'Tente novamente',
+            variant: 'destructive',
+          });
+        } else {
+          const data = await response.json();
+          if (data.message?.id && data.message?.senderId) {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === tempId
+                  ? { 
+                      ...msg, 
+                      id: data.message.id,
+                      senderId: data.message.senderId,
+                      status: 'sent' as const,
+                    }
+                  : msg
+              )
+            );
+          }
+        }
+      } catch (error) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempId
+              ? { ...msg, status: 'error' as const }
+              : msg
+          )
+        );
+
+        toast({
+          title: 'Erro ao enviar GIF',
+          description: 'Ocorreu um erro ao enviar o GIF.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsSending(false);
+      }
+    }, 100);
   };
 
   const handleCameraCapture = async (file: File) => {
@@ -1251,9 +1357,22 @@ export default function ChatLayout({
                         />
                       </div>
                     )}
+                    {message.mediaType === 'gif' && (
+                      <div className="relative w-full max-w-sm">
+                        <Image
+                          src={message.mediaUrl}
+                          alt="GIF"
+                          width={400}
+                          height={400}
+                          className="rounded-lg object-contain w-full h-auto"
+                          style={{ maxHeight: '400px' }}
+                          unoptimized
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
-                {message.text && !message.text.match(/^(📷|🎥|🎵)/) && <p>{message.text}</p>}
+                {message.text && !message.text.match(/^(📷|🎥|🎵|🎬)/) && <p>{message.text}</p>}
                 <div className="flex items-center gap-1 mt-1 self-end">
                   <span className={cn(
                       "text-xs",
@@ -1493,6 +1612,35 @@ export default function ChatLayout({
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Segure para gravar áudio</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <Popover open={showGifPicker} onOpenChange={setShowGifPicker}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      type="button"
+                      disabled={isSending || isRecordingAudio}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <Smile className="h-5 w-5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[350px] sm:w-[400px] p-0" align="start">
+                    <GifPicker
+                      onSelectGif={(gifUrl) => {
+                        handleSendGif(gifUrl);
+                        setShowGifPicker(false);
+                      }}
+                      onClose={() => setShowGifPicker(false)}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <TooltipContent>
+                  <p>Enviar GIF</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

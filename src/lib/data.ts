@@ -13,7 +13,7 @@ export type Message = {
   text: string;
   timestamp: Date;
   mediaUrl?: string;
-  mediaType?: 'image' | 'video' | 'audio';
+  mediaType?: 'image' | 'video' | 'audio' | 'gif';
   status?: 'sending' | 'sent' | 'error'; // Status de envio da mensagem
   replyToId?: string;
   replyTo?: Message & { user?: User };

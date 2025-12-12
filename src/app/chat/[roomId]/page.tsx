@@ -105,7 +105,7 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
           // Only fetch from server if cache is stale or doesn't exist
           if (cachedData.isStale) {
             // Fetch in background without blocking
-            fetch(`/api/messages/${roomId}?limit=8`)
+            fetch(`/api/messages/room/${roomId}?limit=8`)
               .then(response => response.json())
               .then(messagesData => {
                 if (messagesData.messages) {
@@ -183,7 +183,7 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
           }
         } else {
           // No cache, fetch from server
-          const messagesResponse = await fetch(`/api/messages/${roomId}?limit=8`);
+          const messagesResponse = await fetch(`/api/messages/room/${roomId}?limit=8`);
           if (messagesResponse.ok) {
             const messagesData = await messagesResponse.json();
             
