@@ -104,7 +104,7 @@ export async function getPostById(postId: string): Promise<{ post: Post | null; 
 }
 
 /**
- * Get feed posts (posts from contacts)
+ * Get feed posts (all posts)
  */
 export async function getFeedPosts(
   userId: string,
@@ -116,21 +116,7 @@ export async function getFeedPosts(
   }
 
   try {
-    // Get user's contacts
-    const { data: contactsData, error: contactsError } = await supabaseServer
-      .from('contacts')
-      .select('contact_id')
-      .eq('user_id', userId);
-
-    if (contactsError) {
-      return { posts: [], error: contactsError.message };
-    }
-
-    const contactIds = contactsData?.map((c) => c.contact_id) || [];
-    // Include own posts
-    const userIds = [...contactIds, userId];
-
-    // Get posts from contacts and self
+    // Get all posts
     const { data: postsData, error: postsError } = await supabaseServer
       .from('posts')
       .select(`
@@ -138,7 +124,6 @@ export async function getFeedPosts(
         post_media (*),
         users (id, name, email, avatar_url, nickname)
       `)
-      .in('user_id', userIds)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
