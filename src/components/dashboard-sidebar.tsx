@@ -33,60 +33,60 @@ function SidebarContent() {
         <button
           onClick={() => setActiveView('groups')}
           className={cn(
-            'flex-1 flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
+            'flex-1 flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1 sm:px-2 md:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
             activeView === 'groups'
               ? 'border-b-4 border-[#3B82F6] text-[#3B82F6] bg-[#3B82F6]/10 shadow-sm'
               : 'border-transparent text-muted-foreground hover:text-[#3B82F6] hover:bg-[#3B82F6]/5'
           )}
         >
-          <Users className="h-4 w-4 sm:h-5 sm:w-5" />
-          <span className="hidden sm:inline font-semibold">Grupos</span>
-          <span className="hidden md:inline text-[10px] sm:text-xs opacity-75 text-center leading-tight px-1">
+          <Users className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+          <span className="text-[9px] sm:text-xs font-semibold leading-tight text-center">Grupos</span>
+          <span className="text-[7px] sm:text-[9px] md:text-xs opacity-75 text-center leading-tight px-0.5 sm:px-1 line-clamp-2 max-w-full">
             Salas e grupos familiares
           </span>
         </button>
         <button
           onClick={() => setActiveView('conversations')}
           className={cn(
-            'flex-1 flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
+            'flex-1 flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1 sm:px-2 md:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
             activeView === 'conversations'
               ? 'border-b-4 border-[#EC4899] text-[#EC4899] bg-[#EC4899]/10 shadow-sm'
               : 'border-transparent text-muted-foreground hover:text-[#EC4899] hover:bg-[#EC4899]/5'
           )}
         >
-          <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
-          <span className="hidden sm:inline font-semibold">Conversas</span>
-          <span className="hidden md:inline text-[10px] sm:text-xs opacity-75 text-center leading-tight px-1">
+          <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+          <span className="text-[9px] sm:text-xs font-semibold leading-tight text-center">Conversas</span>
+          <span className="text-[7px] sm:text-[9px] md:text-xs opacity-75 text-center leading-tight px-0.5 sm:px-1 line-clamp-2 max-w-full">
             Mensagens diretas
           </span>
         </button>
         <button
           onClick={() => setActiveView('contacts')}
           className={cn(
-            'flex-1 flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
+            'flex-1 flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1 sm:px-2 md:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
             activeView === 'contacts'
               ? 'border-b-4 border-[#10B981] text-[#10B981] bg-[#10B981]/10 shadow-sm'
               : 'border-transparent text-muted-foreground hover:text-[#10B981] hover:bg-[#10B981]/5'
           )}
         >
-          <UserPlus className="h-4 w-4 sm:h-5 sm:w-5" />
-          <span className="hidden sm:inline font-semibold">Contatos</span>
-          <span className="hidden md:inline text-[10px] sm:text-xs opacity-75 text-center leading-tight px-1">
+          <UserPlus className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+          <span className="text-[9px] sm:text-xs font-semibold leading-tight text-center">Contatos</span>
+          <span className="text-[7px] sm:text-[9px] md:text-xs opacity-75 text-center leading-tight px-0.5 sm:px-1 line-clamp-2 max-w-full">
             Seus contatos
           </span>
         </button>
         <button
           onClick={() => setActiveView('feed')}
           className={cn(
-            'flex-1 flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
+            'flex-1 flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1 sm:px-2 md:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
             activeView === 'feed'
               ? 'border-b-4 border-[#F59E0B] text-[#F59E0B] bg-[#F59E0B]/10 shadow-sm'
               : 'border-transparent text-muted-foreground hover:text-[#F59E0B] hover:bg-[#F59E0B]/5'
           )}
         >
-          <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-          <span className="hidden sm:inline font-semibold">Feed</span>
-          <span className="hidden md:inline text-[10px] sm:text-xs opacity-75 text-center leading-tight px-1">
+          <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+          <span className="text-[9px] sm:text-xs font-semibold leading-tight text-center">Feed</span>
+          <span className="text-[7px] sm:text-[9px] md:text-xs opacity-75 text-center leading-tight px-0.5 sm:px-1 line-clamp-2 max-w-full">
             Publicações
           </span>
         </button>
