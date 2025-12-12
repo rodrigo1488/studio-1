@@ -51,6 +51,10 @@ import { AudioPlayer } from '@/components/media/audio-player';
 import { addMessageToCache, saveMessagesToCache } from '@/lib/storage/messages-cache';
 import { addNotification, markNotificationsAsRead } from '@/lib/storage/notifications';
 import { getCachedUser, saveUserToCache } from '@/lib/storage/room-cache';
+import { MessageReactions } from '@/components/chat/message-reactions';
+import { MessageReply } from '@/components/chat/message-reply';
+import { ForwardMessageDialog } from '@/components/chat/forward-message-dialog';
+import { MessageSearch } from '@/components/chat/message-search';
 
 interface ChatLayoutProps {
   room: Room;
@@ -98,6 +102,9 @@ export default function ChatLayout({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [showRoomDetails, setShowRoomDetails] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<(Message & { user?: User }) | null>(null);
+  const [forwardingMessage, setForwardingMessage] = useState<(Message & { user?: User }) | null>(null);
+  const [showSearch, setShowSearch] = useState(false);
   const { toast } = useToast();
 
   // Buscar o outro usuário se for conversa direta
@@ -122,6 +129,18 @@ export default function ChatLayout({
 
     fetchOtherUser();
   }, [room.id, room.code]);
+
+  // Mark messages as read when viewing
+  useEffect(() => {
+    if (messages.length > 0) {
+      // Mark all messages in room as read
+      fetch('/api/messages/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: room.id }),
+      }).catch(() => {});
+    }
+  }, [messages.length, room.id]);
 
   // Scroll to bottom when messages change or component mounts
   useEffect(() => {
@@ -418,6 +437,7 @@ export default function ChatLayout({
 
     // 1. Limpar input IMEDIATAMENTE para feedback visual instantâneo
     setMessageText('');
+    setReplyingTo(null);
     
     // 2. Adicionar mensagem ao estado IMEDIATAMENTE (antes de qualquer requisição)
     setMessages((prev) => [...prev, optimisticMessage]);
@@ -444,6 +464,7 @@ export default function ChatLayout({
           body: JSON.stringify({
             roomId: room.id,
             text,
+            replyToId,
           }),
         });
 
@@ -1130,10 +1151,49 @@ export default function ChatLayout({
             return (
             <div
               key={message.id}
+              data-message-id={message.id}
               className={cn(
-                'flex items-end gap-2 animate-slide-in-color',
+                'flex items-end gap-2 animate-slide-in-color group',
                 message.senderId === currentUser.id ? 'justify-end' : 'justify-start'
               )}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                // Show menu with reply and forward options
+                const menu = document.createElement('div');
+                menu.className = 'fixed bg-background border rounded-lg shadow-lg p-1 z-50';
+                menu.style.left = `${e.clientX}px`;
+                menu.style.top = `${e.clientY}px`;
+                
+                const replyBtn = document.createElement('button');
+                replyBtn.className = 'w-full text-left px-3 py-2 hover:bg-muted rounded text-sm';
+                replyBtn.textContent = 'Responder';
+                replyBtn.onclick = () => {
+                  setReplyingTo(message);
+                  document.body.removeChild(menu);
+                };
+                
+                const forwardBtn = document.createElement('button');
+                forwardBtn.className = 'w-full text-left px-3 py-2 hover:bg-muted rounded text-sm';
+                forwardBtn.textContent = 'Encaminhar';
+                forwardBtn.onclick = () => {
+                  setForwardingMessage(message);
+                  document.body.removeChild(menu);
+                };
+                
+                menu.appendChild(replyBtn);
+                menu.appendChild(forwardBtn);
+                document.body.appendChild(menu);
+                
+                const removeMenu = () => {
+                  if (document.body.contains(menu)) {
+                    document.body.removeChild(menu);
+                  }
+                };
+                
+                setTimeout(() => {
+                  document.addEventListener('click', removeMenu, { once: true });
+                }, 0);
+              }}
             >
               {message.senderId !== currentUser.id && (
                 <Avatar className="h-8 w-8">
@@ -1149,6 +1209,12 @@ export default function ChatLayout({
                     : `${otherColor} text-foreground rounded-bl-none border-2 border-primary/20`
                 )}
               >
+                {message.replyTo && (
+                  <MessageReply
+                    replyTo={message.replyTo}
+                    isOwnMessage={message.senderId === currentUser.id}
+                  />
+                )}
                 {message.mediaUrl && (
                   <div className={cn(
                     "rounded-lg overflow-hidden",
@@ -1258,11 +1324,21 @@ export default function ChatLayout({
                   )}
                 </div>
               </div>
+              <div className={cn(
+                'mt-1',
+                message.senderId === currentUser.id ? 'flex justify-end' : 'flex justify-start'
+              )}>
+                <MessageReactions
+                  messageId={message.id}
+                  currentUserId={currentUser.id}
+                />
+              </div>
             </div>
             );
           })}
           <div ref={messagesEndRef} />
         </div>
+        <TypingIndicator roomId={room.id} currentUserId={currentUser.id} />
       </ScrollArea>
 
       {/* Input Area - Fixed at bottom */}
@@ -1422,14 +1498,49 @@ export default function ChatLayout({
             </TooltipProvider>
           </div>
 
-          <Input
-            autoComplete="off"
-            placeholder="Digite uma mensagem..."
-            value={messageText}
-            onChange={(e) => setMessageText(e.target.value)}
-            disabled={isSending || isRecordingAudio}
-            className="flex-1"
-          />
+          <div className="flex-1 relative">
+            {replyingTo && (
+              <div className="absolute bottom-full left-0 right-0 mb-1 p-2 bg-muted border rounded-t-lg">
+                <MessageReply
+                  replyTo={replyingTo}
+                  onCancel={() => setReplyingTo(null)}
+                  isOwnMessage={false}
+                />
+              </div>
+            )}
+            <Input
+              autoComplete="off"
+              placeholder={replyingTo ? "Respondendo..." : "Digite uma mensagem..."}
+              value={messageText}
+              onChange={(e) => {
+                setMessageText(e.target.value);
+                // Update typing indicator
+                if (e.target.value.trim().length > 0) {
+                  fetch(`/api/typing/${room.id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ isTyping: true }),
+                  }).catch(() => {});
+                } else {
+                  fetch(`/api/typing/${room.id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ isTyping: false }),
+                  }).catch(() => {});
+                }
+              }}
+              onBlur={() => {
+                // Stop typing when input loses focus
+                fetch(`/api/typing/${room.id}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ isTyping: false }),
+                }).catch(() => {});
+              }}
+              disabled={isSending || isRecordingAudio}
+              className="w-full"
+            />
+          </div>
           
           {messageText.trim() && !isRecordingAudio ? (
             <Button type="submit" size="icon" disabled={isSending}>
@@ -1492,6 +1603,14 @@ export default function ChatLayout({
           currentUser={currentUser}
           open={showRoomDetails}
           onOpenChange={setShowRoomDetails}
+        />
+      )}
+
+      {forwardingMessage && (
+        <ForwardMessageDialog
+          open={!!forwardingMessage}
+          onOpenChange={(open) => !open && setForwardingMessage(null)}
+          message={forwardingMessage}
         />
       )}
     </div>

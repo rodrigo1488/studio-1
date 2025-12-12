@@ -18,6 +18,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getInitials, cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { getCachedContacts, saveContactsToCache } from '@/lib/storage/lists-cache';
+import { ContactSkeleton } from '@/components/ui/contact-skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export default function ContactsList() {
   const [contacts, setContacts] = useState<User[]>([]);
@@ -229,8 +231,8 @@ export default function ContactsList() {
   if (isLoading) {
     return (
       <div className="space-y-2">
-        {[1, 2].map((i) => (
-          <div key={i} className="h-16 animate-pulse rounded-lg bg-muted" />
+        {[1, 2, 3].map((i) => (
+          <ContactSkeleton key={i} />
         ))}
       </div>
     );
@@ -356,8 +358,19 @@ export default function ContactsList() {
         </DialogContent>
       </Dialog>
 
-      <div className="space-y-2 h-full overflow-y-auto">
-        {contacts.map((contact, index) => {
+      {contacts.length === 0 && !isLoading ? (
+        <EmptyState
+          icon={<UserPlus className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground" />}
+          title="Nenhum contato ainda"
+          description="Adicione contatos para começar a conversar e compartilhar momentos com sua família."
+          action={{
+            label: 'Adicionar contato',
+            onClick: () => setIsDialogOpen(true),
+          }}
+        />
+      ) : (
+        <div className="space-y-2 h-full overflow-y-auto">
+          {contacts.map((contact, index) => {
           const rainbowColors = [
             'border-[#3B82F6]',
             'border-[#EC4899]',
@@ -430,7 +443,8 @@ export default function ContactsList() {
           </div>
           );
         })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

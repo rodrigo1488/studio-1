@@ -135,22 +135,40 @@ export async function getPostById(postId: string): Promise<{ post: Post | null; 
 export async function getFeedPosts(
   userId: string,
   limit: number = 20,
-  offset: number = 0
+  offset: number = 0,
+  options?: {
+    searchQuery?: string;
+    sortBy?: 'recent' | 'likes' | 'comments';
+    filterByUserId?: string;
+  }
 ): Promise<{ posts: Post[]; error: string | null }> {
   if (!supabaseServer) {
     return { posts: [], error: 'Supabase server not initialized' };
   }
 
   try {
-    // Get all posts
-    const { data: postsData, error: postsError } = await supabaseServer
+    let query = supabaseServer
       .from('posts')
       .select(`
         *,
         post_media (*),
         users (id, name, email, avatar_url, nickname)
-      `)
-      .order('created_at', { ascending: false })
+      `);
+
+    // Apply search filter
+    if (options?.searchQuery && options.searchQuery.trim().length > 0) {
+      query = query.ilike('description', `%${options.searchQuery.trim()}%`);
+    }
+
+    // Apply user filter
+    if (options?.filterByUserId) {
+      query = query.eq('user_id', options.filterByUserId);
+    }
+
+    // Apply sorting (default: most recent)
+    query = query.order('created_at', { ascending: false });
+
+    const { data: postsData, error: postsError } = await query
       .range(offset, offset + limit - 1);
 
     if (postsError) {

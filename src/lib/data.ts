@@ -15,6 +15,8 @@ export type Message = {
   mediaUrl?: string;
   mediaType?: 'image' | 'video' | 'audio';
   status?: 'sending' | 'sent' | 'error'; // Status de envio da mensagem
+  replyToId?: string;
+  replyTo?: Message & { user?: User };
 };
 
 export type Room = {

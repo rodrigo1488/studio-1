@@ -21,6 +21,9 @@ import { getAllUnreadCounts, getUnreadCount } from '@/lib/storage/notifications'
 import { Badge } from '@/components/ui/badge';
 import { getCachedRooms, saveRoomsToCache } from '@/lib/storage/lists-cache';
 import { getCachedCurrentUser } from '@/lib/storage/room-cache';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Users } from 'lucide-react';
 
 export default function RoomList() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -96,7 +99,13 @@ export default function RoomList() {
     return (
       <div className="grid gap-3 sm:gap-4 grid-cols-1">
         {[1, 2, 3].map((i) => (
-          <Card key={i} className="h-32 animate-pulse bg-muted" />
+          <Card key={i} className="p-3 sm:p-4 md:p-6">
+            <div className="space-y-3">
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          </Card>
         ))}
       </div>
     );
@@ -104,12 +113,11 @@ export default function RoomList() {
 
   if (rooms.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/20 p-8 sm:p-12 text-center">
-        <h3 className="text-lg sm:text-xl font-semibold">Nenhuma sala encontrada</h3>
-        <p className="mt-2 text-sm text-muted-foreground px-4">
-          Crie uma nova sala para começar a conversar com sua família.
-        </p>
-      </div>
+      <EmptyState
+        icon={<Users className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground" />}
+        title="Nenhuma sala encontrada"
+        description="Crie uma nova sala para começar a conversar com sua família e amigos."
+      />
     );
   }
 

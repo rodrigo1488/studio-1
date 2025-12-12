@@ -12,6 +12,9 @@ import { useSidebar } from '@/components/dashboard-sidebar';
 import { getAllUnreadCounts } from '@/lib/storage/notifications';
 import { Badge } from '@/components/ui/badge';
 import { getCachedConversations, saveConversationsToCache } from '@/lib/storage/lists-cache';
+import { ConversationSkeleton } from '@/components/ui/conversation-skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { MessageSquare } from 'lucide-react';
 
 interface DirectConversation {
   id: string;
@@ -86,7 +89,7 @@ export default function DirectConversationsList() {
     return (
       <div className="space-y-2">
         {[1, 2, 3].map((i) => (
-          <Card key={i} className="h-20 animate-pulse bg-muted" />
+          <ConversationSkeleton key={i} />
         ))}
       </div>
     );
@@ -94,11 +97,11 @@ export default function DirectConversationsList() {
 
   if (conversations.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/20 p-8 text-center">
-        <p className="text-sm text-muted-foreground">
-          Nenhuma conversa direta ainda. Adicione contatos para começar a conversar!
-        </p>
-      </div>
+      <EmptyState
+        icon={<MessageSquare className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground" />}
+        title="Nenhuma conversa ainda"
+        description="Adicione contatos e comece a conversar para ver suas conversas diretas aqui."
+      />
     );
   }
 

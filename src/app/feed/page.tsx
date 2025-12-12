@@ -1,29 +1,45 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { PostCard } from '@/components/feed/post-card';
 import { PostGridItem } from '@/components/feed/post-grid-item';
 import { CreatePost } from '@/components/feed/create-post';
 import { FeedViewToggle } from '@/components/feed/feed-view-toggle';
 import { Button } from '@/components/ui/button';
-import { Plus, Loader2, ArrowLeft } from 'lucide-react';
+import { Plus, Loader2, ArrowLeft, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import type { Post } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
+import { PostCardSkeleton, PostGridSkeleton } from '@/components/ui/post-skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FeedFilters } from '@/components/feed/feed-filters';
+import { FeedFilters } from '@/components/feed/feed-filters';
 
 export default function FeedPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
   const [viewMode, setViewMode] = useState<'timeline' | 'grid'>('timeline');
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLiking, setIsLiking] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'recent' | 'likes' | 'comments'>('recent');
+  const [filterByUser, setFilterByUser] = useState<string | undefined>(undefined);
   const { toast } = useToast();
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchCurrentUser();
-    fetchPosts();
   }, []);
+
+  useEffect(() => {
+    if (currentUserId) {
+      fetchPosts(true);
+    }
+  }, [currentUserId, searchQuery, sortBy, filterByUser]);
 
   const fetchCurrentUser = async () => {
     try {
@@ -37,10 +53,31 @@ export default function FeedPage() {
     }
   };
 
-  const fetchPosts = async () => {
+  const fetchPosts = async (reset = false) => {
     try {
-      setIsLoading(true);
-      const response = await fetch('/api/feed/list');
+      if (reset) {
+        setIsLoading(true);
+        setOffset(0);
+        setHasMore(true);
+      } else {
+        setIsLoadingMore(true);
+      }
+
+      const currentOffset = reset ? 0 : offset;
+      const params = new URLSearchParams({
+        limit: '20',
+        offset: currentOffset.toString(),
+      });
+      if (searchQuery.trim()) {
+        params.append('q', searchQuery.trim());
+      }
+      if (sortBy !== 'recent') {
+        params.append('sortBy', sortBy);
+      }
+      if (filterByUser) {
+        params.append('userId', filterByUser);
+      }
+      const response = await fetch(`/api/feed/list?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
         // Convert ISO strings back to Date objects
@@ -53,7 +90,15 @@ export default function FeedPage() {
             createdAt: new Date(m.createdAt),
           })),
         }));
-        setPosts(postsWithDates);
+
+        if (reset) {
+          setPosts(postsWithDates);
+        } else {
+          setPosts((prev) => [...prev, ...postsWithDates]);
+        }
+
+        setHasMore(postsWithDates.length === 20);
+        setOffset((prev) => prev + postsWithDates.length);
       } else {
         toast({
           title: 'Erro ao carregar feed',
@@ -70,8 +115,31 @@ export default function FeedPage() {
       });
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   };
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    if (!loadMoreRef.current || !hasMore || isLoadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+          fetchPosts(false);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(loadMoreRef.current);
+
+    return () => {
+      if (loadMoreRef.current) {
+        observer.unobserve(loadMoreRef.current);
+      }
+    };
+  }, [hasMore, isLoadingMore, offset]);
 
   const handleLike = async (postId: string) => {
     if (isLiking === postId) return;
@@ -184,45 +252,85 @@ export default function FeedPage() {
         </div>
       </div>
 
+      {/* Filters */}
+      <FeedFilters
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        sortBy={sortBy}
+        onSortChange={setSortBy}
+        filterByUser={filterByUser}
+        onFilterByUserChange={setFilterByUser}
+      />
+
       {/* Posts */}
       {isLoading ? (
-        <div className="flex items-center justify-center h-48 sm:h-64">
-          <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-muted-foreground" />
-        </div>
+        viewMode === 'timeline' ? (
+          <div className="space-y-3 sm:space-y-4 md:space-y-6">
+            {[1, 2, 3].map((i) => (
+              <PostCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1 sm:gap-2 md:gap-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <PostGridSkeleton key={i} />
+            ))}
+          </div>
+        )
       ) : posts.length === 0 ? (
-        <div className="text-center py-8 sm:py-12">
-          <p className="text-sm sm:text-base text-muted-foreground mb-4">Nenhuma publicação ainda</p>
-          <Button onClick={() => setShowCreatePost(true)} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Criar primeira publicação
-          </Button>
-        </div>
+        <EmptyState
+          icon={<ImageIcon className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground" />}
+          title="Nenhuma publicação ainda"
+          description="Compartilhe seus momentos com a família criando sua primeira publicação!"
+          action={{
+            label: 'Criar primeira publicação',
+            onClick: () => setShowCreatePost(true),
+          }}
+        />
       ) : viewMode === 'timeline' ? (
-        <div className="space-y-3 sm:space-y-4 md:space-y-6">
-          {posts.map((post) => (
-            <PostCard
-              key={post.id}
-              post={post}
-              currentUserId={currentUserId}
-              onLike={handleLike}
-              onDelete={handleDelete}
-              onEdit={handleEdit}
-            />
-          ))}
-        </div>
+        <>
+          <div className="space-y-3 sm:space-y-4 md:space-y-6">
+            {posts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                currentUserId={currentUserId}
+                onLike={handleLike}
+                onDelete={handleDelete}
+                onEdit={handleEdit}
+              />
+            ))}
+          </div>
+          {hasMore && (
+            <div ref={loadMoreRef} className="flex justify-center py-4">
+              {isLoadingMore && (
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              )}
+            </div>
+          )}
+        </>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1 sm:gap-2 md:gap-4">
-          {posts.map((post) => (
-            <PostGridItem
-              key={post.id}
-              post={post}
-              currentUserId={currentUserId}
-              onLike={handleLike}
-              onDelete={handleDelete}
-              onEdit={handleEdit}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1 sm:gap-2 md:gap-4">
+            {posts.map((post) => (
+              <PostGridItem
+                key={post.id}
+                post={post}
+                currentUserId={currentUserId}
+                onLike={handleLike}
+                onDelete={handleDelete}
+                onEdit={handleEdit}
+              />
+            ))}
+          </div>
+          {hasMore && (
+            <div ref={loadMoreRef} className="flex justify-center py-4">
+              {isLoadingMore && (
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {/* FAB para mobile */}
@@ -237,7 +345,7 @@ export default function FeedPage() {
       <CreatePost
         open={showCreatePost}
         onClose={() => setShowCreatePost(false)}
-        onPostCreated={fetchPosts}
+        onPostCreated={() => fetchPosts(true)}
       />
     </div>
   );

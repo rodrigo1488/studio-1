@@ -14,8 +14,15 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = parseInt(searchParams.get('offset') || '0');
+    const searchQuery = searchParams.get('q') || undefined;
+    const sortBy = (searchParams.get('sortBy') as 'recent' | 'likes' | 'comments') || 'recent';
+    const filterByUserId = searchParams.get('userId') || undefined;
 
-    const { posts, error } = await getFeedPosts(user.id, limit, offset);
+    const { posts, error } = await getFeedPosts(user.id, limit, offset, {
+      searchQuery,
+      sortBy,
+      filterByUserId,
+    });
 
     if (error) {
       return NextResponse.json({ error }, { status: 500 });
@@ -30,7 +37,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Enrich posts with counts and ensure dates are serialized correctly
-    const enrichedPosts = posts.map((post) => ({
+    let enrichedPosts = posts.map((post) => ({
       ...post,
       createdAt: post.createdAt instanceof Date ? post.createdAt.toISOString() : post.createdAt,
       updatedAt: post.updatedAt instanceof Date ? post.updatedAt.toISOString() : post.updatedAt,
@@ -42,6 +49,13 @@ export async function GET(request: NextRequest) {
       commentsCount: commentCounts[post.id] || 0,
       isLiked: userLikes[post.id] || false,
     }));
+
+    // Apply sorting by likes or comments if needed
+    if (sortBy === 'likes') {
+      enrichedPosts = enrichedPosts.sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0));
+    } else if (sortBy === 'comments') {
+      enrichedPosts = enrichedPosts.sort((a, b) => (b.commentsCount || 0) - (a.commentsCount || 0));
+    }
 
     return NextResponse.json({ posts: enrichedPosts });
   } catch (error: any) {

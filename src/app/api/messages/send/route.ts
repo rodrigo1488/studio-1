@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { roomId, text, mediaUrl, mediaType, senderId } = await request.json();
+    const { roomId, text, mediaUrl, mediaType, senderId, replyToId } = await request.json();
 
     if (!roomId) {
       return NextResponse.json(
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       console.warn(`SenderId mismatch: client sent ${senderId}, but server using ${actualSenderId}`);
     }
 
-    const result = await sendMessage(roomId, actualSenderId, text || '', mediaUrl, mediaType);
+    const result = await sendMessage(roomId, actualSenderId, text || '', mediaUrl, mediaType, replyToId);
 
     if (result.error) {
       return NextResponse.json(

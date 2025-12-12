@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getInitials } from '@/lib/utils';
 import { PostGridItem } from '@/components/feed/post-grid-item';
 import { Loader2 } from 'lucide-react';
+import { ProfileStats } from '@/components/profile/profile-stats';
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | undefined>(undefined);
@@ -310,6 +311,7 @@ export default function ProfilePage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {user && <ProfileStats userId={user.id} />}
           <div className="flex items-center gap-4">
             <div className="relative group">
               <Avatar className="h-20 w-20">

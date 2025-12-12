@@ -1,16 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Heart, MessageCircle, MoreVertical, ChevronLeft, ChevronRight, User } from 'lucide-react';
+import { Heart, MessageCircle, MoreVertical, ChevronLeft, ChevronRight, User, Share2, Bookmark } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getInitials, cn } from '@/lib/utils';
 import type { Post } from '@/lib/data';
 import Image from 'next/image';
 import { PostModal } from './post-modal';
+import { SharePostDialog } from './share-post-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,7 +32,10 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [likesCount, setLikesCount] = useState(post.likesCount || 0);
   const [showModal, setShowModal] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Ensure createdAt is a Date object
   const createdAt = post.createdAt instanceof Date ? post.createdAt : new Date(post.createdAt);
@@ -71,9 +75,34 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
     setCurrentImageIndex((prev) => (prev + 1) % post.media.length);
   };
 
+  const handleSave = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    const previousSaved = isSaved;
+
+    // Optimistic update
+    setIsSaved(!isSaved);
+
+    try {
+      const method = isSaved ? 'DELETE' : 'POST';
+      const response = await fetch(`/api/feed/${post.id}/save`, {
+        method,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle save');
+      }
+    } catch (error) {
+      // Revert on error
+      setIsSaved(previousSaved);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <>
-      <Card className="w-full overflow-hidden border-2 hover:shadow-lg transition-shadow duration-200">
+      <Card className="w-full overflow-hidden border-2 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 animate-slide-in">
         <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -190,6 +219,28 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
                 onClick={() => setShowModal(true)}
               >
                 <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 sm:h-10 sm:w-10 touch-manipulation hover:text-primary hover:bg-muted transition-all duration-200"
+                onClick={() => setShowShareDialog(true)}
+              >
+                <Share2 className="h-5 w-5 sm:h-6 sm:w-6" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  'h-9 w-9 sm:h-10 sm:w-10 touch-manipulation transition-all duration-200',
+                  isSaved
+                    ? 'text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-950'
+                    : 'hover:text-yellow-500 hover:bg-muted'
+                )}
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                <Bookmark className={cn('h-5 w-5 sm:h-6 sm:w-6 transition-transform', isSaved && 'fill-current')} />
               </Button>
             </div>
 
