@@ -134,11 +134,16 @@ export async function addContact(userId: string, contactId: string): Promise<{ s
 }
 
 /**
- * Get user's contacts
+ * Get user's contacts (bidirectional - includes contacts where user is user_id or contact_id)
  */
 export async function getUserContacts(userId: string): Promise<User[]> {
   try {
-    const { data, error } = await supabase
+    if (!supabaseServer) {
+      return [];
+    }
+
+    // Get contacts where user is user_id (user added them)
+    const { data: contactsAsUser, error: error1 } = await supabaseServer
       .from('contacts')
       .select(`
         contact_id,
@@ -150,24 +155,60 @@ export async function getUserContacts(userId: string): Promise<User[]> {
           nickname
         )
       `)
-      .eq('user_id', userId)
-      .order('added_at', { ascending: false });
+      .eq('user_id', userId);
 
-    if (error || !data) {
+    // Get contacts where user is contact_id (they added user)
+    // We need to get the user_id and then fetch the user data
+    const { data: contactsAsContact, error: error2 } = await supabaseServer
+      .from('contacts')
+      .select('user_id')
+      .eq('contact_id', userId);
+
+    if (error1 || error2) {
+      console.error('Error fetching contacts:', error1 || error2);
       return [];
     }
 
-    return data
-      .map((item: any) => item.users)
-      .filter(Boolean)
-      .map((user: any) => ({
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        avatarUrl: user.avatar_url || undefined,
-        nickname: user.nickname || undefined,
-      }));
+    // Combine both results
+    const allContacts: any[] = [];
+    
+    // Add contacts where user is user_id
+    if (contactsAsUser) {
+      contactsAsUser.forEach((item: any) => {
+        if (item.users) {
+          allContacts.push(item.users);
+        }
+      });
+    }
+
+    // Fetch user data for contacts where user is contact_id
+    if (contactsAsContact && contactsAsContact.length > 0) {
+      const userIds = contactsAsContact.map((item: any) => item.user_id);
+      
+      const { data: usersData, error: usersError } = await supabaseServer
+        .from('users')
+        .select('id, email, name, avatar_url, nickname')
+        .in('id', userIds);
+
+      if (!usersError && usersData) {
+        allContacts.push(...usersData);
+      }
+    }
+
+    // Remove duplicates (in case both directions exist)
+    const uniqueContacts = Array.from(
+      new Map(allContacts.map((user) => [user.id, user])).values()
+    );
+
+    return uniqueContacts.map((user: any) => ({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatarUrl: user.avatar_url || undefined,
+      nickname: user.nickname || undefined,
+    }));
   } catch (error) {
+    console.error('Error getting user contacts:', error);
     return [];
   }
 }

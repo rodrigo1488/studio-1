@@ -96,7 +96,33 @@ export async function getPostById(postId: string): Promise<{ post: Post | null; 
       return { post: null, error: postError?.message || 'Post not found' };
     }
 
-    const post = convertToPost(postData);
+    // Get mentions for this post
+    const { data: mentionsData } = await supabaseServer
+      .from('post_mentions')
+      .select(`
+        id,
+        post_id,
+        user_id,
+        created_at,
+        users (id, name, email, avatar_url, nickname)
+      `)
+      .eq('post_id', postId);
+
+    const mentions = (mentionsData || []).map((m: any) => ({
+      id: m.id,
+      postId: m.post_id,
+      userId: m.user_id,
+      createdAt: new Date(m.created_at),
+      user: m.users ? {
+        id: m.users.id,
+        name: m.users.name,
+        email: m.users.email,
+        avatarUrl: m.users.avatar_url || undefined,
+        nickname: m.users.nickname || undefined,
+      } : undefined,
+    }));
+
+    const post = convertToPost(postData, mentions);
     return { post, error: null };
   } catch (error: any) {
     return { post: null, error: error.message || 'Failed to fetch post' };
@@ -131,7 +157,46 @@ export async function getFeedPosts(
       return { posts: [], error: postsError.message };
     }
 
-    const posts = (postsData || []).map(convertToPost);
+    // Get mentions for all posts
+    const postIds = (postsData || []).map((p: any) => p.id);
+    let mentionsMap: Record<string, any[]> = {};
+    
+    if (postIds.length > 0) {
+      const { data: mentionsData } = await supabaseServer
+        .from('post_mentions')
+        .select(`
+          id,
+          post_id,
+          user_id,
+          created_at,
+          users (id, name, email, avatar_url, nickname)
+        `)
+        .in('post_id', postIds);
+
+      if (mentionsData) {
+        mentionsMap = mentionsData.reduce((acc: Record<string, any[]>, mention: any) => {
+          if (!acc[mention.post_id]) {
+            acc[mention.post_id] = [];
+          }
+          acc[mention.post_id].push({
+            id: mention.id,
+            postId: mention.post_id,
+            userId: mention.user_id,
+            createdAt: new Date(mention.created_at),
+            user: mention.users ? {
+              id: mention.users.id,
+              name: mention.users.name,
+              email: mention.users.email,
+              avatarUrl: mention.users.avatar_url || undefined,
+              nickname: mention.users.nickname || undefined,
+            } : undefined,
+          });
+          return acc;
+        }, {});
+      }
+    }
+
+    const posts = (postsData || []).map((p: any) => convertToPost(p, mentionsMap[p.id] || []));
     return { posts, error: null };
   } catch (error: any) {
     return { posts: [], error: error.message || 'Failed to fetch feed' };
@@ -166,7 +231,46 @@ export async function getUserPosts(
       return { posts: [], error: postsError.message };
     }
 
-    const posts = (postsData || []).map(convertToPost);
+    // Get mentions for all posts
+    const postIds = (postsData || []).map((p: any) => p.id);
+    let mentionsMap: Record<string, any[]> = {};
+    
+    if (postIds.length > 0) {
+      const { data: mentionsData } = await supabaseServer
+        .from('post_mentions')
+        .select(`
+          id,
+          post_id,
+          user_id,
+          created_at,
+          users (id, name, email, avatar_url, nickname)
+        `)
+        .in('post_id', postIds);
+
+      if (mentionsData) {
+        mentionsMap = mentionsData.reduce((acc: Record<string, any[]>, mention: any) => {
+          if (!acc[mention.post_id]) {
+            acc[mention.post_id] = [];
+          }
+          acc[mention.post_id].push({
+            id: mention.id,
+            postId: mention.post_id,
+            userId: mention.user_id,
+            createdAt: new Date(mention.created_at),
+            user: mention.users ? {
+              id: mention.users.id,
+              name: mention.users.name,
+              email: mention.users.email,
+              avatarUrl: mention.users.avatar_url || undefined,
+              nickname: mention.users.nickname || undefined,
+            } : undefined,
+          });
+          return acc;
+        }, {});
+      }
+    }
+
+    const posts = (postsData || []).map((p: any) => convertToPost(p, mentionsMap[p.id] || []));
     return { posts, error: null };
   } catch (error: any) {
     return { posts: [], error: error.message || 'Failed to fetch user posts' };
@@ -216,7 +320,33 @@ export async function updatePost(
       return { post: null, error: updateError?.message || 'Failed to update post' };
     }
 
-    const post = convertToPost(postData);
+    // Get mentions for this post
+    const { data: mentionsData } = await supabaseServer
+      .from('post_mentions')
+      .select(`
+        id,
+        post_id,
+        user_id,
+        created_at,
+        users (id, name, email, avatar_url, nickname)
+      `)
+      .eq('post_id', postId);
+
+    const mentions = (mentionsData || []).map((m: any) => ({
+      id: m.id,
+      postId: m.post_id,
+      userId: m.user_id,
+      createdAt: new Date(m.created_at),
+      user: m.users ? {
+        id: m.users.id,
+        name: m.users.name,
+        email: m.users.email,
+        avatarUrl: m.users.avatar_url || undefined,
+        nickname: m.users.nickname || undefined,
+      } : undefined,
+    }));
+
+    const post = convertToPost(postData, mentions);
     return { post, error: null };
   } catch (error: any) {
     return { post: null, error: error.message || 'Failed to update post' };
@@ -266,7 +396,7 @@ export async function deletePost(postId: string, userId: string): Promise<{ succ
 /**
  * Convert database post to app format
  */
-function convertToPost(dbPost: any): Post {
+function convertToPost(dbPost: any, mentions: any[] = []): Post {
   const media: PostMedia[] = (dbPost.post_media || [])
     .sort((a: any, b: any) => a.order_index - b.order_index)
     .map((m: any) => ({
@@ -294,6 +424,7 @@ function convertToPost(dbPost: any): Post {
           nickname: dbPost.users.nickname || undefined,
         }
       : undefined,
+    mentions: mentions.length > 0 ? mentions : undefined,
   };
 }
 

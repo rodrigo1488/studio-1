@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,6 +8,8 @@ import { X, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { MentionSelector } from './mention-selector';
+import type { User } from '@/lib/data';
 
 interface CreatePostProps {
   open: boolean;
@@ -20,8 +22,28 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (open) {
+      fetchCurrentUser();
+    }
+  }, [open]);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentUserId(data.user?.id || '');
+      }
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+    }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -77,6 +99,9 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
       if (description.trim()) {
         formData.append('description', description.trim());
       }
+      if (selectedUsers.length > 0) {
+        formData.append('mentionedUserIds', JSON.stringify(selectedUsers.map((u) => u.id)));
+      }
       selectedFiles.forEach((file) => {
         formData.append('files', file);
       });
@@ -117,6 +142,7 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
       // Reset form
       setDescription('');
       setSelectedFiles([]);
+      setSelectedUsers([]);
       previews.forEach((url) => URL.revokeObjectURL(url));
       setPreviews([]);
       onPostCreated();
@@ -136,6 +162,7 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
     if (isSubmitting) return;
     setDescription('');
     setSelectedFiles([]);
+    setSelectedUsers([]);
     previews.forEach((url) => URL.revokeObjectURL(url));
     setPreviews([]);
     onClose();
@@ -203,6 +230,15 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
               className="min-h-[120px] resize-none"
             />
           </div>
+
+          {/* Mention Selector */}
+          {currentUserId && (
+            <MentionSelector
+              selectedUsers={selectedUsers}
+              onUsersChange={setSelectedUsers}
+              currentUserId={currentUserId}
+            />
+          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-2">

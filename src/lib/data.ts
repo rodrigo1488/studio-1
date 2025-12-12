@@ -39,6 +39,14 @@ export type PostMedia = {
   createdAt: Date;
 };
 
+export type PostMention = {
+  id: string;
+  postId: string;
+  userId: string;
+  createdAt: Date;
+  user?: User;
+};
+
 export type Post = {
   id: string;
   userId: string;
@@ -50,6 +58,7 @@ export type Post = {
   likesCount?: number;
   commentsCount?: number;
   isLiked?: boolean;
+  mentions?: PostMention[];
 };
 
 export type PostLike = {

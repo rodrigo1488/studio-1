@@ -26,6 +26,8 @@ export async function POST(request: NextRequest) {
     }
 
     const description = formData.get('description') as string | null;
+    const mentionedUserIdsStr = formData.get('mentionedUserIds') as string | null;
+    const mentionedUserIds: string[] = mentionedUserIdsStr ? JSON.parse(mentionedUserIdsStr) : [];
     const files = formData.getAll('files') as File[];
 
     if (!files || files.length === 0) {
@@ -129,6 +131,23 @@ export async function POST(request: NextRequest) {
 
     if (error || !post) {
       return NextResponse.json({ error: error || 'Failed to create post' }, { status: 500 });
+    }
+
+    // Create mentions if any
+    if (mentionedUserIds.length > 0 && supabaseAdmin) {
+      const mentions = mentionedUserIds.map((mentionedUserId) => ({
+        post_id: post.id,
+        user_id: mentionedUserId,
+      }));
+
+      const { error: mentionsError } = await supabaseAdmin
+        .from('post_mentions')
+        .insert(mentions);
+
+      if (mentionsError) {
+        console.error('Error creating mentions:', mentionsError);
+        // Don't fail the post creation if mentions fail
+      }
     }
 
     // Serialize dates for JSON response

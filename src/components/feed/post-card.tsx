@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Heart, MessageCircle, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Heart, MessageCircle, MoreVertical, ChevronLeft, ChevronRight, User } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getInitials, cn } from '@/lib/utils';
@@ -73,16 +73,18 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
 
   return (
     <>
-      <Card className="w-full">
-        <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
+      <Card className="w-full overflow-hidden border-2 hover:shadow-lg transition-shadow duration-200">
+        <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0">
+              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 ring-2 ring-primary/20">
                 <AvatarImage src={post.user?.avatarUrl} />
-                <AvatarFallback className="text-xs">{getInitials(post.user?.name || 'U')}</AvatarFallback>
+                <AvatarFallback className="text-xs bg-gradient-to-br from-primary to-secondary text-primary-foreground">
+                  {getInitials(post.user?.name || 'U')}
+                </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-xs sm:text-sm truncate">{post.user?.name || 'Usuário'}</p>
+                <p className="font-semibold text-xs sm:text-sm truncate text-foreground">{post.user?.name || 'Usuário'}</p>
                 <p className="text-[10px] sm:text-xs text-muted-foreground">
                   {formatDistanceToNow(createdAt, { addSuffix: true, locale: ptBR })}
                 </p>
@@ -165,21 +167,26 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
           </div>
 
           {/* Actions */}
-          <div className="p-2 sm:p-4 space-y-1.5 sm:space-y-2">
-            <div className="flex items-center gap-3 sm:gap-4">
+          <div className="p-3 sm:p-4 md:p-6 space-y-2 sm:space-y-3 bg-gradient-to-b from-background to-muted/20">
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn('h-8 w-8 sm:h-9 sm:w-9 touch-manipulation', isLiked && 'text-red-500')}
+                className={cn(
+                  'h-9 w-9 sm:h-10 sm:w-10 touch-manipulation transition-all duration-200',
+                  isLiked 
+                    ? 'text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950' 
+                    : 'hover:text-red-500 hover:bg-muted'
+                )}
                 onClick={handleLike}
                 disabled={isLiking}
               >
-                <Heart className={cn('h-5 w-5 sm:h-6 sm:w-6', isLiked && 'fill-current')} />
+                <Heart className={cn('h-5 w-5 sm:h-6 sm:w-6 transition-transform', isLiked && 'fill-current scale-110')} />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 sm:h-9 sm:w-9 touch-manipulation"
+                className="h-9 w-9 sm:h-10 sm:w-10 touch-manipulation hover:text-primary hover:bg-muted transition-all duration-200"
                 onClick={() => setShowModal(true)}
               >
                 <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -187,13 +194,38 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
             </div>
 
             {likesCount > 0 && (
-              <p className="text-xs sm:text-sm font-semibold">{likesCount} curtida{likesCount !== 1 ? 's' : ''}</p>
+              <p className="text-xs sm:text-sm font-semibold text-foreground">
+                {likesCount} curtida{likesCount !== 1 ? 's' : ''}
+              </p>
             )}
 
             {post.description && (
-              <div className="text-xs sm:text-sm leading-relaxed">
-                <span className="font-semibold">{post.user?.name || 'Usuário'}</span>{' '}
-                <span className="break-words">{post.description}</span>
+              <div className="text-xs sm:text-sm md:text-base leading-relaxed space-y-1">
+                <div>
+                  <span className="font-semibold text-foreground">{post.user?.name || 'Usuário'}</span>{' '}
+                  <span className="break-words text-foreground/90">{post.description}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Mentions */}
+            {post.mentions && post.mentions.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-border/50">
+                <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
+                <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
+                  Marcado{post.mentions.length !== 1 ? 's' : ''}:
+                </span>
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  {post.mentions.map((mention, index) => (
+                    <span 
+                      key={mention.id} 
+                      className="text-[10px] sm:text-xs font-semibold text-primary hover:underline cursor-pointer transition-colors"
+                    >
+                      {mention.user?.name || 'Usuário'}
+                      {index < post.mentions!.length - 1 && <span className="text-muted-foreground">,</span>}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
 
