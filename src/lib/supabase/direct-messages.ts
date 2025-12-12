@@ -45,6 +45,57 @@ export async function getUserByNickname(nickname: string): Promise<User | null> 
 }
 
 /**
+ * Search users by name or nickname (partial match)
+ */
+export async function searchUsers(query: string, limit: number = 20): Promise<User[]> {
+  try {
+    if (!supabaseServer) {
+      return [];
+    }
+
+    if (!query || query.trim().length < 2) {
+      return [];
+    }
+
+    const searchTerm = `%${query.trim()}%`;
+
+    // Use separate queries and combine results to avoid issues with or() syntax
+    const [nameResults, nicknameResults] = await Promise.all([
+      supabaseServer
+        .from('users')
+        .select('id, email, name, avatar_url, nickname')
+        .ilike('name', searchTerm)
+        .limit(limit),
+      supabaseServer
+        .from('users')
+        .select('id, email, name, avatar_url, nickname')
+        .ilike('nickname', searchTerm)
+        .limit(limit),
+    ]);
+
+    // Combine results and remove duplicates
+    const allUsers = [...(nameResults.data || []), ...(nicknameResults.data || [])];
+    const uniqueUsers = Array.from(
+      new Map(allUsers.map((user) => [user.id, user])).values()
+    );
+
+    // Limit results
+    const limitedUsers = uniqueUsers.slice(0, limit);
+
+    return limitedUsers.map((user) => ({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatarUrl: user.avatar_url || undefined,
+      nickname: user.nickname || undefined,
+    }));
+  } catch (error) {
+    console.error('Error searching users:', error);
+    return [];
+  }
+}
+
+/**
  * Add a contact
  */
 export async function addContact(userId: string, contactId: string): Promise<{ success: boolean; error?: string }> {

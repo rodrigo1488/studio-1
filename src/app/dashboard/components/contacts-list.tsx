@@ -11,8 +11,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Search, MessageSquare, Clock, CheckCircle, XCircle } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { UserPlus, Search, MessageSquare, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
 import type { User, ContactRequest } from '@/lib/data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getInitials, cn } from '@/lib/utils';
@@ -24,9 +24,10 @@ export default function ContactsList() {
   const [sentRequests, setSentRequests] = useState<ContactRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [nickname, setNickname] = useState('');
-  const [searchResult, setSearchResult] = useState<User | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<User[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -117,42 +118,64 @@ export default function ContactsList() {
     }
   };
 
-  const handleSearch = async () => {
-    if (!nickname.trim()) {
-      toast({
-        title: 'Nickname necessário',
-        description: 'Digite um nickname para buscar',
-        variant: 'destructive',
-      });
+  const performSearch = useCallback(async (query: string) => {
+    if (!query || query.trim().length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
       return;
     }
 
     setIsSearching(true);
     try {
-      const response = await fetch(`/api/users/nickname/${encodeURIComponent(nickname.trim())}`);
+      const response = await fetch(`/api/users/search?q=${encodeURIComponent(query.trim())}&limit=20`);
       if (response.ok) {
         const data = await response.json();
-        setSearchResult(data.user);
+        setSearchResults(data.users || []);
       } else {
-        const data = await response.json();
-        toast({
-          title: 'Usuário não encontrado',
-          description: data.error || 'Nenhum usuário encontrado com este nickname',
-          variant: 'destructive',
-        });
-        setSearchResult(null);
+        setSearchResults([]);
       }
     } catch (error) {
-      toast({
-        title: 'Erro ao buscar',
-        description: 'Ocorreu um erro ao buscar o usuário',
-        variant: 'destructive',
-      });
-      setSearchResult(null);
+      console.error('Error searching users:', error);
+      setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
+  }, []);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+
+    // Clear existing timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
+    // If query is too short, clear results
+    if (!value || value.trim().length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    // Set loading state
+    setIsSearching(true);
+
+    // Debounce search
+    const timeout = setTimeout(() => {
+      performSearch(value);
+    }, 500);
+
+    setSearchTimeout(timeout);
   };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, [searchTimeout]);
 
   const handleAddContact = async (contactId: string) => {
     try {
@@ -165,16 +188,14 @@ export default function ContactsList() {
       });
 
       if (response.ok) {
-        const data = await response.json();
         toast({
           title: 'Solicitação enviada!',
           description: 'A solicitação de amizade foi enviada. Aguarde a resposta.',
         });
-        setSearchResult(null);
-        setNickname('');
-        setIsDialogOpen(false);
-        // Refetch sent requests
+        // Refetch sent requests to update UI
         fetchSentRequests();
+        // Remove from search results
+        setSearchResults((prev) => prev.filter((u) => u.id !== contactId));
       } else {
         const data = await response.json();
         toast({
@@ -191,6 +212,19 @@ export default function ContactsList() {
       });
     }
   };
+
+  // Reset search when dialog closes
+  useEffect(() => {
+    if (!isDialogOpen) {
+      setSearchQuery('');
+      setSearchResults([]);
+      setIsSearching(false);
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+        setSearchTimeout(null);
+      }
+    }
+  }, [isDialogOpen]);
 
   if (isLoading) {
     return (
@@ -212,95 +246,112 @@ export default function ContactsList() {
             <span className="sm:hidden">Adicionar</span>
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-[95vw] sm:max-w-lg">
+        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg">Adicionar Contato</DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
-              Digite o nickname do usuário que deseja adicionar aos seus contatos.
+              Digite o nome ou nickname do usuário que deseja adicionar aos seus contatos.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex gap-2">
+          <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Digite o nickname"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSearch();
-                  }
-                }}
-                className="text-sm sm:text-base"
+                placeholder="Buscar por nome ou nickname..."
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="text-sm sm:text-base pl-9"
               />
-              <Button onClick={handleSearch} disabled={isSearching || !nickname.trim()} size="icon" className="shrink-0">
-                <Search className="h-4 w-4" />
-              </Button>
+              {isSearching && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
+              )}
             </div>
 
-            {searchResult && (
-              <div className="flex items-center justify-between p-2 sm:p-3 rounded-xl border-2 border-primary/30 bg-gradient-to-r from-primary/10 to-secondary/10 gap-2 sm:gap-3 shadow-md">
-                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                  <Avatar className="h-10 w-10 sm:h-12 sm:w-12 shrink-0">
-                    <AvatarImage src={searchResult.avatarUrl} />
-                    <AvatarFallback className="text-xs sm:text-sm">{getInitials(searchResult.name)}</AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1 overflow-hidden">
-                    <p className="font-medium truncate text-sm sm:text-base" title={searchResult.name}>
-                      {searchResult.name}
-                    </p>
-                    <p className="text-xs sm:text-sm text-muted-foreground truncate" title={`@${searchResult.nickname}`}>
-                      @{searchResult.nickname}
-                    </p>
-                  </div>
-                </div>
-                {(() => {
-                  const status = getRequestStatus(searchResult.id);
-                  if (status === 'contact') {
-                    return (
-                      <Button
-                        size="sm"
-                        disabled
-                        variant="outline"
-                        className="shrink-0 text-xs px-2 sm:px-3"
-                      >
-                        <CheckCircle className="mr-1 h-3 w-3" />
-                        <span className="hidden sm:inline">Contato</span>
-                      </Button>
-                    );
-                  }
-                  if (status === 'pending') {
-                    const request = sentRequests.find((r) => r.requestedId === searchResult.id);
-                    return (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => request && handleCancelRequest(request.id)}
-                        className="shrink-0 text-xs px-2 sm:px-3"
-                      >
-                        <Clock className="mr-1 h-3 w-3" />
-                        <span className="hidden sm:inline">Pendente</span>
-                      </Button>
-                    );
-                  }
-                  return (
-                    <Button
-                      size="sm"
-                      onClick={() => handleAddContact(searchResult.id)}
-                      className="shrink-0 text-xs px-2 sm:px-3"
-                    >
-                      <UserPlus className="mr-1 h-3 w-3" />
-                      <span className="hidden sm:inline">Adicionar</span>
-                    </Button>
-                  );
-                })()}
-              </div>
-            )}
+            <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
+              {searchQuery.trim().length > 0 && searchQuery.trim().length < 2 && (
+                <p className="text-xs sm:text-sm text-center text-muted-foreground py-4">
+                  Digite pelo menos 2 caracteres para buscar
+                </p>
+              )}
 
-            {contacts.length === 0 && !searchResult && (
-              <p className="text-sm text-center text-muted-foreground py-4">
-                Nenhum contato adicionado ainda
-              </p>
-            )}
+              {searchQuery.trim().length >= 2 && !isSearching && searchResults.length === 0 && (
+                <p className="text-xs sm:text-sm text-center text-muted-foreground py-4">
+                  Nenhum usuário encontrado
+                </p>
+              )}
+
+              {searchResults.length > 0 && (
+                <div className="space-y-2">
+                  {searchResults.map((user) => {
+                    const status = getRequestStatus(user.id);
+                    return (
+                      <div
+                        key={user.id}
+                        className="flex items-center justify-between p-2 sm:p-3 rounded-xl border-2 border-primary/30 bg-gradient-to-r from-primary/10 to-secondary/10 gap-2 sm:gap-3 shadow-md"
+                      >
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                          <Avatar className="h-10 w-10 sm:h-12 sm:w-12 shrink-0">
+                            <AvatarImage src={user.avatarUrl} />
+                            <AvatarFallback className="text-xs sm:text-sm">{getInitials(user.name)}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1 overflow-hidden">
+                            <p className="font-medium truncate text-sm sm:text-base" title={user.name}>
+                              {user.name}
+                            </p>
+                            {user.nickname && (
+                              <p className="text-xs sm:text-sm text-muted-foreground truncate" title={`@${user.nickname}`}>
+                                @{user.nickname}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {status === 'contact' ? (
+                          <Button
+                            size="sm"
+                            disabled
+                            variant="outline"
+                            className="shrink-0 text-xs px-2 sm:px-3"
+                          >
+                            <CheckCircle className="mr-1 h-3 w-3" />
+                            <span className="hidden sm:inline">Contato</span>
+                          </Button>
+                        ) : status === 'pending' ? (
+                          (() => {
+                            const request = sentRequests.find((r) => r.requestedId === user.id);
+                            return (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => request && handleCancelRequest(request.id)}
+                                className="shrink-0 text-xs px-2 sm:px-3"
+                              >
+                                <Clock className="mr-1 h-3 w-3" />
+                                <span className="hidden sm:inline">Pendente</span>
+                              </Button>
+                            );
+                          })()
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => handleAddContact(user.id)}
+                            className="shrink-0 text-xs px-2 sm:px-3"
+                          >
+                            <UserPlus className="mr-1 h-3 w-3" />
+                            <span className="hidden sm:inline">Adicionar</span>
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {searchQuery.trim().length === 0 && (
+                <p className="text-xs sm:text-sm text-center text-muted-foreground py-4">
+                  Digite o nome ou nickname para buscar usuários
+                </p>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
