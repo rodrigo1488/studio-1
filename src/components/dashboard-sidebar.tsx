@@ -81,7 +81,7 @@ function SidebarContent() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-2 sm:p-4">
         {activeView === 'groups' && (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-2">

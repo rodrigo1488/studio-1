@@ -206,15 +206,16 @@ export default function ContactsList() {
     <div className="space-y-2">
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="w-full">
-            <UserPlus className="mr-2 h-4 w-4" />
-            Adicionar Contato
+          <Button variant="outline" size="sm" className="w-full text-xs sm:text-sm">
+            <UserPlus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Adicionar Contato</span>
+            <span className="sm:hidden">Adicionar</span>
           </Button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Adicionar Contato</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base sm:text-lg">Adicionar Contato</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
               Digite o nickname do usuário que deseja adicionar aos seus contatos.
             </DialogDescription>
           </DialogHeader>
@@ -229,18 +230,19 @@ export default function ContactsList() {
                     handleSearch();
                   }
                 }}
+                className="text-sm sm:text-base"
               />
-              <Button onClick={handleSearch} disabled={isSearching || !nickname.trim()}>
+              <Button onClick={handleSearch} disabled={isSearching || !nickname.trim()} size="icon" className="shrink-0">
                 <Search className="h-4 w-4" />
               </Button>
             </div>
 
             {searchResult && (
-              <div className="flex items-center justify-between p-3 rounded-xl border-2 border-primary/30 bg-gradient-to-r from-primary/10 to-secondary/10 gap-3 shadow-md">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <Avatar className="shrink-0">
+              <div className="flex items-center justify-between p-2 sm:p-3 rounded-xl border-2 border-primary/30 bg-gradient-to-r from-primary/10 to-secondary/10 gap-2 sm:gap-3 shadow-md">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  <Avatar className="h-10 w-10 sm:h-12 sm:w-12 shrink-0">
                     <AvatarImage src={searchResult.avatarUrl} />
-                    <AvatarFallback>{getInitials(searchResult.name)}</AvatarFallback>
+                    <AvatarFallback className="text-xs sm:text-sm">{getInitials(searchResult.name)}</AvatarFallback>
                   </Avatar>
                   <div className="min-w-0 flex-1 overflow-hidden">
                     <p className="font-medium truncate text-sm sm:text-base" title={searchResult.name}>
@@ -259,10 +261,10 @@ export default function ContactsList() {
                         size="sm"
                         disabled
                         variant="outline"
-                        className="shrink-0 text-xs sm:text-sm"
+                        className="shrink-0 text-xs px-2 sm:px-3"
                       >
                         <CheckCircle className="mr-1 h-3 w-3" />
-                        Contato
+                        <span className="hidden sm:inline">Contato</span>
                       </Button>
                     );
                   }
@@ -273,10 +275,10 @@ export default function ContactsList() {
                         size="sm"
                         variant="outline"
                         onClick={() => request && handleCancelRequest(request.id)}
-                        className="shrink-0 text-xs sm:text-sm"
+                        className="shrink-0 text-xs px-2 sm:px-3"
                       >
                         <Clock className="mr-1 h-3 w-3" />
-                        Pendente
+                        <span className="hidden sm:inline">Pendente</span>
                       </Button>
                     );
                   }
@@ -284,10 +286,10 @@ export default function ContactsList() {
                     <Button
                       size="sm"
                       onClick={() => handleAddContact(searchResult.id)}
-                      className="shrink-0 text-xs sm:text-sm"
+                      className="shrink-0 text-xs px-2 sm:px-3"
                     >
                       <UserPlus className="mr-1 h-3 w-3" />
-                      Adicionar
+                      <span className="hidden sm:inline">Adicionar</span>
                     </Button>
                   );
                 })()}
@@ -319,21 +321,21 @@ export default function ContactsList() {
           <div
             key={contact.id}
             className={cn(
-              "flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl border-2 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5",
+              "flex items-center gap-1.5 sm:gap-2 md:gap-3 p-1.5 sm:p-2 md:p-3 rounded-lg sm:rounded-xl border-2 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5",
               borderColor,
               "bg-gradient-to-r from-white to-primary/5"
             )}
           >
-            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 shrink-0">
+            <Avatar className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 shrink-0">
               <AvatarImage src={contact.avatarUrl} />
-              <AvatarFallback>{getInitials(contact.name)}</AvatarFallback>
+              <AvatarFallback className="text-xs sm:text-sm">{getInitials(contact.name)}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0 overflow-hidden">
-              <p className="font-medium truncate text-sm sm:text-base" title={contact.name}>
+              <p className="font-medium truncate text-xs sm:text-sm md:text-base" title={contact.name}>
                 {contact.name}
               </p>
               {contact.nickname && (
-                <p className="text-xs text-muted-foreground truncate" title={`@${contact.nickname}`}>
+                <p className="text-[10px] sm:text-xs text-muted-foreground truncate" title={`@${contact.nickname}`}>
                   @{contact.nickname}
                 </p>
               )}
@@ -341,6 +343,7 @@ export default function ContactsList() {
             <Button
               size="sm"
               variant="ghost"
+              className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 p-0"
               onClick={async () => {
                 try {
                   const response = await fetch('/api/direct-conversations/create', {
@@ -371,7 +374,7 @@ export default function ContactsList() {
                 }
               }}
             >
-              <MessageSquare className="h-4 w-4" />
+              <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
           </div>
           );

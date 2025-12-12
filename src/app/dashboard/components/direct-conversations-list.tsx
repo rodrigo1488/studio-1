@@ -129,26 +129,26 @@ export default function DirectConversationsList() {
         <Card
           key={conversation.id}
           className={cn(
-            "p-3 sm:p-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-slide-in-color",
+            "p-2 sm:p-3 md:p-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-slide-in-color rounded-lg sm:rounded-xl",
             borderColor,
             bgGradient
           )}
           onClick={() => handleConversationClick(conversation.id)}
         >
-          <div className="flex items-center gap-3 min-w-0">
-            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Avatar className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 shrink-0">
               <AvatarImage src={conversation.otherUser.avatarUrl} />
-              <AvatarFallback>
+              <AvatarFallback className="text-xs sm:text-sm">
                 {getInitials(conversation.otherUser.name)}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0 overflow-hidden">
-              <div className="flex items-center gap-2">
-                <p className="font-medium truncate text-sm sm:text-base flex-1" title={conversation.otherUser.name}>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <p className="font-medium truncate text-xs sm:text-sm md:text-base flex-1" title={conversation.otherUser.name}>
                   {conversation.otherUser.name}
                 </p>
                 {unreadCounts[conversation.id] > 0 && (
-                  <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-xs shrink-0">
+                  <Badge variant="destructive" className="h-4 min-w-4 px-1 text-[10px] sm:h-5 sm:min-w-5 sm:px-1.5 sm:text-xs shrink-0">
                     {unreadCounts[conversation.id] > 99 ? '99+' : unreadCounts[conversation.id]}
                   </Badge>
                 )}

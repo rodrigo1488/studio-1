@@ -150,20 +150,20 @@ export default function RoomList() {
             className="group flex-1 min-w-0"
             onClick={() => closeMobileSidebar?.()}
           >
-            <CardHeader className="p-4 sm:p-6">
-              <div className="flex items-start justify-between gap-2 min-w-0">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <CardTitle className="text-base sm:text-lg font-semibold truncate flex-1 min-w-0" title={room.name}>
+            <CardHeader className="p-3 sm:p-4 md:p-6">
+              <div className="flex items-start justify-between gap-1.5 sm:gap-2 min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+                  <CardTitle className="text-sm sm:text-base md:text-lg font-semibold truncate flex-1 min-w-0" title={room.name}>
                     {room.name}
                   </CardTitle>
                   {unreadCounts[room.id] > 0 && (
-                    <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-xs shrink-0">
+                    <Badge variant="destructive" className="h-4 min-w-4 px-1 text-[10px] sm:h-5 sm:min-w-5 sm:px-1.5 sm:text-xs shrink-0">
                       {unreadCounts[room.id] > 99 ? '99+' : unreadCounts[room.id]}
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground shrink-0">
-                  <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+                <div className="flex items-center gap-1 text-[10px] sm:text-xs md:text-sm text-muted-foreground shrink-0">
+                  <Users className="h-3 w-3 sm:h-3 sm:w-3 md:h-4 md:w-4" />
                   <span>{room.memberCount || room.members.length}</span>
                 </div>
               </div>
@@ -182,7 +182,7 @@ export default function RoomList() {
               )}
             </CardHeader>
           </Link>
-          <div className="px-4 sm:px-6 pb-4 pt-0 space-y-2">
+          <div className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 pt-0 space-y-1.5 sm:space-y-2">
             {room.code && !room.code.startsWith('DM-') && (
               <RoomCodeDisplay
                 code={room.code}
@@ -192,10 +192,10 @@ export default function RoomList() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full text-xs sm:text-sm"
+                    className="w-full text-xs sm:text-sm py-1.5 sm:py-2"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <QrCode className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                    <QrCode className="mr-1.5 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                     Ver Código
                   </Button>
                 }
@@ -205,14 +205,14 @@ export default function RoomList() {
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full text-xs sm:text-sm"
+                className="w-full text-xs sm:text-sm py-1.5 sm:py-2"
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedRoom(room);
                   setShowDetails(true);
                 }}
               >
-                <Info className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                <Info className="mr-1.5 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                 Detalhes
               </Button>
             )}
