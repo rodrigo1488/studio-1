@@ -43,19 +43,19 @@ export function FeedPreview() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <div className="flex items-center justify-center py-6 sm:py-8">
+        <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (posts.length === 0) {
     return (
-      <div className="text-center py-6 px-4">
-        <p className="text-xs sm:text-sm text-muted-foreground mb-4">
+      <div className="text-center py-4 sm:py-6 px-2 sm:px-4">
+        <p className="text-xs text-muted-foreground mb-3 sm:mb-4">
           Nenhuma publicação ainda
         </p>
-        <Button asChild size="sm" className="w-full">
+        <Button asChild size="sm" className="w-full text-xs sm:text-sm">
           <Link href="/feed">
             Ver Feed
           </Link>
@@ -65,9 +65,9 @@ export function FeedPreview() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2 sm:space-y-3">
       {/* Grid de previews */}
-      <div className="grid grid-cols-3 gap-1 sm:gap-2">
+      <div className="grid grid-cols-3 gap-1 sm:gap-1.5 md:gap-2">
         {posts.slice(0, 6).map((post) => {
           const firstImage = post.media[0];
           if (!firstImage) return null;
@@ -76,31 +76,31 @@ export function FeedPreview() {
             <Link
               key={post.id}
               href="/feed"
-              className="relative aspect-square rounded-md sm:rounded-lg overflow-hidden border border-border/50 hover:border-primary/50 transition-colors group"
+              className="relative aspect-square rounded-md sm:rounded-lg overflow-hidden border border-border/50 hover:border-primary/50 transition-all duration-200 group cursor-pointer"
             >
               <Image
                 src={firstImage.mediaUrl}
                 alt={post.description || 'Post'}
                 fill
-                className="object-cover"
+                className="object-cover transition-transform duration-300 group-hover:scale-110"
                 sizes="(max-width: 640px) 33vw, 150px"
               />
               {/* Overlay com stats */}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
-                <div className="flex items-center gap-1 text-white text-xs">
-                  <Heart className={cn('h-3 w-3', post.isLiked && 'fill-current')} />
-                  <span>{post.likesCount || 0}</span>
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center gap-2 sm:gap-3 opacity-0 group-hover:opacity-100">
+                <div className="flex items-center gap-1 text-white text-[10px] sm:text-xs">
+                  <Heart className={cn('h-2.5 w-2.5 sm:h-3 sm:w-3', post.isLiked && 'fill-current')} />
+                  <span className="font-semibold">{post.likesCount || 0}</span>
                 </div>
-                <div className="flex items-center gap-1 text-white text-xs">
-                  <MessageCircle className="h-3 w-3" />
-                  <span>{post.commentsCount || 0}</span>
+                <div className="flex items-center gap-1 text-white text-[10px] sm:text-xs">
+                  <MessageCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                  <span className="font-semibold">{post.commentsCount || 0}</span>
                 </div>
               </div>
               {/* Indicador de múltiplas imagens */}
               {post.media.length > 1 && (
                 <div className="absolute top-1 right-1">
                   <svg
-                    className="w-3 h-3 sm:w-4 sm:h-4 text-white drop-shadow-lg"
+                    className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white drop-shadow-lg"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -120,7 +120,7 @@ export function FeedPreview() {
       </div>
 
       {/* Botão para ver feed completo */}
-      <Button asChild size="sm" variant="outline" className="w-full text-xs sm:text-sm">
+      <Button asChild size="sm" variant="outline" className="w-full text-xs sm:text-sm mt-2 sm:mt-3">
         <Link href="/feed">
           Ver Feed Completo
         </Link>

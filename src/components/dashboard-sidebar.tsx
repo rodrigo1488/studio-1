@@ -7,6 +7,7 @@ import Link from 'next/link';
 import RoomList from '@/app/dashboard/components/room-list';
 import DirectConversationsList from '@/app/dashboard/components/direct-conversations-list';
 import ContactsList from '@/app/dashboard/components/contacts-list';
+import { FeedPreview } from '@/components/feed/feed-preview';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
@@ -115,16 +116,7 @@ function SidebarContent() {
         )}
         {activeView === 'conversations' && <DirectConversationsList />}
         {activeView === 'contacts' && <ContactsList />}
-        {activeView === 'feed' && (
-          <div className="text-center py-8">
-            <Button asChild className="w-full">
-              <Link href="/feed">
-                <ImageIcon className="mr-2 h-4 w-4" />
-                Ver Feed
-              </Link>
-            </Button>
-          </div>
-        )}
+        {activeView === 'feed' && <FeedPreview />}
       </div>
     </div>
   );
