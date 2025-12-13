@@ -79,17 +79,31 @@ self.addEventListener('push', (event) => {
     notificationOptions.image = notificationData.image;
   }
 
+  // Vibrate when notification is received (if supported)
+  // Pattern: vibrate 200ms, pause 100ms, vibrate 200ms
+  const vibrationPattern = [200, 100, 200];
+  if ('vibrate' in navigator) {
+    try {
+      navigator.vibrate(vibrationPattern);
+      console.log('[Service Worker] Vibration triggered');
+    } catch (error) {
+      console.warn('[Service Worker] Could not vibrate:', error);
+    }
+  }
+
   // Play sound when notification is received
   // Note: Service Worker can't play audio directly, so we notify the client
   event.waitUntil(
     Promise.all([
       self.registration.showNotification(notificationData.title, notificationOptions),
-      // Notify all clients to play sound
+      // Notify all clients to play sound and vibrate
       clients.matchAll().then((clientList) => {
         clientList.forEach((client) => {
           client.postMessage({
             type: 'PLAY_NOTIFICATION_SOUND',
             soundUrl: notificationData.sound || NOTIFICATION_SOUND,
+            vibrate: true, // Tell client to also vibrate
+            vibrationPattern: vibrationPattern,
           });
         });
       }),

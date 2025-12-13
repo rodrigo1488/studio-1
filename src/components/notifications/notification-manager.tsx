@@ -10,6 +10,7 @@ import { getCachedUser, getCachedRoom } from '@/lib/storage/room-cache';
 import { supabase } from '@/lib/supabase/client';
 import { convertMessageToAppFormat } from '@/lib/supabase/realtime';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { vibrate, isVibrationSupported } from '@/lib/utils/vibration';
 
 interface NotificationItem {
   roomId: string;
@@ -419,6 +420,11 @@ export function NotificationManager() {
         // Adicionar ao storage
         addNotification(roomId, message);
 
+        // Vibrate when showing in-app notification (if supported)
+        if (isVibrationSupported()) {
+          vibrate([200, 100, 200]); // Double vibration pattern
+        }
+
         // Mostrar popup se o app está aberto
         setActiveNotification(notification);
       }
@@ -432,11 +438,13 @@ export function NotificationManager() {
     };
   }, []);
 
-  // Listen for service worker messages to play notification sound
+  // Listen for service worker messages to play notification sound and vibrate
   useEffect(() => {
     const handleServiceWorkerMessage = (event: MessageEvent) => {
       if (event.data && event.data.type === 'PLAY_NOTIFICATION_SOUND') {
         const soundUrl = event.data.soundUrl || '/notification-sound.mp3';
+        
+        // Play sound
         try {
           const audio = new Audio(soundUrl);
           audio.volume = 0.7; // Set volume to 70%
@@ -445,6 +453,13 @@ export function NotificationManager() {
           });
         } catch (error) {
           console.warn('[Notifications] Error creating audio element:', error);
+        }
+
+        // Vibrate if requested and supported
+        if (event.data.vibrate && isVibrationSupported()) {
+          const vibrationPattern = event.data.vibrationPattern || [200, 100, 200];
+          vibrate(vibrationPattern);
+          console.log('[Notifications] Vibration triggered');
         }
       }
     };
