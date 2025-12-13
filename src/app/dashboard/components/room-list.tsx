@@ -23,7 +23,6 @@ import { getCachedRooms, saveRoomsToCache } from '@/lib/storage/lists-cache';
 import { getCachedCurrentUser } from '@/lib/storage/room-cache';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Users } from 'lucide-react';
 
 export default function RoomList() {
   const [rooms, setRooms] = useState<Room[]>([]);
