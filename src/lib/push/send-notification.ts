@@ -16,7 +16,7 @@ export async function sendPushNotification(
     }
 
     // Get VAPID keys from environment
-    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    let vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
     let vapidEmail = process.env.VAPID_EMAIL || 'mailto:admin@familychat.com';
     
@@ -29,8 +29,33 @@ export async function sendPushNotification(
       return { success: false, error: 'VAPID keys not configured' };
     }
 
-    // Configure web-push
-    webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey);
+    // Normalize VAPID public key to URL-safe Base64
+    // VAPID keys should be URL-safe Base64 without padding
+    // Remove any whitespace and normalize format
+    let normalizedPublicKey = vapidPublicKey.trim();
+    
+    // If key has standard Base64 characters (+ and /), convert to URL-safe
+    if (normalizedPublicKey.includes('+') || normalizedPublicKey.includes('/')) {
+      normalizedPublicKey = normalizedPublicKey
+        .replace(/\+/g, '-') // Replace + with -
+        .replace(/\//g, '_'); // Replace / with _
+    }
+    
+    // Remove padding (=) if present
+    normalizedPublicKey = normalizedPublicKey.replace(/=/g, '');
+
+    try {
+      // Configure web-push with normalized key
+      webpush.setVapidDetails(vapidEmail, normalizedPublicKey, vapidPrivateKey);
+      console.log('[Push] VAPID keys configured successfully');
+    } catch (error: any) {
+      console.error('[Push] Error setting VAPID details:', error.message);
+      console.error('[Push] Public key (first 20 chars):', normalizedPublicKey.substring(0, 20));
+      return { 
+        success: false, 
+        error: `Invalid VAPID keys: ${error.message}. Please regenerate keys using: node GERAR_VAPID_KEYS.js` 
+      };
+    }
 
     // Get user's push subscriptions
     const { data: subscriptions, error } = await supabaseAdmin

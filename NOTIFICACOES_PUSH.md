@@ -42,8 +42,13 @@ npx web-push generate-vapid-keys
 ```
 
 Isso gerará duas chaves:
-- **Public Key**: Use como `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
+- **Public Key**: Use como `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (deve ser URL-safe Base64, sem padding `=`)
 - **Private Key**: Use como `VAPID_PRIVATE_KEY` (NUNCA exponha esta chave)
+
+**⚠️ IMPORTANTE**: As chaves geradas pelo `web-push` já estão no formato correto (URL-safe Base64). Se você copiar de outro lugar, certifique-se de que:
+- Não tenha caracteres `=` no final (padding)
+- Use `-` em vez de `+`
+- Use `_` em vez de `/`
 
 #### Opção 2: Usando Node.js
 
