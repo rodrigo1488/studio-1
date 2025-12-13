@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase/client';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
 export interface MessageRead {
   id: string;
@@ -17,8 +17,11 @@ export async function markMessageAsRead(
   userId: string
 ): Promise<{ success: boolean; error: string | null }> {
   try {
+    if (!supabaseAdmin) {
+      return { success: false, error: 'Supabase não inicializado' };
+    }
 
-    const { error } = await supabase.from('message_reads').upsert(
+    const { error } = await supabaseAdmin.from('message_reads').upsert(
       {
         message_id: messageId,
         user_id: userId,
@@ -44,9 +47,12 @@ export async function markRoomMessagesAsRead(
   userId: string
 ): Promise<{ success: boolean; error: string | null }> {
   try {
+    if (!supabaseAdmin) {
+      return { success: false, error: 'Supabase não inicializado' };
+    }
 
     // Get all unread messages in the room
-    const { data: messages } = await supabase
+    const { data: messages } = await supabaseAdmin
       .from('messages')
       .select('id')
       .eq('room_id', roomId)
@@ -59,7 +65,7 @@ export async function markRoomMessagesAsRead(
     const messageIds = messages.map((m) => m.id);
 
     // Mark all as read
-    const { error } = await supabase.from('message_reads').upsert(
+    const { error } = await supabaseAdmin.from('message_reads').upsert(
       messageIds.map((messageId) => ({
         message_id: messageId,
         user_id: userId,
@@ -84,8 +90,11 @@ export async function getMessageReads(
   messageId: string
 ): Promise<{ reads: MessageRead[]; error: string | null }> {
   try {
+    if (!supabaseAdmin) {
+      return { reads: [], error: 'Supabase não inicializado' };
+    }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('message_reads')
       .select(`
         *,

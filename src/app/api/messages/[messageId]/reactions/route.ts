@@ -14,6 +14,12 @@ export async function POST(
     }
 
     const { messageId } = await params;
+    
+    // Reject temporary/optimistic message IDs
+    if (messageId.startsWith('temp-')) {
+      return NextResponse.json({ error: 'Mensagem temporária não pode receber reações' }, { status: 400 });
+    }
+    
     const { emoji } = await request.json();
 
     if (!emoji) {
@@ -52,6 +58,12 @@ export async function DELETE(
     }
 
     const { messageId } = await params;
+    
+    // Reject temporary/optimistic message IDs
+    if (messageId.startsWith('temp-')) {
+      return NextResponse.json({ error: 'Mensagem temporária não pode receber reações' }, { status: 400 });
+    }
+    
     const { emoji } = await request.json();
 
     if (!emoji) {
@@ -85,6 +97,12 @@ export async function GET(
     }
 
     const { messageId } = await params;
+    
+    // Reject temporary/optimistic message IDs
+    if (messageId.startsWith('temp-')) {
+      return NextResponse.json({ reactions: [] }, { status: 200 });
+    }
+    
     const result = await getMessageReactions(messageId);
 
     if (result.error) {

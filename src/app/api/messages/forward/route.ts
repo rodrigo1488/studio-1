@@ -24,6 +24,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Supabase não inicializado' }, { status: 500 });
     }
 
+    // Reject temporary/optimistic message IDs
+    if (messageId.startsWith('temp-')) {
+      return NextResponse.json(
+        { error: 'Não é possível encaminhar mensagens temporárias' },
+        { status: 400 }
+      );
+    }
+
     // Get original message
     const { data: originalMessage, error: messageError } = await supabaseServer
       .from('messages')

@@ -1,4 +1,4 @@
-import { supabaseServer } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
 export interface MessageReaction {
   id: string;
@@ -19,11 +19,11 @@ export async function addMessageReaction(
   emoji: string
 ): Promise<{ reaction: MessageReaction | null; error: string | null }> {
   try {
-    if (!supabaseServer) {
+    if (!supabaseAdmin) {
       return { reaction: null, error: 'Supabase não inicializado' };
     }
 
-    const { data, error } = await supabaseServer
+    const { data, error } = await supabaseAdmin
       .from('message_reactions')
       .insert({
         message_id: messageId,
@@ -66,12 +66,11 @@ export async function removeMessageReaction(
   emoji: string
 ): Promise<{ removed: boolean; error: string | null }> {
   try {
-
-    if (!supabaseServer) {
+    if (!supabaseAdmin) {
       return { removed: false, error: 'Supabase não inicializado' };
     }
 
-    const { error } = await supabaseServer
+    const { error } = await supabaseAdmin
       .from('message_reactions')
       .delete()
       .eq('message_id', messageId)
@@ -92,12 +91,11 @@ export async function getMessageReactions(
   messageId: string
 ): Promise<{ reactions: MessageReaction[]; error: string | null }> {
   try {
-
-    if (!supabaseServer) {
+    if (!supabaseAdmin) {
       return { reactions: [], error: 'Supabase não inicializado' };
     }
 
-    const { data, error } = await supabaseServer
+    const { data, error } = await supabaseAdmin
       .from('message_reactions')
       .select(`
         *,

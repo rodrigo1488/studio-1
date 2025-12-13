@@ -448,6 +448,18 @@ export default function ChatLayout({
 
     const text = messageText.trim();
     
+    // Validate replyTo - skip if it's a temporary message
+    let validReplyTo = replyingTo;
+    if (replyingTo && replyingTo.id.startsWith('temp-')) {
+      toast({
+        title: 'Aguarde',
+        description: 'Aguarde a mensagem original ser enviada para responder',
+        variant: 'default',
+      });
+      setReplyingTo(null);
+      validReplyTo = null;
+    }
+    
     // Criar mensagem otimista ANTES de qualquer coisa
     const tempId = `temp-${Date.now()}-${Math.random()}`;
     const optimisticMessage: Message & { user?: User } = {
@@ -458,6 +470,8 @@ export default function ChatLayout({
       timestamp: new Date(),
       status: 'sending',
       user: currentUser,
+      replyToId: validReplyTo?.id && !validReplyTo.id.startsWith('temp-') ? validReplyTo.id : undefined,
+      replyTo: validReplyTo && !validReplyTo.id.startsWith('temp-') ? validReplyTo : undefined,
     };
 
     // 1. Limpar input IMEDIATAMENTE para feedback visual instantâneo
@@ -489,7 +503,7 @@ export default function ChatLayout({
           body: JSON.stringify({
             roomId: room.id,
             text,
-            replyToId,
+            replyToId: validReplyTo?.id && !validReplyTo.id.startsWith('temp-') ? validReplyTo.id : undefined,
           }),
         });
 
@@ -1306,7 +1320,16 @@ export default function ChatLayout({
                 replyBtn.className = 'w-full text-left px-3 py-2 hover:bg-muted rounded text-sm';
                 replyBtn.textContent = 'Responder';
                 replyBtn.onclick = () => {
-                  setReplyingTo(message);
+                  // Skip temporary messages
+                  if (!message.id.startsWith('temp-')) {
+                    setReplyingTo(message);
+                  } else {
+                    toast({
+                      title: 'Aguarde',
+                      description: 'Aguarde a mensagem ser enviada para responder',
+                      variant: 'default',
+                    });
+                  }
                   document.body.removeChild(menu);
                 };
                 
@@ -1314,7 +1337,16 @@ export default function ChatLayout({
                 forwardBtn.className = 'w-full text-left px-3 py-2 hover:bg-muted rounded text-sm';
                 forwardBtn.textContent = 'Encaminhar';
                 forwardBtn.onclick = () => {
-                  setForwardingMessage(message);
+                  // Skip temporary messages
+                  if (!message.id.startsWith('temp-')) {
+                    setForwardingMessage(message);
+                  } else {
+                    toast({
+                      title: 'Aguarde',
+                      description: 'Aguarde a mensagem ser enviada para encaminhar',
+                      variant: 'default',
+                    });
+                  }
                   document.body.removeChild(menu);
                 };
                 

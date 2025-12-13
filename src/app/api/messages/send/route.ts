@@ -29,6 +29,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Reject temporary/optimistic message IDs for replyToId
+    if (replyToId && replyToId.startsWith('temp-')) {
+      return NextResponse.json(
+        { error: 'Não é possível responder a mensagens temporárias' },
+        { status: 400 }
+      );
+    }
+
     // VALIDAÇÃO CRÍTICA: O senderId SEMPRE vem do servidor (user.id da sessão)
     // Ignorar qualquer senderId enviado pelo cliente por segurança
     // O servidor é a única fonte confiável para identificar o remetente

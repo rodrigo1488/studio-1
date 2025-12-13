@@ -22,10 +22,21 @@ export function MessageReactions({ messageId, currentUserId, onReactionChange }:
   const { toast } = useToast();
 
   useEffect(() => {
+    // Skip fetching reactions for temporary/optimistic messages
+    if (messageId.startsWith('temp-')) {
+      setIsLoading(false);
+      return;
+    }
     fetchReactions();
   }, [messageId]);
 
   const fetchReactions = async () => {
+    // Skip fetching reactions for temporary/optimistic messages
+    if (messageId.startsWith('temp-')) {
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       const response = await fetch(`/api/messages/${messageId}/reactions`);
       if (response.ok) {
@@ -40,6 +51,16 @@ export function MessageReactions({ messageId, currentUserId, onReactionChange }:
   };
 
   const handleReactionClick = async (emoji: string) => {
+    // Skip reactions for temporary/optimistic messages
+    if (messageId.startsWith('temp-')) {
+      toast({
+        title: 'Aguarde',
+        description: 'Aguarde a mensagem ser enviada para reagir',
+        variant: 'default',
+      });
+      return;
+    }
+    
     try {
       const existingReaction = reactions.find(
         (r) => r.emoji === emoji && r.userId === currentUserId
@@ -54,8 +75,12 @@ export function MessageReactions({ messageId, currentUserId, onReactionChange }:
         });
 
         if (response.ok) {
+          const data = await response.json();
           setReactions((prev) => prev.filter((r) => r.id !== existingReaction.id));
           onReactionChange?.();
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Erro ao remover reação');
         }
       } else {
         // Add reaction
@@ -69,6 +94,9 @@ export function MessageReactions({ messageId, currentUserId, onReactionChange }:
           const data = await response.json();
           setReactions((prev) => [...prev, data.reaction]);
           onReactionChange?.();
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Erro ao adicionar reação');
         }
       }
     } catch (error) {
