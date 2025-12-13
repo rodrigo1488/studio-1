@@ -17,6 +17,7 @@ import {
   RotateCcw,
   Info,
   Smile,
+  Forward,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -58,6 +59,7 @@ import { ForwardMessageDialog } from '@/components/chat/forward-message-dialog';
 import { MessageSearch } from '@/components/chat/message-search';
 import { GifPicker } from '@/components/chat/gif-picker';
 import { TypingIndicator } from '@/components/chat/typing-indicator';
+import { ForwardedMessageBadge } from '@/components/chat/forwarded-message-badge';
 
 interface ChatLayoutProps {
   room: Room;
@@ -79,6 +81,26 @@ const formatDate = (date: Date) => {
     return `Ontem ${format(date, 'p', { locale: ptBR })}`;
   }
   return format(date, 'P p', { locale: ptBR });
+};
+
+// Helper function to ensure timestamp is a Date object
+const ensureDate = (timestamp: Date | string | number): Date => {
+  if (timestamp instanceof Date) {
+    return timestamp;
+  }
+  if (typeof timestamp === 'string' || typeof timestamp === 'number') {
+    return new Date(timestamp);
+  }
+  return new Date();
+};
+
+// Helper function to sort messages by timestamp
+const sortMessagesByTimestamp = (messages: (Message & { user?: User })[]): (Message & { user?: User })[] => {
+  return messages.sort((a, b) => {
+    const dateA = ensureDate(a.timestamp).getTime();
+    const dateB = ensureDate(b.timestamp).getTime();
+    return dateA - dateB;
+  });
 };
 
 export default function ChatLayout({
@@ -213,7 +235,11 @@ export default function ChatLayout({
             status: 'sent',
             senderId: serverSenderId, // SEMPRE usar o senderId do servidor
           };
-          return updated;
+          // Ordenar por timestamp após atualização
+          return sortMessagesByTimestamp(updated.map(msg => ({
+            ...msg,
+            timestamp: ensureDate(msg.timestamp)
+          })));
         }
         
         // Verificar se é uma mensagem otimista nossa (mesmo texto e remetente)
@@ -235,7 +261,11 @@ export default function ChatLayout({
             status: 'sent',
             senderId: serverSenderId, // SEMPRE usar o senderId do servidor
           };
-          return updated;
+          // Ordenar por timestamp após substituição
+          return sortMessagesByTimestamp(updated.map(msg => ({
+            ...msg,
+            timestamp: ensureDate(msg.timestamp)
+          })));
         }
         
         // Nova mensagem de outro usuário ou do servidor
@@ -264,11 +294,16 @@ export default function ChatLayout({
           }
         }
         
-        // Adicionar mensagem com senderId do servidor
-        return [...prev, {
+        // Adicionar mensagem com senderId do servidor e ordenar por timestamp
+        const newMessages = [...prev, {
           ...appMessage,
           senderId: serverSenderId, // SEMPRE usar o senderId do servidor
+          timestamp: ensureDate(appMessage.timestamp)
         }];
+        return sortMessagesByTimestamp(newMessages.map(msg => ({
+          ...msg,
+          timestamp: ensureDate(msg.timestamp)
+        })));
       });
     });
 
@@ -296,13 +331,19 @@ export default function ChatLayout({
 
   // Update messages when initialMessages change
   useEffect(() => {
-    // Remove duplicates before setting messages
-    const uniqueMessages = initialMessages.filter((msg, index, self) => 
-      index === self.findIndex(m => m.id === msg.id)
-    );
-    setMessages(uniqueMessages);
+    // Remove duplicates before setting messages and sort by timestamp
+    const uniqueMessages = initialMessages
+      .filter((msg, index, self) => 
+        index === self.findIndex(m => m.id === msg.id)
+      )
+      .map(msg => ({
+        ...msg,
+        timestamp: ensureDate(msg.timestamp)
+      }));
+    const sorted = sortMessagesByTimestamp(uniqueMessages);
+    setMessages(sorted);
     // Check if there are more messages based on initial load
-    setHasMoreMessages(uniqueMessages.length >= 8);
+    setHasMoreMessages(sorted.length >= 8);
   }, [initialMessages]);
 
   // Scroll to bottom when new messages arrive (but not when loading older messages)
@@ -394,10 +435,17 @@ export default function ChatLayout({
             index === self.findIndex(m => m.id === msg.id)
           );
           
-          // Update cache with merged messages
-          saveMessagesToCache(room.id, uniqueMerged);
+          // Ordenar por timestamp (mais antigas primeiro)
+          const normalized = uniqueMerged.map(msg => ({
+            ...msg,
+            timestamp: ensureDate(msg.timestamp)
+          }));
+          const sorted = sortMessagesByTimestamp(normalized);
           
-          return uniqueMerged;
+          // Update cache with merged messages
+          saveMessagesToCache(room.id, sorted);
+          
+          return sorted;
         });
         setHasMoreMessages(data.hasMore);
 
@@ -479,7 +527,16 @@ export default function ChatLayout({
     setReplyingTo(null);
     
     // 2. Adicionar mensagem ao estado IMEDIATAMENTE (antes de qualquer requisição)
-    setMessages((prev) => [...prev, optimisticMessage]);
+    setMessages((prev) => {
+      const newMessages = [...prev, {
+        ...optimisticMessage,
+        timestamp: ensureDate(optimisticMessage.timestamp)
+      }];
+      return sortMessagesByTimestamp(newMessages.map(msg => ({
+        ...msg,
+        timestamp: ensureDate(msg.timestamp)
+      })));
+    });
     
     // 3. Fazer scroll para a nova mensagem imediatamente
     requestAnimationFrame(() => {
@@ -511,13 +568,18 @@ export default function ChatLayout({
           const data = await response.json();
           
           // Atualizar status da mensagem otimista para erro
-          setMessages((prev) =>
-            prev.map((msg) =>
+          setMessages((prev) => {
+            const updated = prev.map((msg) =>
               msg.id === tempId
                 ? { ...msg, status: 'error' as const }
                 : msg
-            )
-          );
+            );
+            const normalized = updated.map(msg => ({
+              ...msg,
+              timestamp: ensureDate(msg.timestamp)
+            }));
+            return sortMessagesByTimestamp(normalized);
+          });
 
           toast({
             title: 'Erro ao enviar mensagem',
@@ -531,8 +593,8 @@ export default function ChatLayout({
           if (data.message?.id && data.message?.senderId) {
             // IMPORTANTE: Usar o senderId do servidor (data.message.senderId)
             // Substituir a mensagem otimista pela real do servidor
-            setMessages((prev) =>
-              prev.map((msg) =>
+            setMessages((prev) => {
+              const updated = prev.map((msg) =>
                 msg.id === tempId
                   ? { 
                       ...msg, 
@@ -541,19 +603,25 @@ export default function ChatLayout({
                       status: 'sent' as const,
                     }
                   : msg
-              )
-            );
+              );
+              const normalized = updated.map(msg => ({
+              ...msg,
+              timestamp: ensureDate(msg.timestamp)
+            }));
+            return sortMessagesByTimestamp(normalized);
+            });
           }
         }
       } catch (error) {
         // Atualizar status da mensagem otimista para erro
-        setMessages((prev) =>
-          prev.map((msg) =>
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
             msg.id === tempId
               ? { ...msg, status: 'error' as const }
               : msg
-          )
-        );
+          );
+          return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        });
 
         toast({
           title: 'Erro ao enviar mensagem',
@@ -615,7 +683,16 @@ export default function ChatLayout({
     };
 
     // 1. Adicionar mensagem ao estado IMEDIATAMENTE (antes de qualquer requisição)
-    setMessages((prev) => [...prev, optimisticMessage]);
+    setMessages((prev) => {
+      const newMessages = [...prev, {
+        ...optimisticMessage,
+        timestamp: ensureDate(optimisticMessage.timestamp)
+      }];
+      return sortMessagesByTimestamp(newMessages.map(msg => ({
+        ...msg,
+        timestamp: ensureDate(msg.timestamp)
+      })));
+    });
     
     // 2. Fazer scroll para a nova mensagem imediatamente
     requestAnimationFrame(() => {
@@ -677,13 +754,14 @@ export default function ChatLayout({
         const data = await response.json();
         
         // Atualizar status da mensagem otimista para erro
-        setMessages((prev) =>
-          prev.map((msg) =>
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
             msg.id === tempId
               ? { ...msg, status: 'error' as const }
               : msg
-          )
-        );
+          );
+          return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        });
 
         toast({
           title: 'Erro ao enviar mídia',
@@ -694,13 +772,18 @@ export default function ChatLayout({
         const data = await response.json();
         if (data.message?.id) {
           // Atualizar mensagem otimista com ID real e URL do servidor
-          setMessages((prev) =>
-            prev.map((msg) =>
+          setMessages((prev) => {
+            const updated = prev.map((msg) =>
               msg.id === tempId
                 ? { ...msg, id: data.message.id, mediaUrl: url, status: 'sent' as const }
                 : msg
-            )
-          );
+            );
+            const normalized = updated.map(msg => ({
+              ...msg,
+              timestamp: ensureDate(msg.timestamp)
+            }));
+            return sortMessagesByTimestamp(normalized);
+          });
         }
       }
     } catch (error: any) {
@@ -746,7 +829,16 @@ export default function ChatLayout({
     };
 
     // 2. Adicionar mensagem otimista imediatamente
-    setMessages((prev) => [...prev, optimisticMessage]);
+    setMessages((prev) => {
+      const newMessages = [...prev, {
+        ...optimisticMessage,
+        timestamp: ensureDate(optimisticMessage.timestamp)
+      }];
+      return sortMessagesByTimestamp(newMessages.map(msg => ({
+        ...msg,
+        timestamp: ensureDate(msg.timestamp)
+      })));
+    });
     setReplyingTo(null);
 
     // 3. Scroll para o final
@@ -793,8 +885,8 @@ export default function ChatLayout({
         } else {
           const data = await response.json();
           if (data.message?.id && data.message?.senderId) {
-            setMessages((prev) =>
-              prev.map((msg) =>
+            setMessages((prev) => {
+              const updated = prev.map((msg) =>
                 msg.id === tempId
                   ? { 
                       ...msg, 
@@ -803,18 +895,24 @@ export default function ChatLayout({
                       status: 'sent' as const,
                     }
                   : msg
-              )
-            );
+              );
+              const normalized = updated.map(msg => ({
+              ...msg,
+              timestamp: ensureDate(msg.timestamp)
+            }));
+            return sortMessagesByTimestamp(normalized);
+            });
           }
         }
       } catch (error) {
-        setMessages((prev) =>
-          prev.map((msg) =>
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
             msg.id === tempId
               ? { ...msg, status: 'error' as const }
               : msg
-          )
-        );
+          );
+          return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        });
 
         toast({
           title: 'Erro ao enviar GIF',
@@ -844,7 +942,16 @@ export default function ChatLayout({
     };
 
     // 1. Adicionar mensagem ao estado IMEDIATAMENTE
-    setMessages((prev) => [...prev, optimisticMessage]);
+    setMessages((prev) => {
+      const newMessages = [...prev, {
+        ...optimisticMessage,
+        timestamp: ensureDate(optimisticMessage.timestamp)
+      }];
+      return sortMessagesByTimestamp(newMessages.map(msg => ({
+        ...msg,
+        timestamp: ensureDate(msg.timestamp)
+      })));
+    });
     
     // 2. Fazer scroll para a nova mensagem imediatamente
     requestAnimationFrame(() => {
@@ -902,13 +1009,14 @@ export default function ChatLayout({
         const data = await response.json();
         
         // Atualizar status da mensagem otimista para erro
-        setMessages((prev) =>
-          prev.map((msg) =>
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
             msg.id === tempId
               ? { ...msg, status: 'error' as const }
               : msg
-          )
-        );
+          );
+          return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        });
 
         toast({
           title: 'Erro ao enviar foto',
@@ -919,13 +1027,18 @@ export default function ChatLayout({
         const data = await response.json();
         if (data.message?.id) {
           // Atualizar mensagem otimista com ID real e URL do servidor
-          setMessages((prev) =>
-            prev.map((msg) =>
+          setMessages((prev) => {
+            const updated = prev.map((msg) =>
               msg.id === tempId
                 ? { ...msg, id: data.message.id, mediaUrl: url, status: 'sent' as const }
                 : msg
-            )
-          );
+            );
+            const normalized = updated.map(msg => ({
+              ...msg,
+              timestamp: ensureDate(msg.timestamp)
+            }));
+            return sortMessagesByTimestamp(normalized);
+          });
         }
       }
     } catch (error: any) {
@@ -1074,7 +1187,16 @@ export default function ChatLayout({
     };
 
     // 1. Adicionar mensagem ao estado IMEDIATAMENTE
-    setMessages((prev) => [...prev, optimisticMessage]);
+    setMessages((prev) => {
+      const newMessages = [...prev, {
+        ...optimisticMessage,
+        timestamp: ensureDate(optimisticMessage.timestamp)
+      }];
+      return sortMessagesByTimestamp(newMessages.map(msg => ({
+        ...msg,
+        timestamp: ensureDate(msg.timestamp)
+      })));
+    });
     
     // 2. Fazer scroll para a nova mensagem imediatamente
     requestAnimationFrame(() => {
@@ -1134,13 +1256,14 @@ export default function ChatLayout({
         const data = await response.json();
         
         // Atualizar status da mensagem otimista para erro
-        setMessages((prev) =>
-          prev.map((msg) =>
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
             msg.id === tempId
               ? { ...msg, status: 'error' as const }
               : msg
-          )
-        );
+          );
+          return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        });
 
         toast({
           title: 'Erro ao enviar áudio',
@@ -1151,13 +1274,18 @@ export default function ChatLayout({
         const data = await response.json();
         if (data.message?.id) {
           // Atualizar mensagem otimista com ID real e URL do servidor
-          setMessages((prev) =>
-            prev.map((msg) =>
+          setMessages((prev) => {
+            const updated = prev.map((msg) =>
               msg.id === tempId
                 ? { ...msg, id: data.message.id, mediaUrl: url, status: 'sent' as const }
                 : msg
-            )
-          );
+            );
+            const normalized = updated.map(msg => ({
+              ...msg,
+              timestamp: ensureDate(msg.timestamp)
+            }));
+            return sortMessagesByTimestamp(normalized);
+          });
         }
       }
     } catch (error: any) {
@@ -1277,9 +1405,22 @@ export default function ChatLayout({
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           )}
-          {messages
-            .filter((msg, index, self) => index === self.findIndex(m => m.id === msg.id))
-            .map((message, index) => {
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-muted-foreground text-sm">Nenhuma mensagem ainda</p>
+              <p className="text-muted-foreground text-xs mt-1">Comece uma conversa enviando uma mensagem</p>
+            </div>
+          ) : (
+            (() => {
+              const uniqueMessages = messages
+                .filter((msg, index, self) => index === self.findIndex(m => m.id === msg.id))
+                .map(msg => ({
+                  ...msg,
+                  timestamp: ensureDate(msg.timestamp)
+                }));
+              const sortedMessages = sortMessagesByTimestamp(uniqueMessages);
+              
+              return sortedMessages.map((message, index) => {
             // Generate rainbow colors for messages
             const rainbowColors = [
               'bg-[#3B82F6]', // Blue
@@ -1385,6 +1526,11 @@ export default function ChatLayout({
                     isOwnMessage={message.senderId === currentUser.id}
                   />
                 )}
+                {message.text && message.text.startsWith('Encaminhado:') && (
+                  <ForwardedMessageBadge
+                    isOwnMessage={message.senderId === currentUser.id}
+                  />
+                )}
                 {message.mediaUrl && (
                   <div className={cn(
                     "rounded-lg overflow-hidden",
@@ -1436,7 +1582,16 @@ export default function ChatLayout({
                     )}
                   </div>
                 )}
-                {message.text && !message.text.match(/^(📷|🎥|🎵|🎬)/) && <p>{message.text}</p>}
+                {message.text && !message.text.match(/^(📷|🎥|🎵|🎬)/) && (
+                  <p className={cn(
+                    message.text.startsWith('Encaminhado:') && 'text-xs opacity-90 italic'
+                  )}>
+                    {message.text.startsWith('Encaminhado:') 
+                      ? message.text.replace(/^Encaminhado:\s*/, '')
+                      : message.text
+                    }
+                  </p>
+                )}
                 <div className="flex items-center gap-1 mt-1 self-end">
                   <span className={cn(
                       "text-xs",
@@ -1518,7 +1673,9 @@ export default function ChatLayout({
               </div>
             </div>
             );
-          })}
+              });
+            })()
+          )}
           <div ref={messagesEndRef} />
         </div>
         <TypingIndicator roomId={room.id} currentUserId={currentUser.id} />
