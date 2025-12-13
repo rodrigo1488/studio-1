@@ -60,9 +60,12 @@ Você pode:
    - O `NotificationManager` escuta mensagens do Service Worker
    - Quando recebe a mensagem `PLAY_NOTIFICATION_SOUND`, toca o som usando a API de áudio do navegador
 
-3. **Compatibilidade:**
+3. **Compatibilidade e Limitações:**
+   - ⚠️ **IMPORTANTE**: O som personalizado **só funciona quando o app está aberto**
+   - Quando o app está **fechado ou em background**, o sistema operacional usa o **som padrão de notificação** do dispositivo
+   - Isso é uma limitação das notificações push web - a API não permite especificar arquivos de som personalizados
+   - O campo `sound` nas opções de notificação só aceita nomes de sons do sistema, não URLs de arquivos
    - Funciona em todos os navegadores modernos que suportam Service Workers
-   - O som é tocado mesmo quando o app está em background
    - Se o arquivo de som não existir, o sistema não quebra (apenas não toca som)
 
 ### Vibração
@@ -132,10 +135,24 @@ Para desabilitar a vibração temporariamente:
 ## 📝 Notas Técnicas
 
 ### Som
+
+**Limitação Importante:**
+- ⚠️ O som personalizado **só funciona quando o app está aberto**
+- Quando o app está fechado, o sistema operacional usa o som padrão de notificação
+- Isso é uma limitação das notificações push web - não é possível especificar arquivos de som personalizados quando o app está fechado
+- A API de notificações web (`showNotification`) não aceita URLs de arquivos no campo `sound` - apenas nomes de sons do sistema
+
+**Como Funciona:**
 - O Service Worker não pode tocar áudio diretamente, por isso enviamos uma mensagem para o cliente
+- Quando o app está aberto, o cliente recebe a mensagem e toca o som usando a API de áudio do navegador
+- Quando o app está fechado, não há cliente para receber a mensagem, então o OS usa o som padrão
 - O volume do som é configurado para 70% (pode ser ajustado em `notification-manager.tsx`)
 - O som é tocado de forma assíncrona e não bloqueia a exibição da notificação
 - Se houver erro ao tocar o som, ele é logado mas não interrompe o funcionamento
+
+**Soluções Alternativas:**
+- Para som personalizado quando o app está fechado, seria necessário um **aplicativo nativo** (Android/iOS)
+- Aplicativos nativos têm controle total sobre notificações e podem usar sons personalizados
 
 ### Vibração
 - A API de vibração (`navigator.vibrate()`) está disponível no Service Worker e no cliente
@@ -162,10 +179,17 @@ Para desabilitar a vibração temporariamente:
 ## ⚠️ Troubleshooting
 
 **O som não está tocando:**
+- ⚠️ **Lembre-se**: O som personalizado só funciona quando o app está aberto
+- Quando o app está fechado, o sistema usa o som padrão (isso é normal e esperado)
 - Verifique se o arquivo `public/notification-sound.mp3` existe
 - Verifique o console do navegador para erros
 - Certifique-se de que o Service Worker está registrado
 - Verifique se o navegador permite reprodução de áudio (alguns navegadores bloqueiam áudio autoplay)
+- Teste com o app aberto para verificar se o som personalizado funciona
+
+**O som padrão toca quando o app está fechado:**
+- Isso é **comportamento esperado** - é uma limitação das notificações push web
+- Para som personalizado quando o app está fechado, seria necessário um aplicativo nativo
 
 **O som está muito alto/baixo:**
 - Ajuste o volume no código: `audio.volume = 0.7;` em `notification-manager.tsx`

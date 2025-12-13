@@ -2,10 +2,23 @@
 const CACHE_NAME = 'familychat-v1';
 const NOTIFICATION_ICON = '/icon-192x192.png';
 const NOTIFICATION_SOUND = '/notification-sound.mp3';
+const NOTIFICATION_SOUND_NAME = 'notification-sound.mp3'; // Nome do arquivo para usar no campo 'sound'
 
-// Install event - cache resources
+// Install event - cache resources including sound file
 self.addEventListener('install', (event) => {
   console.log('[Service Worker] Installing...');
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      // Cache notification sound file for offline use
+      return cache.addAll([
+        NOTIFICATION_SOUND,
+        NOTIFICATION_ICON,
+      ]).catch((error) => {
+        console.warn('[Service Worker] Error caching resources:', error);
+        // Continue even if caching fails
+      });
+    })
+  );
   self.skipWaiting();
 });
 
@@ -70,8 +83,12 @@ self.addEventListener('push', (event) => {
     tag: notificationData.tag,
     requireInteraction: notificationData.requireInteraction,
     data: notificationData.data,
-    // Add sound for custom notification sound
-    sound: notificationData.sound || NOTIFICATION_SOUND,
+    // IMPORTANTE: O campo 'sound' nas notificações web tem limitações:
+    // - Para PWAs instalados, pode funcionar com apenas o nome do arquivo
+    // - O arquivo deve estar acessível (cacheado ou na raiz do app)
+    // - Nem todos os navegadores/OS suportam sons personalizados quando o app está fechado
+    // - Se não funcionar, o sistema usará o som padrão do dispositivo
+    sound: NOTIFICATION_SOUND_NAME, // Usar apenas o nome do arquivo (sem caminho)
   };
 
   // Add image for rich notifications (if available)

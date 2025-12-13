@@ -99,7 +99,11 @@ export async function sendPushNotification(
           badge: '/icon-192x192.png',
           tag: data?.roomId || 'notification',
           requireInteraction: false,
-          sound: '/notification-sound.mp3', // Custom notification sound
+          // IMPORTANTE: Limitação das notificações push web
+          // O campo 'sound' só aceita nomes de sons do sistema ou nomes de arquivos (sem caminho)
+          // Para PWAs instalados, alguns navegadores podem aceitar apenas o nome do arquivo
+          // Se não funcionar, o sistema usará o som padrão do dispositivo
+          sound: 'notification-sound.mp3', // Apenas o nome do arquivo (sem caminho)
           data: {
             ...data,
             timestamp: new Date().toISOString(),
