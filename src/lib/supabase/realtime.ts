@@ -51,7 +51,7 @@ export async function unsubscribeFromChannel(channel: RealtimeChannel): Promise<
  */
 export function convertMessageToAppFormat(
   dbMessage: MessageInsert, 
-  user?: User
+  user?: User | null
 ): Message & { user?: User } {
   return {
     id: dbMessage.id,

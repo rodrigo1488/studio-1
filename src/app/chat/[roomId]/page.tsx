@@ -26,18 +26,35 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
   useEffect(() => {
     async function loadData() {
       try {
-        // Try to get current user from cache first
-        let currentUserData = getCachedCurrentUser();
-        if (!currentUserData) {
-          const userResponse = await fetch('/api/auth/me');
-          if (!userResponse.ok) {
-            router.push('/login');
-            return;
-          }
-          const userData = await userResponse.json();
-          currentUserData = userData.user;
-          saveCurrentUserToCache(currentUserData);
+        // SEMPRE buscar usuário do servidor primeiro (não confiar em cache)
+        // Cache pode conter dados do usuário anterior após logout/login
+        const userResponse = await fetch('/api/auth/me', {
+          credentials: 'include',
+          cache: 'no-store', // Não usar cache do navegador
+        });
+        
+        if (!userResponse.ok) {
+          // Se não autenticado, limpar cache e redirecionar
+          const { clearAllCache } = await import('@/lib/storage/clear-all-cache');
+          clearAllCache();
+          router.push('/login');
+          return;
         }
+        
+        const userData = await userResponse.json();
+        const currentUserData = userData.user;
+        
+        // Validar que temos um usuário válido
+        if (!currentUserData || !currentUserData.id) {
+          console.error('[Chat] Invalid user data from server');
+          const { clearAllCache } = await import('@/lib/storage/clear-all-cache');
+          clearAllCache();
+          router.push('/login');
+          return;
+        }
+        
+        // Atualizar cache com o usuário correto
+        saveCurrentUserToCache(currentUserData);
         setCurrentUser(currentUserData);
 
         // Try to get room from cache first
@@ -50,9 +67,13 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
           }
           const responseData = await roomResponse.json();
           roomData = responseData.room;
-          saveRoomToCache(roomData);
+          if (roomData) {
+            saveRoomToCache(roomData);
+          }
         }
-        setRoom(roomData);
+        if (roomData) {
+          setRoom(roomData);
+        }
 
         // Always fetch from server to ensure we have the latest messages
         // Cache is only used as a fallback if server fails
@@ -61,17 +82,17 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
           const messagesData = await messagesResponse.json();
           
           // Ensure messages have proper Date objects for timestamps
-          const normalizedMessages = messagesData.messages.map((msg: any) => ({
+          const normalizedMessages = (messagesData.messages as Message[]).map((msg: Message) => ({
             ...msg,
-            timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp),
+            timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp as string | number),
           }));
           
           // Get unique sender IDs for new messages
-          const senderIds = [...new Set(normalizedMessages.map((msg: Message) => msg.senderId))];
+          const senderIds = [...new Set(normalizedMessages.map((msg: Message) => msg.senderId).filter(Boolean))] as string[];
           
           // Try cache first
           let usersMap: Record<string, User> = {};
-          senderIds.forEach(id => {
+          senderIds.forEach((id: string) => {
             const cachedUser = getCachedUser(id);
             if (cachedUser) {
               usersMap[id] = cachedUser;
@@ -79,7 +100,7 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
           });
           
           // Only fetch missing users
-          const missingUserIds = senderIds.filter(id => !usersMap[id]);
+          const missingUserIds = senderIds.filter((id: string) => !usersMap[id]);
           if (missingUserIds.length > 0) {
             try {
               const usersResponse = await fetch('/api/users/batch', {
@@ -124,11 +145,11 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
           const cachedData = getCachedMessages(roomId);
           if (cachedData && cachedData.messages.length > 0) {
             // Get unique sender IDs from cache
-            const senderIds = [...new Set(cachedData.messages.map((msg: Message) => msg.senderId))];
+            const senderIds = [...new Set(cachedData.messages.map((msg: Message) => msg.senderId).filter(Boolean))];
             
             // Try to get users from cache first
             let usersMap: Record<string, User> = {};
-            senderIds.forEach(id => {
+            senderIds.forEach((id: string) => {
               const cachedUser = getCachedUser(id);
               if (cachedUser) {
                 usersMap[id] = cachedUser;
@@ -136,14 +157,17 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
             });
             
             // Map cached messages with users and ensure proper Date objects
+            // IMPORTANTE: Usar apenas o currentUserData do servidor, não do cache
             const cachedWithUsers = cachedData.messages
               .map((msg: Message) => ({
                 ...msg,
                 timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp),
-                senderId: msg.senderId || currentUserData.id,
+                // NUNCA usar fallback para currentUserData.id - se não tem senderId, é mensagem inválida
+                senderId: msg.senderId || '', // Deixar vazio se não tiver, será filtrado
                 user: usersMap[msg.senderId] || (msg.senderId === currentUserData.id ? currentUserData : undefined),
               }))
-              .sort((a, b) => {
+              .filter((msg: Message & { user?: User }) => msg.senderId) // Filtrar mensagens sem senderId válido
+              .sort((a: Message, b: Message) => {
                 const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
                 const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
                 return timeA - timeB;

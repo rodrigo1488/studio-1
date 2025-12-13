@@ -12,34 +12,36 @@ export function CallProviderWrapper({ children }: { children: React.ReactNode })
   useEffect(() => {
     async function fetchUser() {
       try {
-        // Try cache first
-        const cached = localStorage.getItem('chat_current_user');
-        if (cached) {
-          try {
-            const data = JSON.parse(cached);
-            const age = Date.now() - data.timestamp;
-            if (age < 30 * 60 * 1000) { // 30 minutes
-              setCurrentUser(data.user);
-              setIsLoading(false);
-              return;
-            }
-          } catch (e) {
-            // Invalid cache, fetch fresh
-          }
-        }
+        // SEMPRE buscar do servidor primeiro (não confiar em cache após logout/login)
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include',
+          cache: 'no-store', // Não usar cache do navegador
+        });
         
-        const response = await fetch('/api/auth/me');
         if (response.ok) {
           const data = await response.json();
-          setCurrentUser(data.user);
-          // Cache user
-          localStorage.setItem('chat_current_user', JSON.stringify({
-            user: data.user,
-            timestamp: Date.now(),
-          }));
+          if (data.user && data.user.id) {
+            setCurrentUser(data.user);
+            // Atualizar cache com dados corretos
+            localStorage.setItem('chat_current_user', JSON.stringify({
+              user: data.user,
+              timestamp: Date.now(),
+            }));
+          } else {
+            // Usuário inválido, limpar cache
+            localStorage.removeItem('chat_current_user');
+            setCurrentUser(null);
+          }
+        } else {
+          // Não autenticado, limpar cache
+          localStorage.removeItem('chat_current_user');
+          setCurrentUser(null);
         }
       } catch (error) {
         console.error('Error fetching user:', error);
+        // Em caso de erro, limpar cache
+        localStorage.removeItem('chat_current_user');
+        setCurrentUser(null);
       } finally {
         setIsLoading(false);
       }

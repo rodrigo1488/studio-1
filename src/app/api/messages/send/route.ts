@@ -1,15 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { sendMessage } from '@/lib/supabase/messages';
 import { getCurrentUser } from '@/lib/supabase/middleware';
 import { sendPushNotificationToRoomMembers } from '@/lib/push/notify-room';
 
 export async function POST(request: NextRequest) {
   try {
+    // VALIDAÇÃO CRÍTICA: Sempre buscar usuário do servidor
     const user = await getCurrentUser();
 
-    if (!user) {
+    if (!user || !user.id) {
+      console.error('[Send Message] Unauthorized: No user or invalid user');
       return NextResponse.json(
         { error: 'Não autenticado' },
+        { status: 401 }
+      );
+    }
+
+    // VALIDAÇÃO ADICIONAL: Verificar se o cookie user_id corresponde ao usuário retornado
+    const cookieStore = await cookies();
+    const cookieUserId = cookieStore.get('user_id')?.value;
+    
+    if (!cookieUserId || cookieUserId !== user.id) {
+      console.error('[Send Message] Security: Cookie user_id mismatch', {
+        cookieUserId,
+        serverUserId: user.id,
+      });
+      return NextResponse.json(
+        { error: 'Sessão inválida. Por favor, faça login novamente.' },
         { status: 401 }
       );
     }

@@ -6,6 +6,11 @@ interface NotificationPayload {
   body: string;
   url?: string;
   data?: Record<string, any>;
+  senderName?: string;
+  senderAvatar?: string;
+  roomName?: string;
+  mediaType?: string;
+  mediaUrl?: string;
 }
 
 /**

@@ -23,14 +23,28 @@ export async function sendMessage(
   replyToId?: string
 ): Promise<{ message: Message; error: null } | { message: null; error: string }> {
   try {
-    // VALIDAÇÃO: Garantir que senderId não está vazio
+    // VALIDAÇÃO RIGOROSA: Garantir que senderId não está vazio e é um UUID válido
     if (!senderId || senderId.trim() === '') {
+      console.error('[Send Message] Invalid senderId: empty');
       return { message: null, error: 'SenderId é obrigatório' };
     }
 
-    // VALIDAÇÃO: Garantir que roomId não está vazio
+    // Validar formato UUID básico
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(senderId)) {
+      console.error('[Send Message] Invalid senderId format:', senderId);
+      return { message: null, error: 'SenderId inválido' };
+    }
+
+    // VALIDAÇÃO: Garantir que roomId não está vazio e é um UUID válido
     if (!roomId || roomId.trim() === '') {
+      console.error('[Send Message] Invalid roomId: empty');
       return { message: null, error: 'RoomId é obrigatório' };
+    }
+
+    if (!uuidRegex.test(roomId)) {
+      console.error('[Send Message] Invalid roomId format:', roomId);
+      return { message: null, error: 'RoomId inválido' };
     }
 
     if (!supabaseServer) {

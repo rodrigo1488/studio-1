@@ -167,11 +167,24 @@ export function UserNav() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/');
-      router.refresh();
+      const response = await fetch('/api/auth/logout', { method: 'POST' });
+      
+      // Clear all localStorage cache
+      const { clearAllCache } = await import('@/lib/storage/clear-all-cache');
+      clearAllCache();
+      
+      // Clear sessionStorage as well
+      sessionStorage.clear();
+      
+      // Force reload to ensure clean state
+      window.location.href = '/';
     } catch (error) {
       console.error('Error logging out:', error);
+      // Even if API fails, clear cache and redirect
+      const { clearAllCache } = await import('@/lib/storage/clear-all-cache');
+      clearAllCache();
+      sessionStorage.clear();
+      window.location.href = '/';
     }
   };
 

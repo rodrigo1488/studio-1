@@ -504,6 +504,65 @@ export default function ChatLayout({
     e.preventDefault();
     if (!messageText.trim() || isSending) return;
 
+    // VALIDAÇÃO CRÍTICA: Verificar se currentUser é válido e está sincronizado com o servidor
+    if (!currentUser || !currentUser.id) {
+      toast({
+        title: 'Erro de autenticação',
+        description: 'Sua sessão expirou. Por favor, faça login novamente.',
+        variant: 'destructive',
+      });
+      // Limpar cache e redirecionar
+      const { clearAllCache } = await import('@/lib/storage/clear-all-cache');
+      clearAllCache();
+      window.location.href = '/login';
+      return;
+    }
+
+    // VALIDAÇÃO: Verificar com o servidor se o usuário ainda está autenticado
+    try {
+      const authCheck = await fetch('/api/auth/me', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      
+      if (!authCheck.ok) {
+        toast({
+          title: 'Sessão expirada',
+          description: 'Por favor, faça login novamente.',
+          variant: 'destructive',
+        });
+        const { clearAllCache } = await import('@/lib/storage/clear-all-cache');
+        clearAllCache();
+        window.location.href = '/login';
+        return;
+      }
+
+      const authData = await authCheck.json();
+      if (!authData.user || authData.user.id !== currentUser.id) {
+        console.error('[Send Message] User mismatch detected', {
+          cachedUserId: currentUser.id,
+          serverUserId: authData.user?.id,
+        });
+        toast({
+          title: 'Erro de segurança',
+          description: 'Detectada inconsistência na sessão. Redirecionando...',
+          variant: 'destructive',
+        });
+        const { clearAllCache } = await import('@/lib/storage/clear-all-cache');
+        clearAllCache();
+        window.location.href = '/login';
+        return;
+      }
+    } catch (error) {
+      console.error('[Send Message] Error validating session:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível validar sua sessão. Tente novamente.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Stop typing indicator when sending message
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
