@@ -42,15 +42,21 @@ export async function sendPushNotificationToRoomMembers(
       return;
     }
 
-    console.log(`[Push] Sending notifications to ${recipientIds.length} recipient(s) in room ${roomId}`);
+    console.log(`[Push] Sending enriched notifications to ${recipientIds.length} recipient(s) in room ${roomId}`);
 
-    // Send notification to each recipient
+    // Send notification to each recipient with enriched data
     const results = await Promise.allSettled(
       recipientIds.map(async (userId: string) => {
         const result = await sendPushNotification(userId, payload.title, payload.body, {
           ...payload.data,
           url: payload.url || '/chat',
           roomId,
+          senderId,
+          senderName: payload.data?.senderName,
+          senderAvatar: payload.data?.senderAvatar,
+          roomName: payload.data?.roomName,
+          mediaType: payload.data?.mediaType,
+          mediaUrl: payload.data?.mediaUrl,
         });
         if (!result.success) {
           console.warn(`[Push] Failed to send to user ${userId}: ${result.error}`);

@@ -87,14 +87,34 @@ export async function sendPushNotification(
             },
           };
 
-          const payload = JSON.stringify({
-            title,
-            body,
-            icon: '/icon-192x192.png',
-            badge: '/icon-192x192.png',
-            tag: 'notification',
-            data: data || {},
-          });
+        // Build rich notification payload
+        const notificationPayload: any = {
+          title,
+          body,
+          icon: data?.senderAvatar || '/icon-192x192.png',
+          badge: '/icon-192x192.png',
+          tag: data?.roomId || 'notification',
+          requireInteraction: false,
+          data: {
+            ...data,
+            timestamp: new Date().toISOString(),
+          },
+        };
+
+        // Add image if media type is image
+        if (data?.mediaType === 'image' && data?.mediaUrl) {
+          notificationPayload.image = data.mediaUrl;
+        }
+
+        // Add actions for better UX (if supported by browser)
+        notificationPayload.actions = [
+          {
+            action: 'open',
+            title: 'Abrir conversa',
+          },
+        ];
+
+        const payload = JSON.stringify(notificationPayload);
 
           console.log(`[Push] Sending notification to endpoint: ${sub.endpoint.substring(0, 50)}...`);
           await webpush.sendNotification(subscription, payload);

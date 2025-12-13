@@ -133,11 +133,65 @@ export function PushNotificationSetup() {
     return null;
   }
 
+  const handleDisableNotifications = async () => {
+    setIsLoading(true);
+
+    try {
+      // 1. Unsubscribe from push service
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      
+      if (subscription) {
+        await subscription.unsubscribe();
+        console.log('[Push Notifications] Unsubscribed from push service');
+      }
+
+      // 2. Remove from server
+      const response = await fetch('/api/push/unsubscribe', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        console.warn('[Push Notifications] Error removing subscription from server');
+      }
+
+      // 3. Update state
+      setIsSubscribed(false);
+      setPermission('default');
+      
+      toast({
+        title: 'Notificações desativadas',
+        description: 'Você pode ativar novamente a qualquer momento',
+      });
+    } catch (error: any) {
+      console.error('Error disabling notifications:', error);
+      toast({
+        title: 'Erro',
+        description: error.message || 'Falha ao desativar notificações',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (permission === 'granted' && isSubscribed) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Bell className="h-4 w-4 text-green-500" />
-        <span>Notificações ativadas</span>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Bell className="h-4 w-4 text-green-500" />
+          <span>Notificações ativadas</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleDisableNotifications}
+          disabled={isLoading}
+          className="h-6 px-2 text-xs"
+        >
+          {isLoading ? 'Desativando...' : 'Desativar'}
+        </Button>
       </div>
     );
   }

@@ -57,12 +57,70 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send push notifications to room members (except sender)
-    sendPushNotificationToRoomMembers(roomId, actualSenderId, {
-      title: 'Nova mensagem',
-      body: text || (mediaType === 'image' ? '📷 Imagem' : mediaType === 'video' ? '🎥 Vídeo' : mediaType === 'audio' ? '🎵 Áudio' : 'Mensagem'),
-      url: `/chat/${roomId}`,
-    }).catch(console.error);
+    // Send push notifications asynchronously (don't block response)
+    (async () => {
+      try {
+        // Get sender and room info for enriched notifications
+        const { getUserById } = await import('@/lib/supabase/auth');
+        const { getRoomById } = await import('@/lib/supabase/rooms');
+        
+        const [sender, room] = await Promise.all([
+          getUserById(actualSenderId),
+          getRoomById(roomId),
+        ]);
+
+        // Build notification body
+        let notificationBody = '';
+        if (text) {
+          // Truncate long messages
+          notificationBody = text.length > 100 ? text.substring(0, 100) + '...' : text;
+        } else if (mediaType) {
+          const mediaEmojis: Record<string, string> = {
+            image: '📷',
+            video: '🎥',
+            audio: '🎵',
+            gif: '🎬',
+          };
+          notificationBody = `${mediaEmojis[mediaType] || '📎'} ${mediaType === 'image' ? 'Imagem' : mediaType === 'video' ? 'Vídeo' : mediaType === 'audio' ? 'Áudio' : 'GIF'}`;
+        } else {
+          notificationBody = 'Nova mensagem';
+        }
+
+        // Determine room name
+        let roomName = 'Conversa';
+        if (room) {
+          roomName = room.name || 'Conversa';
+        } else {
+          // Try to get other user name for direct conversations
+          try {
+            const otherUserResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002'}/api/direct-conversations/${roomId}/other-user`);
+            if (otherUserResponse.ok) {
+              const otherUserData = await otherUserResponse.json();
+              if (otherUserData.user) {
+                roomName = otherUserData.user.name || 'Conversa';
+              }
+            }
+          } catch (error) {
+            // Fallback to sender name
+            roomName = sender?.name || 'Conversa';
+          }
+        }
+
+        // Send push notifications to room members (except sender)
+        await sendPushNotificationToRoomMembers(roomId, actualSenderId, {
+          title: sender ? `${sender.name}${room && room.members && room.members.length > 2 ? ` em ${roomName}` : ''}` : 'Nova mensagem',
+          body: notificationBody,
+          url: `/chat/${roomId}`,
+          senderName: sender?.name,
+          senderAvatar: sender?.avatarUrl,
+          roomName: roomName,
+          mediaType: mediaType,
+          mediaUrl: mediaUrl,
+        });
+      } catch (error) {
+        console.error('[Push] Error sending notifications:', error);
+      }
+    })();
 
     return NextResponse.json({ message: result.message });
   } catch (error) {

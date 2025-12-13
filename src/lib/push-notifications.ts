@@ -221,6 +221,7 @@ export async function unregisterSubscriptionFromServer(): Promise<boolean> {
   try {
     const response = await fetch('/api/push/unsubscribe', {
       method: 'POST',
+      credentials: 'include', // Include cookies
     });
 
     if (!response.ok) {
@@ -231,6 +232,31 @@ export async function unregisterSubscriptionFromServer(): Promise<boolean> {
     return true;
   } catch (error) {
     console.error('[Push Notifications] Erro ao desregistrar subscription:', error);
+    return false;
+  }
+}
+
+/**
+ * Completely remove push notification subscription
+ * Unsubscribes from push service and removes from server
+ */
+export async function removePushNotificationSubscription(): Promise<boolean> {
+  try {
+    // 1. Unsubscribe from push service
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+
+    if (subscription) {
+      const result = await subscription.unsubscribe();
+      console.log('[Push Notifications] Unsubscribed from push service:', result);
+    }
+
+    // 2. Remove from server
+    const removed = await unregisterSubscriptionFromServer();
+    
+    return removed;
+  } catch (error) {
+    console.error('[Push Notifications] Error removing subscription:', error);
     return false;
   }
 }

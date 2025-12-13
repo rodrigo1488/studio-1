@@ -48,22 +48,35 @@ self.addEventListener('push', (event) => {
         badge: data.badge || notificationData.badge,
         tag: data.tag || notificationData.tag,
         requireInteraction: data.requireInteraction || false,
+        image: data.image || undefined, // Large image for rich notifications
         data: data.data || {},
       };
+      
+      // Add timestamp if available
+      if (data.data?.timestamp) {
+        notificationData.data.timestamp = data.data.timestamp;
+      }
     } catch (e) {
       notificationData.body = event.data.text();
     }
   }
 
+  const notificationOptions = {
+    body: notificationData.body,
+    icon: notificationData.icon,
+    badge: notificationData.badge,
+    tag: notificationData.tag,
+    requireInteraction: notificationData.requireInteraction,
+    data: notificationData.data,
+  };
+
+  // Add image for rich notifications (if available)
+  if (notificationData.image) {
+    notificationOptions.image = notificationData.image;
+  }
+
   event.waitUntil(
-    self.registration.showNotification(notificationData.title, {
-      body: notificationData.body,
-      icon: notificationData.icon,
-      badge: notificationData.badge,
-      tag: notificationData.tag,
-      requireInteraction: notificationData.requireInteraction,
-      data: notificationData.data,
-    })
+    self.registration.showNotification(notificationData.title, notificationOptions)
   );
 });
 
