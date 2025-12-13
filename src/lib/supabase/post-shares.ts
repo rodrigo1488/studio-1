@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 
 export interface PostShare {
   id: string;
@@ -18,7 +18,6 @@ export async function sharePost(
   }
 ): Promise<{ share: PostShare | null; error: string | null }> {
   try {
-    const supabase = createClient();
 
     const { data, error } = await supabase
       .from('post_shares')
@@ -55,7 +54,6 @@ export async function getPostShares(
   postId: string
 ): Promise<{ shares: PostShare[]; error: string | null }> {
   try {
-    const supabase = createClient();
 
     const { data, error } = await supabase
       .from('post_shares')

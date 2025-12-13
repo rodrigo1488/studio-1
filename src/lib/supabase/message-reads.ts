@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 
 export interface MessageRead {
   id: string;
@@ -17,7 +17,6 @@ export async function markMessageAsRead(
   userId: string
 ): Promise<{ success: boolean; error: string | null }> {
   try {
-    const supabase = createClient();
 
     const { error } = await supabase.from('message_reads').upsert(
       {
@@ -45,7 +44,6 @@ export async function markRoomMessagesAsRead(
   userId: string
 ): Promise<{ success: boolean; error: string | null }> {
   try {
-    const supabase = createClient();
 
     // Get all unread messages in the room
     const { data: messages } = await supabase
@@ -86,7 +84,6 @@ export async function getMessageReads(
   messageId: string
 ): Promise<{ reads: MessageRead[]; error: string | null }> {
   try {
-    const supabase = createClient();
 
     const { data, error } = await supabase
       .from('message_reads')

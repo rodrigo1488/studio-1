@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/supabase/middleware';
-import { createClient } from '@/lib/supabase/client';
+import { supabaseServer } from '@/lib/supabase/server';
 
 export async function POST(
   request: NextRequest,
@@ -15,9 +15,11 @@ export async function POST(
 
     const { isTyping } = await request.json();
 
-    const supabase = createClient();
+    if (!supabaseServer) {
+      return NextResponse.json({ error: 'Supabase não inicializado' }, { status: 500 });
+    }
 
-    const { error } = await supabase
+    const { error } = await supabaseServer
       .from('typing_indicators')
       .upsert(
         {
@@ -55,9 +57,11 @@ export async function GET(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    if (!supabaseServer) {
+      return NextResponse.json({ error: 'Supabase não inicializado' }, { status: 500 });
+    }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseServer
       .from('typing_indicators')
       .select(`
         user_id,

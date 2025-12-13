@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 
 export interface MessageReaction {
   id: string;
@@ -19,7 +19,6 @@ export async function addMessageReaction(
   emoji: string
 ): Promise<{ reaction: MessageReaction | null; error: string | null }> {
   try {
-    const supabase = createClient();
 
     const { data, error } = await supabase
       .from('message_reactions')
@@ -64,7 +63,6 @@ export async function removeMessageReaction(
   emoji: string
 ): Promise<{ removed: boolean; error: string | null }> {
   try {
-    const supabase = createClient();
 
     const { error } = await supabase
       .from('message_reactions')
@@ -87,7 +85,6 @@ export async function getMessageReactions(
   messageId: string
 ): Promise<{ reactions: MessageReaction[]; error: string | null }> {
   try {
-    const supabase = createClient();
 
     const { data, error } = await supabase
       .from('message_reactions')

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendMessage } from '@/lib/supabase/messages';
 import { getCurrentUser } from '@/lib/supabase/middleware';
-import { createClient } from '@/lib/supabase/client';
+import { supabaseServer } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,9 +20,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!supabaseServer) {
+      return NextResponse.json({ error: 'Supabase não inicializado' }, { status: 500 });
+    }
+
     // Get original message
-    const supabase = createClient();
-    const { data: originalMessage, error: messageError } = await supabase
+    const { data: originalMessage, error: messageError } = await supabaseServer
       .from('messages')
       .select('*')
       .eq('id', messageId)
@@ -53,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Record forward
-    await supabase.from('message_forwards').insert({
+    await supabaseServer.from('message_forwards').insert({
       original_message_id: messageId,
       forwarded_message_id: result.message.id,
       forwarded_by_user_id: user.id,

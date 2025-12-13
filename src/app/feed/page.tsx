@@ -13,7 +13,6 @@ import { useToast } from '@/hooks/use-toast';
 import { PostCardSkeleton, PostGridSkeleton } from '@/components/ui/post-skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FeedFilters } from '@/components/feed/feed-filters';
-import { FeedFilters } from '@/components/feed/feed-filters';
 
 export default function FeedPage() {
   const [posts, setPosts] = useState<Post[]>([]);

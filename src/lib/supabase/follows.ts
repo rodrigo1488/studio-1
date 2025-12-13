@@ -1,11 +1,10 @@
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 
 export async function followUser(
   followerId: string,
   followingId: string
 ): Promise<{ success: boolean; error: string | null }> {
   try {
-    const supabase = createClient();
 
     const { error } = await supabase.from('follows').insert({
       follower_id: followerId,
@@ -30,7 +29,6 @@ export async function unfollowUser(
   followingId: string
 ): Promise<{ success: boolean; error: string | null }> {
   try {
-    const supabase = createClient();
 
     const { error } = await supabase
       .from('follows')
@@ -53,7 +51,6 @@ export async function isFollowing(
   followingId: string
 ): Promise<{ following: boolean; error: string | null }> {
   try {
-    const supabase = createClient();
 
     const { data, error } = await supabase
       .from('follows')

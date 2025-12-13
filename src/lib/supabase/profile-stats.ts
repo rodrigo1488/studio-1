@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 
 export interface ProfileStats {
   postsCount: number;
@@ -12,7 +12,6 @@ export async function getUserProfileStats(
   userId: string
 ): Promise<{ stats: ProfileStats; error: string | null }> {
   try {
-    const supabase = createClient();
 
     // Get posts count
     const { count: postsCount } = await supabase

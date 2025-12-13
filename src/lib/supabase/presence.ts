@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import type { User } from '@/lib/data';
 
 export type PresenceStatus = 'online' | 'offline' | 'away';
@@ -17,7 +17,6 @@ export async function updateUserPresence(
   status: PresenceStatus
 ): Promise<{ presence: UserPresence | null; error: string | null }> {
   try {
-    const supabase = createClient();
     
     const { data, error } = await supabase
       .from('user_presence')
@@ -58,7 +57,6 @@ export async function getUserPresence(
   userId: string
 ): Promise<{ presence: UserPresence | null; error: string | null }> {
   try {
-    const supabase = createClient();
     
     const { data, error } = await supabase
       .from('user_presence')
@@ -102,7 +100,6 @@ export async function getContactsPresence(
   userId: string
 ): Promise<{ presences: Record<string, UserPresence>; error: string | null }> {
   try {
-    const supabase = createClient();
     
     // Get user's contacts
     const { data: contacts, error: contactsError } = await supabase

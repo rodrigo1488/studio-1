@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/supabase/middleware';
-import { createClient } from '@/lib/supabase/client';
+import { supabaseServer } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,10 +21,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const supabase = createClient();
+    if (!supabaseServer) {
+      return NextResponse.json({ error: 'Supabase não inicializado' }, { status: 500 });
+    }
 
     // Search messages in the room
-    const { data: messages, error } = await supabase
+    const { data: messages, error } = await supabaseServer
       .from('messages')
       .select(`
         id,

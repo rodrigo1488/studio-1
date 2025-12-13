@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 
 export interface SavedPost {
   id: string;
@@ -12,7 +12,6 @@ export async function savePost(
   userId: string
 ): Promise<{ saved: boolean; error: string | null }> {
   try {
-    const supabase = createClient();
 
     const { error } = await supabase.from('saved_posts').insert({
       post_id: postId,
@@ -38,7 +37,6 @@ export async function unsavePost(
   userId: string
 ): Promise<{ unsaved: boolean; error: string | null }> {
   try {
-    const supabase = createClient();
 
     const { error } = await supabase
       .from('saved_posts')
@@ -61,7 +59,6 @@ export async function isPostSaved(
   userId: string
 ): Promise<{ saved: boolean; error: string | null }> {
   try {
-    const supabase = createClient();
 
     const { data, error } = await supabase
       .from('saved_posts')
@@ -89,7 +86,6 @@ export async function getSavedPosts(
   offset: number = 0
 ): Promise<{ posts: SavedPost[]; error: string | null }> {
   try {
-    const supabase = createClient();
 
     const { data, error } = await supabase
       .from('saved_posts')
