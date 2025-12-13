@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/supabase/middleware';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { messageId: string } }
+  { params }: { params: Promise<{ messageId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -13,13 +13,14 @@ export async function POST(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
+    const { messageId } = await params;
     const { emoji } = await request.json();
 
     if (!emoji) {
       return NextResponse.json({ error: 'Emoji é obrigatório' }, { status: 400 });
     }
 
-    const result = await addMessageReaction(params.messageId, user.id, emoji);
+    const result = await addMessageReaction(messageId, user.id, emoji);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });
@@ -41,7 +42,7 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { messageId: string } }
+  { params }: { params: Promise<{ messageId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -50,13 +51,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
+    const { messageId } = await params;
     const { emoji } = await request.json();
 
     if (!emoji) {
       return NextResponse.json({ error: 'Emoji é obrigatório' }, { status: 400 });
     }
 
-    const result = await removeMessageReaction(params.messageId, user.id, emoji);
+    const result = await removeMessageReaction(messageId, user.id, emoji);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });
@@ -73,7 +75,7 @@ export async function DELETE(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { messageId: string } }
+  { params }: { params: Promise<{ messageId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -82,7 +84,8 @@ export async function GET(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
-    const result = await getMessageReactions(params.messageId);
+    const { messageId } = await params;
+    const result = await getMessageReactions(messageId);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });

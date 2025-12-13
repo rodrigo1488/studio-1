@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/supabase/middleware';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -13,7 +13,8 @@ export async function GET(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
-    const result = await getUserProfileStats(params.userId);
+    const { userId } = await params;
+    const result = await getUserProfileStats(userId);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });

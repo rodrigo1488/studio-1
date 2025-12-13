@@ -4,7 +4,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { roomId: string } }
+  { params }: { params: Promise<{ roomId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -13,6 +13,7 @@ export async function POST(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
+    const { roomId } = await params;
     const { isTyping } = await request.json();
 
     if (!supabaseServer) {
@@ -24,7 +25,7 @@ export async function POST(
       .upsert(
         {
           user_id: user.id,
-          room_id: params.roomId,
+          room_id: roomId,
           is_typing: isTyping,
           updated_at: new Date().toISOString(),
         },
@@ -48,7 +49,7 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { roomId: string } }
+  { params }: { params: Promise<{ roomId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -56,6 +57,8 @@ export async function GET(
     if (!user) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
+
+    const { roomId } = await params;
 
     if (!supabaseServer) {
       return NextResponse.json({ error: 'Supabase não inicializado' }, { status: 500 });
@@ -69,7 +72,7 @@ export async function GET(
         updated_at,
         users (id, name, avatar_url)
       `)
-      .eq('room_id', params.roomId)
+      .eq('room_id', roomId)
       .eq('is_typing', true)
       .neq('user_id', user.id);
 

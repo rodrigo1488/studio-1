@@ -18,24 +18,31 @@ export function TypingIndicator({ roomId, currentUserId }: TypingIndicatorProps)
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
 
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchTypingUsers = async () => {
       try {
         const response = await fetch(`/api/typing/${roomId}`);
-        if (response.ok) {
+        if (response.ok && isMounted) {
           const data = await response.json();
           setTypingUsers(data.typingUsers || []);
         }
       } catch (error) {
-        console.error('Error fetching typing users:', error);
+        if (isMounted) {
+          console.error('Error fetching typing users:', error);
+        }
       }
     };
 
-    // Poll every second
-    const interval = setInterval(fetchTypingUsers, 1000);
+    // Poll every 2 seconds (reduced frequency)
+    const interval = setInterval(fetchTypingUsers, 2000);
     fetchTypingUsers();
 
-    return () => clearInterval(interval);
-  }, [roomId]);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [roomId, currentUserId]);
 
   if (typingUsers.length === 0) {
     return null;

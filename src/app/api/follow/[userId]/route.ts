@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/supabase/middleware';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -13,14 +13,16 @@ export async function POST(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
-    if (user.id === params.userId) {
+    const { userId } = await params;
+
+    if (user.id === userId) {
       return NextResponse.json(
         { error: 'Não é possível seguir a si mesmo' },
         { status: 400 }
       );
     }
 
-    const result = await followUser(user.id, params.userId);
+    const result = await followUser(user.id, userId);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });
@@ -37,7 +39,7 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -46,7 +48,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
-    const result = await unfollowUser(user.id, params.userId);
+    const { userId } = await params;
+    const result = await unfollowUser(user.id, userId);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });
@@ -63,7 +66,7 @@ export async function DELETE(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -72,7 +75,8 @@ export async function GET(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
-    const result = await isFollowing(user.id, params.userId);
+    const { userId } = await params;
+    const result = await isFollowing(user.id, userId);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });

@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/supabase/middleware';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { postId: string } }
+  { params }: { params: Promise<{ postId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -13,6 +13,7 @@ export async function POST(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
+    const { postId } = await params;
     const { sharedToUserId, sharedToRoomId } = await request.json();
 
     if (!sharedToUserId && !sharedToRoomId) {
@@ -22,7 +23,7 @@ export async function POST(
       );
     }
 
-    const result = await sharePost(params.postId, user.id, {
+    const result = await sharePost(postId, user.id, {
       sharedToUserId,
       sharedToRoomId,
     });

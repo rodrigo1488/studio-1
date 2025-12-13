@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/supabase/middleware';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { postId: string } }
+  { params }: { params: Promise<{ postId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -13,7 +13,8 @@ export async function POST(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
-    const result = await savePost(params.postId, user.id);
+    const { postId } = await params;
+    const result = await savePost(postId, user.id);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });
@@ -30,7 +31,7 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { postId: string } }
+  { params }: { params: Promise<{ postId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -39,7 +40,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
-    const result = await unsavePost(params.postId, user.id);
+    const { postId } = await params;
+    const result = await unsavePost(postId, user.id);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });
@@ -56,7 +58,7 @@ export async function DELETE(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { postId: string } }
+  { params }: { params: Promise<{ postId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -65,7 +67,8 @@ export async function GET(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
-    const result = await isPostSaved(params.postId, user.id);
+    const { postId } = await params;
+    const result = await isPostSaved(postId, user.id);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });

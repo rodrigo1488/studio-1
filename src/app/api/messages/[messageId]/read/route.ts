@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/supabase/middleware';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { messageId: string } }
+  { params }: { params: Promise<{ messageId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -13,7 +13,8 @@ export async function POST(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
-    const result = await markMessageAsRead(params.messageId, user.id);
+    const { messageId } = await params;
+    const result = await markMessageAsRead(messageId, user.id);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });
@@ -30,7 +31,7 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { messageId: string } }
+  { params }: { params: Promise<{ messageId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -39,7 +40,8 @@ export async function GET(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
-    const result = await getMessageReads(params.messageId);
+    const { messageId } = await params;
+    const result = await getMessageReads(messageId);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });

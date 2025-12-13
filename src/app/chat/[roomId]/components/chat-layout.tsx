@@ -109,6 +109,7 @@ export default function ChatLayout({
   const [forwardingMessage, setForwardingMessage] = useState<(Message & { user?: User }) | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   // Buscar o outro usuário se for conversa direta
@@ -280,6 +281,16 @@ export default function ChatLayout({
       if (channelRef.current) {
         unsubscribeFromChannel(channelRef.current);
       }
+      // Clear typing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      // Stop typing indicator on unmount
+      fetch(`/api/typing/${room.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isTyping: false }),
+      }).catch(() => {});
     };
   }, [room.id, currentUser.id]);
 
@@ -424,6 +435,16 @@ export default function ChatLayout({
   const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!messageText.trim() || isSending) return;
+
+    // Stop typing indicator when sending message
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    fetch(`/api/typing/${room.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isTyping: false }),
+    }).catch(() => {});
 
     const text = messageText.trim();
     
@@ -1150,8 +1171,18 @@ export default function ChatLayout({
   useEffect(() => {
     return () => {
       cancelAudioRecording();
+      // Clear typing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      // Stop typing indicator on unmount
+      fetch(`/api/typing/${room.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isTyping: false }),
+      }).catch(() => {});
     };
-  }, []);
+  }, [room.id]);
 
   return (
     <div className="flex h-full w-full flex-col relative">
@@ -1663,22 +1694,34 @@ export default function ChatLayout({
               value={messageText}
               onChange={(e) => {
                 setMessageText(e.target.value);
-                // Update typing indicator
-                if (e.target.value.trim().length > 0) {
-                  fetch(`/api/typing/${room.id}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ isTyping: true }),
-                  }).catch(() => {});
-                } else {
-                  fetch(`/api/typing/${room.id}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ isTyping: false }),
-                  }).catch(() => {});
+                
+                // Clear previous timeout
+                if (typingTimeoutRef.current) {
+                  clearTimeout(typingTimeoutRef.current);
                 }
+                
+                // Update typing indicator with debounce (500ms)
+                typingTimeoutRef.current = setTimeout(() => {
+                  if (e.target.value.trim().length > 0) {
+                    fetch(`/api/typing/${room.id}`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ isTyping: true }),
+                    }).catch(() => {});
+                  } else {
+                    fetch(`/api/typing/${room.id}`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ isTyping: false }),
+                    }).catch(() => {});
+                  }
+                }, 500);
               }}
               onBlur={() => {
+                // Clear timeout on blur
+                if (typingTimeoutRef.current) {
+                  clearTimeout(typingTimeoutRef.current);
+                }
                 // Stop typing when input loses focus
                 fetch(`/api/typing/${room.id}`, {
                   method: 'POST',
