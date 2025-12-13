@@ -108,21 +108,41 @@ export async function sendPushNotification(
 
     const failures = results.filter((r) => r.status === 'rejected');
     if (failures.length > 0) {
-      console.error('Some push notifications failed:', failures);
+      console.error('[Push] Some push notifications failed:', failures.length);
+      
       // Remove invalid subscriptions
+      const endpointsToRemove: string[] = [];
+      
       for (const failure of failures) {
         if (failure.status === 'rejected') {
           const error = failure.reason as any;
-          if (error.statusCode === 410 || error.statusCode === 404) {
-            // Subscription expired or not found, remove it
-            const endpoint = error.endpoint;
+          const statusCode = error.statusCode || error.status;
+          const endpoint = error.endpoint;
+          
+          // Remove subscriptions that are:
+          // - 410: Gone (expired)
+          // - 404: Not found
+          // - 403: Invalid VAPID credentials (keys changed)
+          if (statusCode === 410 || statusCode === 404 || statusCode === 403) {
             if (endpoint) {
-              await supabaseAdmin
-                .from('push_subscriptions')
-                .delete()
-                .eq('endpoint', endpoint);
+              endpointsToRemove.push(endpoint);
+              console.log(`[Push] Marking subscription for removal (${statusCode}): ${endpoint.substring(0, 50)}...`);
             }
           }
+        }
+      }
+      
+      // Remove all invalid subscriptions in batch
+      if (endpointsToRemove.length > 0) {
+        const { error: deleteError } = await supabaseAdmin
+          .from('push_subscriptions')
+          .delete()
+          .in('endpoint', endpointsToRemove);
+        
+        if (deleteError) {
+          console.error('[Push] Error removing invalid subscriptions:', deleteError);
+        } else {
+          console.log(`[Push] Removed ${endpointsToRemove.length} invalid subscription(s)`);
         }
       }
     }
