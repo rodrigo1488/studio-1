@@ -1,6 +1,7 @@
 // Service Worker para Push Notifications
 const CACHE_NAME = 'familychat-v1';
-const NOTIFICATION_ICON = '/icon-192x192.png'; // Você precisará criar este ícone
+const NOTIFICATION_ICON = '/icon-192x192.png';
+const NOTIFICATION_SOUND = '/notification-sound.mp3';
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {

@@ -63,7 +63,8 @@ export async function sendPushNotificationToRoomMembers(
           mediaType: payload.data?.mediaType,
           mediaUrl: payload.data?.mediaUrl,
         });
-        if (!result.success) {
+        // Only log as warning if it's not a "no subscriptions" error (which is expected)
+        if (!result.success && result.error !== 'No subscriptions found for user') {
           console.warn(`[Push] Failed to send to user ${userId}: ${result.error}`);
         }
         return result;

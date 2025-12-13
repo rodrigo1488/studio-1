@@ -69,7 +69,11 @@ export async function sendPushNotification(
     }
 
     if (!subscriptions || subscriptions.length === 0) {
-      console.warn(`[Push] No subscriptions found for user ${userId}`);
+      // This is expected if user hasn't enabled push notifications - not an error
+      // Only log at debug level, not as warning/error
+      if (process.env.NODE_ENV === 'development') {
+        console.debug(`[Push] No subscriptions found for user ${userId} (user may not have enabled notifications)`);
+      }
       return { success: false, error: 'No subscriptions found for user' };
     }
 
