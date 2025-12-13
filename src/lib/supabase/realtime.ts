@@ -8,8 +8,9 @@ export interface MessageInsert {
   sender_id: string;
   text: string;
   media_url?: string;
-  media_type?: 'image' | 'video' | 'audio';
+  media_type?: 'image' | 'video' | 'audio' | 'gif';
   created_at: string;
+  reply_to_id?: string;
 }
 
 /**
@@ -60,6 +61,7 @@ export function convertMessageToAppFormat(
     timestamp: new Date(dbMessage.created_at),
     mediaUrl: dbMessage.media_url || undefined,
     mediaType: dbMessage.media_type || undefined,
+    replyToId: dbMessage.reply_to_id || undefined,
     status: 'sent', // Mensagens do banco sempre estão enviadas
     user: user || undefined,
   };

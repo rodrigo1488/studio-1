@@ -169,15 +169,17 @@ export default function ChatLayout({
     }
   }, [messages.length, room.id]);
 
-  // Scroll to bottom when messages change or component mounts
+  // Scroll to bottom when new messages arrive (only if not loading older messages)
   useEffect(() => {
+    if (isLoadingMore) return; // Don't scroll when loading older messages
+    
     // Usar requestAnimationFrame para garantir que o DOM foi atualizado
     requestAnimationFrame(() => {
       if (messagesEndRef.current) {
         messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
       }
     });
-  }, [messages.length]);
+  }, [messages.length, isLoadingMore]);
 
   // Scroll to bottom on initial load
   useEffect(() => {
@@ -191,7 +193,17 @@ export default function ChatLayout({
 
   // Subscribe to realtime messages
   useEffect(() => {
+    // Cleanup previous subscription if exists
+    if (channelRef.current) {
+      unsubscribeFromChannel(channelRef.current).catch(console.error);
+    }
+
     const channel = subscribeToMessages(room.id, async (newMessage) => {
+      // VALIDAÇÃO: Ignorar mensagens sem senderId válido
+      if (!newMessage.sender_id || newMessage.sender_id.trim() === '') {
+        console.warn('Received message without valid senderId:', newMessage);
+        return;
+      }
       // Check if we already have this user cached
       let user = getCachedUser(newMessage.sender_id);
       
@@ -313,12 +325,17 @@ export default function ChatLayout({
     markNotificationsAsRead(room.id);
 
     return () => {
+      // Cleanup: Unsubscribe from realtime channel
       if (channelRef.current) {
-        unsubscribeFromChannel(channelRef.current);
+        unsubscribeFromChannel(channelRef.current).catch((error) => {
+          console.error('Error unsubscribing from channel:', error);
+        });
+        channelRef.current = null;
       }
       // Clear typing timeout
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
       }
       // Stop typing indicator on unmount
       fetch(`/api/typing/${room.id}`, {
@@ -601,14 +618,22 @@ export default function ChatLayout({
                       id: data.message.id,
                       senderId: data.message.senderId, // SEMPRE usar o senderId do servidor
                       status: 'sent' as const,
+                      timestamp: ensureDate(data.message.timestamp || msg.timestamp),
                     }
                   : msg
               );
               const normalized = updated.map(msg => ({
-              ...msg,
-              timestamp: ensureDate(msg.timestamp)
-            }));
-            return sortMessagesByTimestamp(normalized);
+                ...msg,
+                timestamp: ensureDate(msg.timestamp)
+              }));
+              return sortMessagesByTimestamp(normalized);
+            });
+            
+            // Adicionar ao cache após sucesso
+            addMessageToCache(room.id, {
+              ...data.message,
+              timestamp: ensureDate(data.message.timestamp),
+              user: currentUser,
             });
           }
         }
