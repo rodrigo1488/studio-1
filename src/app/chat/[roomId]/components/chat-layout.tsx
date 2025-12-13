@@ -348,7 +348,7 @@ export default function ChatLayout({
 
   // Update messages when initialMessages change
   useEffect(() => {
-    // Remove duplicates before setting messages and sort by timestamp
+    // Remove duplicates, normalize timestamps, and sort by timestamp
     const uniqueMessages = initialMessages
       .filter((msg, index, self) => 
         index === self.findIndex(m => m.id === msg.id)
@@ -357,10 +357,13 @@ export default function ChatLayout({
         ...msg,
         timestamp: ensureDate(msg.timestamp)
       }));
+    
+    // Sort by timestamp (ascending - oldest first)
     const sorted = sortMessagesByTimestamp(uniqueMessages);
+    
     setMessages(sorted);
-    // Check if there are more messages based on initial load
-    setHasMoreMessages(sorted.length >= 8);
+    // Check if there are more messages based on initial load (50 messages per page)
+    setHasMoreMessages(sorted.length >= 50);
   }, [initialMessages]);
 
   // Scroll to bottom when new messages arrive (but not when loading older messages)

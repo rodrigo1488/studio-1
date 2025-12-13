@@ -13,6 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 import { PostCardSkeleton, PostGridSkeleton } from '@/components/ui/post-skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FeedFilters } from '@/components/feed/feed-filters';
+import { StoriesCarousel } from '@/components/stories/stories-carousel';
+import { CreateStory } from '@/components/stories/create-story';
 
 export default function FeedPage() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -22,6 +24,7 @@ export default function FeedPage() {
   const [offset, setOffset] = useState(0);
   const [viewMode, setViewMode] = useState<'timeline' | 'grid'>('timeline');
   const [showCreatePost, setShowCreatePost] = useState(false);
+  const [showCreateStory, setShowCreateStory] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLiking, setIsLiking] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -240,6 +243,16 @@ export default function FeedPage() {
         <div className="flex items-center gap-2 sm:gap-4">
           <FeedViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
           <Button 
+            onClick={() => setShowCreateStory(true)}
+            variant="outline"
+            size="sm"
+            className="text-xs sm:text-sm"
+          >
+            <ImageIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Story</span>
+            <span className="sm:hidden">Story</span>
+          </Button>
+          <Button 
             onClick={() => setShowCreatePost(true)}
             size="sm"
             className="text-xs sm:text-sm"
@@ -250,6 +263,13 @@ export default function FeedPage() {
           </Button>
         </div>
       </div>
+
+      {/* Stories Carousel */}
+      {currentUserId && (
+        <div className="bg-card rounded-lg border p-3 sm:p-4">
+          <StoriesCarousel currentUserId={currentUserId} />
+        </div>
+      )}
 
       {/* Filters */}
       <FeedFilters
@@ -345,6 +365,15 @@ export default function FeedPage() {
         open={showCreatePost}
         onClose={() => setShowCreatePost(false)}
         onPostCreated={() => fetchPosts(true)}
+      />
+
+      <CreateStory
+        open={showCreateStory}
+        onClose={() => setShowCreateStory(false)}
+        onStoryCreated={() => {
+          // Stories will refresh automatically when component re-renders
+          window.location.reload();
+        }}
       />
     </div>
   );

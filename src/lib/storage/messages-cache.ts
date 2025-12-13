@@ -60,14 +60,33 @@ export function getCachedMessages(roomId: string): { messages: Message[]; isStal
 
 /**
  * Save messages to cache (only last N messages)
+ * Messages should already be sorted by timestamp before calling this function
  */
 export function saveMessagesToCache(roomId: string, messages: Message[]): void {
   try {
     const cacheKey = `${CACHE_PREFIX}${roomId}`;
     const timestampKey = `${CACHE_TIMESTAMP_PREFIX}${roomId}`;
     
+    // Ensure all timestamps are Date objects before serialization
+    const normalizedMessages = messages.map(msg => ({
+      ...msg,
+      timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp),
+    }));
+    
+    // Remove duplicates by ID
+    const uniqueMessages = normalizedMessages.filter((msg, index, self) =>
+      index === self.findIndex(m => m.id === msg.id)
+    );
+    
+    // Sort by timestamp (ascending - oldest first)
+    uniqueMessages.sort((a, b) => {
+      const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
+      const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+      return timeA - timeB;
+    });
+    
     // Only cache the last N messages
-    const messagesToCache = messages.slice(-MAX_CACHED_MESSAGES);
+    const messagesToCache = uniqueMessages.slice(-MAX_CACHED_MESSAGES);
     
     localStorage.setItem(cacheKey, JSON.stringify(messagesToCache));
     localStorage.setItem(timestampKey, Date.now().toString());
@@ -87,12 +106,40 @@ export function addMessageToCache(roomId: string, message: Message): void {
   try {
     const cached = getCachedMessages(roomId);
     if (cached && cached.messages) {
-      // Add new message and keep only last N
-      const updated = [...cached.messages, message].slice(-MAX_CACHED_MESSAGES);
-      saveMessagesToCache(roomId, updated);
+      // Ensure message timestamp is Date object
+      const normalizedMessage = {
+        ...message,
+        timestamp: message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp),
+      };
+      
+      // Check if message already exists (avoid duplicates)
+      const existingIndex = cached.messages.findIndex(m => m.id === normalizedMessage.id);
+      let updated: Message[];
+      
+      if (existingIndex !== -1) {
+        // Replace existing message
+        updated = [...cached.messages];
+        updated[existingIndex] = normalizedMessage;
+      } else {
+        // Add new message
+        updated = [...cached.messages, normalizedMessage];
+      }
+      
+      // Sort by timestamp and keep only last N
+      updated.sort((a, b) => {
+        const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
+        const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+        return timeA - timeB;
+      });
+      
+      saveMessagesToCache(roomId, updated.slice(-MAX_CACHED_MESSAGES));
     } else {
       // No cache, just save this message
-      saveMessagesToCache(roomId, [message]);
+      const normalizedMessage = {
+        ...message,
+        timestamp: message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp),
+      };
+      saveMessagesToCache(roomId, [normalizedMessage]);
     }
   } catch (error) {
     console.error('Error adding message to cache:', error);

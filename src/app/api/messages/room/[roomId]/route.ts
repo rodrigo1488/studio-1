@@ -26,7 +26,17 @@ export async function GET(
 
     const { messages, hasMore } = await getRoomMessages(roomId, limit, offset, before);
 
-    return NextResponse.json({ messages, hasMore });
+    // Ensure all timestamps are serialized as ISO strings
+    const serializedMessages = messages.map(msg => ({
+      ...msg,
+      timestamp: msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp,
+      replyTo: msg.replyTo ? {
+        ...msg.replyTo,
+        timestamp: msg.replyTo.timestamp instanceof Date ? msg.replyTo.timestamp.toISOString() : msg.replyTo.timestamp,
+      } : undefined,
+    }));
+
+    return NextResponse.json({ messages: serializedMessages, hasMore });
   } catch (error) {
     return NextResponse.json(
       { error: 'Erro ao buscar mensagens' },

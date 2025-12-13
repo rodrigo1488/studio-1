@@ -91,3 +91,23 @@ export type ContactRequest = {
   requester?: User;
   requested?: User;
 };
+
+export type Story = {
+  id: string;
+  userId: string;
+  mediaUrl: string;
+  mediaType: 'image' | 'video';
+  createdAt: Date;
+  expiresAt: Date;
+  user?: User;
+  viewCount?: number;
+  isViewed?: boolean;
+};
+
+export type StoryView = {
+  id: string;
+  storyId: string;
+  viewerId: string;
+  viewedAt: Date;
+  viewer?: User;
+};
