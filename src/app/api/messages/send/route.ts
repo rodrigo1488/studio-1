@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendMessage } from '@/lib/supabase/messages';
 import { getCurrentUser } from '@/lib/supabase/middleware';
+import { sendPushNotificationToRoomMembers } from '@/lib/push/notify-room';
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,6 +56,13 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Send push notifications to room members (except sender)
+    sendPushNotificationToRoomMembers(roomId, actualSenderId, {
+      title: 'Nova mensagem',
+      body: text || (mediaType === 'image' ? '📷 Imagem' : mediaType === 'video' ? '🎥 Vídeo' : mediaType === 'audio' ? '🎵 Áudio' : 'Mensagem'),
+      url: `/chat/${roomId}`,
+    }).catch(console.error);
 
     return NextResponse.json({ message: result.message });
   } catch (error) {

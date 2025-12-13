@@ -4,6 +4,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/providers/theme-provider';
 import { NotificationProvider } from '@/components/notifications/notification-provider';
+import { PushNotificationSetup } from '@/components/push-notifications/push-notification-setup';
 import { cn } from '@/lib/utils';
 
 const fredoka = Fredoka({ 
@@ -58,6 +59,9 @@ export default function RootLayout({
           </footer>
           <Toaster />
           <NotificationProvider />
+          <div className="fixed bottom-4 right-4 z-50">
+            <PushNotificationSetup />
+          </div>
         </ThemeProvider>
       </body>
     </html>

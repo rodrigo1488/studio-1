@@ -1,0 +1,18 @@
+/**
+ * Script para gerar chaves VAPID
+ * Execute: node GERAR_VAPID_KEYS.js
+ */
+
+const webpush = require('web-push');
+
+console.log('🔑 Gerando chaves VAPID...\n');
+
+const vapidKeys = webpush.generateVAPIDKeys();
+
+console.log('✅ Chaves geradas com sucesso!\n');
+console.log('📋 Adicione estas variáveis ao seu .env.local:\n');
+console.log('NEXT_PUBLIC_VAPID_PUBLIC_KEY=' + vapidKeys.publicKey);
+console.log('VAPID_PRIVATE_KEY=' + vapidKeys.privateKey);
+console.log('VAPID_EMAIL=mailto:seu-email@exemplo.com\n');
+console.log('⚠️  IMPORTANTE: Mantenha a chave privada SECRETA!');
+

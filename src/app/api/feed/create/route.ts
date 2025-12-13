@@ -129,6 +129,17 @@ export async function POST(request: NextRequest) {
     // Create post
     const { post, error } = await createPost(user.id, description || undefined, mediaFiles);
 
+    // Send push notifications to followers about new post
+    if (post && !error) {
+      const { sendPushNotificationToFollowers } = await import('@/lib/push/notify-feed');
+      sendPushNotificationToFollowers(user.id, {
+        title: `${user.name} publicou um novo post`,
+        body: description || (mediaFiles.length > 0 ? '📷 Nova publicação' : 'Nova publicação'),
+        url: `/feed?postId=${post.id}`,
+        data: { postId: post.id, userId: user.id },
+      }).catch(console.error);
+    }
+
     if (error || !post) {
       return NextResponse.json({ error: error || 'Failed to create post' }, { status: 500 });
     }
