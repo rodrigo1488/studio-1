@@ -26,11 +26,34 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     if (open) {
       fetchCurrentUser();
     }
+  }, [open]);
+
+  // Handle browser back button and mobile back button
+  useEffect(() => {
+    if (!open) return;
+
+    // Push state to history when dialog opens
+    const state = { dialogOpen: true, timestamp: Date.now() };
+    window.history.pushState(state, '');
+
+    const handlePopState = () => {
+      // When user clicks back button, close the dialog
+      if (open) {
+        handleClose();
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, [open]);
 
   const fetchCurrentUser = async () => {

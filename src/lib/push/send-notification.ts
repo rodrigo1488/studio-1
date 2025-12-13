@@ -178,12 +178,26 @@ export async function sendPushNotification(
 
     const successes = results.filter((r) => r.status === 'fulfilled');
     if (successes.length === 0) {
+      // Check if all failures were due to "no subscriptions" (expected case)
+      const allNoSubscriptions = failures.every((f) => {
+        if (f.status === 'rejected') {
+          const error = f.reason as any;
+          return error?.message?.includes('No subscriptions') || error?.error === 'No subscriptions found for user';
+        }
+        return false;
+      });
+      
+      if (allNoSubscriptions) {
+        // This is expected - user hasn't enabled notifications
+        return { success: false, error: 'No subscriptions found for user' };
+      }
+      
       return { success: false, error: 'All push notifications failed' };
     }
 
     return { success: true, error: null };
   } catch (error: any) {
-    console.error('Error sending push notification:', error);
+    console.error('[Push] Error sending push notification:', error);
     return { success: false, error: error.message || 'Failed to send push notification' };
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Camera, Video, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -21,6 +21,28 @@ export function CreateStory({ open, onClose, onStoryCreated }: CreateStoryProps)
   const [showCamera, setShowCamera] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Handle browser back button and mobile back button
+  useEffect(() => {
+    if (!open) return;
+
+    // Push state to history when dialog opens
+    const state = { dialogOpen: true, timestamp: Date.now() };
+    window.history.pushState(state, '');
+
+    const handlePopState = () => {
+      // When user clicks back button, close the dialog
+      if (open) {
+        handleClose();
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [open]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

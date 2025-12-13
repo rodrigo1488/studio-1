@@ -81,6 +81,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error || 'Erro ao criar story' }, { status: 500 });
     }
 
+    // Send push notifications to followers about new story (async, don't block response)
+    (async () => {
+      try {
+        const { getUserById } = await import('@/lib/supabase/auth');
+        const { sendPushNotificationToFollowers } = await import('@/lib/push/notify-feed');
+        
+        const storyUser = await getUserById(user.id);
+        if (storyUser) {
+          await sendPushNotificationToFollowers(user.id, {
+            title: `${storyUser.name} publicou uma nova story`,
+            body: mediaType === 'image' ? '📷 Nova story' : '🎥 Nova story',
+            url: '/feed',
+            data: { 
+              storyId: story.id, 
+              userId: user.id,
+              mediaType,
+              mediaUrl,
+            },
+          });
+        }
+      } catch (error) {
+        // Log error but don't fail story creation
+        console.error('[Push] Error sending story notification:', error);
+      }
+    })();
+
     return NextResponse.json({
       story: {
         ...story,
