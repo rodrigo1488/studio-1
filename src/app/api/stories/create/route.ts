@@ -3,7 +3,7 @@ import { createStory } from '@/lib/supabase/stories';
 import { getCurrentUser } from '@/lib/supabase/middleware';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
-const BUCKET_NAME = 'feed';
+const BUCKET_NAME = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'media';
 
 export async function POST(request: NextRequest) {
   try {
@@ -89,7 +89,14 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Erro ao criar story' }, { status: 500 });
+    console.error('Error in POST /api/stories/create:', error);
+    return NextResponse.json(
+      { 
+        error: error.message || 'Erro ao criar story',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      }, 
+      { status: 500 }
+    );
   }
 }
 

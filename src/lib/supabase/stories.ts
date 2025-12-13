@@ -10,15 +10,33 @@ export async function createStory(
   mediaType: 'image' | 'video'
 ): Promise<{ story: Story | null; error: string | null }> {
   try {
-    if (!supabaseServer) {
-      return { story: null, error: 'Supabase server not initialized' };
+    if (!supabaseAdmin) {
+      return { story: null, error: 'Supabase admin not initialized' };
+    }
+
+    // Check if stories table exists
+    const { data: tableCheck, error: tableError } = await supabaseAdmin
+      .from('stories')
+      .select('id')
+      .limit(1);
+
+    if (tableError) {
+      // If error is about table not existing, return a clear message
+      if (tableError.message?.includes('does not exist') || tableError.message?.includes('relation') || tableError.code === '42P01') {
+        return { 
+          story: null, 
+          error: 'Tabela stories não encontrada. Por favor, aplique a migration 015_stories.sql no Supabase.' 
+        };
+      }
+      // For other errors, log and return
+      console.error('Error checking stories table:', tableError);
     }
 
     // Stories expire after 24 hours
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
-    const { data, error } = await supabaseServer
+    const { data, error } = await supabaseAdmin
       .from('stories')
       .insert({
         user_id: userId,
@@ -30,6 +48,20 @@ export async function createStory(
       .single();
 
     if (error || !data) {
+      console.error('Error creating story:', error);
+      // Provide more specific error messages
+      if (error?.code === '42P01') {
+        return { 
+          story: null, 
+          error: 'Tabela stories não encontrada. Por favor, aplique a migration 015_stories.sql no Supabase.' 
+        };
+      }
+      if (error?.code === '23503') {
+        return { 
+          story: null, 
+          error: 'Usuário não encontrado. Verifique se o usuário está autenticado corretamente.' 
+        };
+      }
       return { story: null, error: error?.message || 'Failed to create story' };
     }
 
