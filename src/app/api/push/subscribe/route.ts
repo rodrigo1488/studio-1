@@ -25,12 +25,24 @@ export async function POST(request: NextRequest) {
 
     // Store subscription in database
     // First, check if user already has a subscription
-    const { data: existing } = await supabaseAdmin
+    const { data: existing, error: checkError } = await supabaseAdmin
       .from('push_subscriptions')
       .select('id')
       .eq('user_id', user.id)
       .eq('endpoint', subscription.endpoint)
-      .single();
+      .maybeSingle();
+
+    // If table doesn't exist, return helpful error
+    if (checkError && checkError.code === '42P01') {
+      console.error('Table push_subscriptions does not exist. Please run migration 017_push_subscriptions.sql');
+      return NextResponse.json(
+        { 
+          error: 'Tabela de notificações não encontrada. Por favor, execute a migration no Supabase.',
+          code: 'TABLE_NOT_FOUND'
+        },
+        { status: 500 }
+      );
+    }
 
     if (existing) {
       // Update existing subscription
@@ -45,7 +57,14 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         console.error('Error updating push subscription:', error);
-        return NextResponse.json({ error: 'Erro ao atualizar subscription' }, { status: 500 });
+        return NextResponse.json(
+          { 
+            error: 'Erro ao atualizar subscription',
+            details: error.message,
+            code: error.code
+          },
+          { status: 500 }
+        );
       }
     } else {
       // Insert new subscription
@@ -58,7 +77,14 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         console.error('Error inserting push subscription:', error);
-        return NextResponse.json({ error: 'Erro ao salvar subscription' }, { status: 500 });
+        return NextResponse.json(
+          { 
+            error: 'Erro ao salvar subscription',
+            details: error.message,
+            code: error.code
+          },
+          { status: 500 }
+        );
       }
     }
 

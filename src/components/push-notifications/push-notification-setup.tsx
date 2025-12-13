@@ -9,7 +9,6 @@ import {
   requestNotificationPermission,
   registerServiceWorker,
   subscribeToPushNotifications,
-  registerSubscriptionWithServer,
   getPushSubscription,
 } from '@/lib/push-notifications';
 import { toast } from '@/hooks/use-toast';
@@ -94,9 +93,20 @@ export function PushNotificationSetup() {
       }
 
       // 5. Register with server
-      const registered = await registerSubscriptionWithServer(subscription);
-      if (!registered) {
-        throw new Error('Falha ao registrar subscription no servidor');
+      const response = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(subscription),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.code === 'TABLE_NOT_FOUND') {
+          throw new Error('Tabela de notificações não encontrada. Por favor, execute a migration no Supabase Dashboard.');
+        }
+        throw new Error(errorData.error || errorData.details || 'Falha ao registrar subscription no servidor');
       }
 
       setIsSubscribed(true);

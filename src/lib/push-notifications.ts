@@ -202,14 +202,15 @@ export async function registerSubscriptionWithServer(
     });
 
     if (!response.ok) {
-      throw new Error('Erro ao registrar subscription no servidor');
+      const errorData = await response.json();
+      throw new Error(errorData.error || errorData.details || 'Erro ao registrar subscription no servidor');
     }
 
     console.log('[Push Notifications] Subscription registrado no servidor');
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Push Notifications] Erro ao registrar subscription:', error);
-    return false;
+    throw error; // Re-throw to let caller handle it
   }
 }
 
