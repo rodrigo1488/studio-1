@@ -45,11 +45,12 @@ self.addEventListener('push', (event) => {
         ...notificationData,
         title: data.title || notificationData.title,
         body: data.body || notificationData.body,
-        icon: data.icon || notificationData.icon,
+        icon: data.icon || data.senderAvatar || notificationData.icon,
         badge: data.badge || notificationData.badge,
         tag: data.tag || notificationData.tag,
         requireInteraction: data.requireInteraction || false,
         image: data.image || undefined, // Large image for rich notifications
+        sound: data.sound || NOTIFICATION_SOUND, // Custom sound
         data: data.data || {},
       };
       
@@ -69,6 +70,8 @@ self.addEventListener('push', (event) => {
     tag: notificationData.tag,
     requireInteraction: notificationData.requireInteraction,
     data: notificationData.data,
+    // Add sound for custom notification sound
+    sound: notificationData.sound || NOTIFICATION_SOUND,
   };
 
   // Add image for rich notifications (if available)
@@ -76,8 +79,21 @@ self.addEventListener('push', (event) => {
     notificationOptions.image = notificationData.image;
   }
 
+  // Play sound when notification is received
+  // Note: Service Worker can't play audio directly, so we notify the client
   event.waitUntil(
-    self.registration.showNotification(notificationData.title, notificationOptions)
+    Promise.all([
+      self.registration.showNotification(notificationData.title, notificationOptions),
+      // Notify all clients to play sound
+      clients.matchAll().then((clientList) => {
+        clientList.forEach((client) => {
+          client.postMessage({
+            type: 'PLAY_NOTIFICATION_SOUND',
+            soundUrl: notificationData.sound || NOTIFICATION_SOUND,
+          });
+        });
+      }),
+    ])
   );
 });
 

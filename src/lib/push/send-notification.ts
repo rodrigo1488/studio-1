@@ -99,6 +99,7 @@ export async function sendPushNotification(
           badge: '/icon-192x192.png',
           tag: data?.roomId || 'notification',
           requireInteraction: false,
+          sound: '/notification-sound.mp3', // Custom notification sound
           data: {
             ...data,
             timestamp: new Date().toISOString(),

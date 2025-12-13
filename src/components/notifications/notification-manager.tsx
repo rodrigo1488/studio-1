@@ -432,6 +432,41 @@ export function NotificationManager() {
     };
   }, []);
 
+  // Listen for service worker messages to play notification sound
+  useEffect(() => {
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'PLAY_NOTIFICATION_SOUND') {
+        const soundUrl = event.data.soundUrl || '/notification-sound.mp3';
+        try {
+          const audio = new Audio(soundUrl);
+          audio.volume = 0.7; // Set volume to 70%
+          audio.play().catch((error) => {
+            console.warn('[Notifications] Could not play notification sound:', error);
+          });
+        } catch (error) {
+          console.warn('[Notifications] Error creating audio element:', error);
+        }
+      }
+    };
+
+    // Listen for messages from service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then((registration) => {
+        // Listen for messages from service worker
+        navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+      });
+
+      // Also listen directly (in case service worker is already ready)
+      navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+    }
+
+    return () => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+      }
+    };
+  }, []);
+
   const handleNotificationClick = useCallback(
     (roomId: string) => {
       markNotificationsAsRead(roomId);
