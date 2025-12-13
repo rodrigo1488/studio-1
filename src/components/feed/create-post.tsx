@@ -26,7 +26,6 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const router = useRouter();
 
   useEffect(() => {
     if (open) {
