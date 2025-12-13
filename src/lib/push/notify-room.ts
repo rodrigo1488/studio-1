@@ -42,16 +42,26 @@ export async function sendPushNotificationToRoomMembers(
       return;
     }
 
+    console.log(`[Push] Sending notifications to ${recipientIds.length} recipient(s) in room ${roomId}`);
+
     // Send notification to each recipient
-    await Promise.allSettled(
-      recipientIds.map((userId: string) =>
-        sendPushNotification(userId, payload.title, payload.body, {
+    const results = await Promise.allSettled(
+      recipientIds.map(async (userId: string) => {
+        const result = await sendPushNotification(userId, payload.title, payload.body, {
           ...payload.data,
           url: payload.url || '/chat',
           roomId,
-        })
-      )
+        });
+        if (!result.success) {
+          console.warn(`[Push] Failed to send to user ${userId}: ${result.error}`);
+        }
+        return result;
+      })
     );
+
+    const successCount = results.filter(r => r.status === 'fulfilled').length;
+    const failureCount = results.filter(r => r.status === 'rejected').length;
+    console.log(`[Push] Room notifications: ${successCount} success, ${failureCount} failures`);
   } catch (error) {
     console.error('[Push] Error sending notifications to room members:', error);
   }

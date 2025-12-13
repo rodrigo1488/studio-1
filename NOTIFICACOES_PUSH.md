@@ -63,7 +63,11 @@ Adicione ao `.env.local`:
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=sua_chave_publica_aqui
 VAPID_PRIVATE_KEY=sua_chave_privada_aqui
 VAPID_EMAIL=mailto:seu-email@exemplo.com
+# OU (o código adiciona mailto: automaticamente se não tiver)
+VAPID_EMAIL=seu-email@exemplo.com
 ```
+
+**⚠️ IMPORTANTE**: O `VAPID_EMAIL` deve estar no formato `mailto:email@exemplo.com`. Se você colocar apenas o email (ex: `gomesrodrigo528@gmail.com`), o código adiciona automaticamente o prefixo `mailto:`, mas é recomendado usar o formato completo.
 
 **⚠️ IMPORTANTE:**
 - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` pode ser pública (começa com `NEXT_PUBLIC_`)

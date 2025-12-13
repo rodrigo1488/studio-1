@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { getCurrentUser } from '@/lib/supabase/middleware';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
@@ -7,11 +8,25 @@ import { supabaseAdmin } from '@/lib/supabase/server';
  */
 export async function POST(request: NextRequest) {
   try {
+    // Debug: Check cookies
+    const cookieStore = await cookies();
+    const userIdCookie = cookieStore.get('user_id');
+    console.log('[Push Subscribe] Cookie user_id:', userIdCookie?.value || 'not found');
+    
     const user = await getCurrentUser();
 
     if (!user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+      console.error('[Push Subscribe] User not found. Cookie exists:', !!userIdCookie);
+      return NextResponse.json(
+        { 
+          error: 'Não autenticado',
+          message: 'Por favor, faça login novamente'
+        },
+        { status: 401 }
+      );
     }
+
+    console.log('[Push Subscribe] User authenticated:', user.id);
 
     const subscription = await request.json();
 

@@ -76,7 +76,9 @@ export function PushNotificationSetup() {
       }
 
       // 3. Get VAPID public key from server
-      const vapidResponse = await fetch('/api/push/vapid-key');
+      const vapidResponse = await fetch('/api/push/vapid-key', {
+        credentials: 'include', // Include cookies
+      });
       if (!vapidResponse.ok) {
         throw new Error('Falha ao obter chave VAPID');
       }
@@ -98,6 +100,7 @@ export function PushNotificationSetup() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include cookies in request
         body: JSON.stringify(subscription),
       });
 

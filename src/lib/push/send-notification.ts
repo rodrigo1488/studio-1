@@ -18,7 +18,12 @@ export async function sendPushNotification(
     // Get VAPID keys from environment
     const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-    const vapidEmail = process.env.VAPID_EMAIL || 'mailto:admin@familychat.com';
+    let vapidEmail = process.env.VAPID_EMAIL || 'mailto:admin@familychat.com';
+    
+    // Ensure VAPID email is in correct format (mailto:email@domain.com)
+    if (vapidEmail && !vapidEmail.startsWith('mailto:')) {
+      vapidEmail = `mailto:${vapidEmail}`;
+    }
 
     if (!vapidPublicKey || !vapidPrivateKey) {
       return { success: false, error: 'VAPID keys not configured' };
@@ -33,31 +38,46 @@ export async function sendPushNotification(
       .select('endpoint, p256dh_key, auth_key')
       .eq('user_id', userId);
 
-    if (error || !subscriptions || subscriptions.length === 0) {
+    if (error) {
+      console.error('[Push] Error fetching subscriptions:', error);
+      return { success: false, error: `Error fetching subscriptions: ${error.message}` };
+    }
+
+    if (!subscriptions || subscriptions.length === 0) {
+      console.warn(`[Push] No subscriptions found for user ${userId}`);
       return { success: false, error: 'No subscriptions found for user' };
     }
+
+    console.log(`[Push] Found ${subscriptions.length} subscription(s) for user ${userId}`);
 
     // Send notification to all subscriptions
     const results = await Promise.allSettled(
       subscriptions.map(async (sub: any) => {
-        const subscription = {
-          endpoint: sub.endpoint,
-          keys: {
-            p256dh: sub.p256dh_key,
-            auth: sub.auth_key,
-          },
-        };
+        try {
+          const subscription = {
+            endpoint: sub.endpoint,
+            keys: {
+              p256dh: sub.p256dh_key,
+              auth: sub.auth_key,
+            },
+          };
 
-        const payload = JSON.stringify({
-          title,
-          body,
-          icon: '/icon-192x192.png',
-          badge: '/icon-192x192.png',
-          tag: 'notification',
-          data: data || {},
-        });
+          const payload = JSON.stringify({
+            title,
+            body,
+            icon: '/icon-192x192.png',
+            badge: '/icon-192x192.png',
+            tag: 'notification',
+            data: data || {},
+          });
 
-        await webpush.sendNotification(subscription, payload);
+          console.log(`[Push] Sending notification to endpoint: ${sub.endpoint.substring(0, 50)}...`);
+          await webpush.sendNotification(subscription, payload);
+          console.log(`[Push] ✅ Notification sent successfully to ${sub.endpoint.substring(0, 50)}...`);
+        } catch (err: any) {
+          console.error(`[Push] ❌ Error sending to ${sub.endpoint}:`, err.message);
+          throw err;
+        }
       })
     );
 
