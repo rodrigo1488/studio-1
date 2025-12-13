@@ -1,5 +1,12 @@
--- Drop table if exists to avoid conflicts (CUIDADO: isso apagará dados existentes)
--- Se você já tem dados importantes, remova esta linha e ajuste manualmente
+-- ============================================
+-- MIGRATION: Stories/Status Feature
+-- ============================================
+-- Execute este script no Supabase SQL Editor
+-- ou via CLI: supabase db push
+-- ============================================
+
+-- Drop existing tables if they exist (CUIDADO: isso apagará dados existentes)
+-- Se você já tem dados importantes, comente estas linhas e ajuste manualmente
 DROP TABLE IF EXISTS story_views CASCADE;
 DROP TABLE IF EXISTS stories CASCADE;
 
@@ -92,7 +99,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create a scheduled job to clean up expired stories (if pg_cron is available)
--- Note: This requires pg_cron extension to be enabled
--- SELECT cron.schedule('delete-expired-stories', '0 * * * *', 'SELECT delete_expired_stories()');
+-- Verify tables were created
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'stories') THEN
+    RAISE NOTICE '✅ Tabela stories criada com sucesso!';
+  ELSE
+    RAISE EXCEPTION '❌ Erro ao criar tabela stories';
+  END IF;
+  
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'story_views') THEN
+    RAISE NOTICE '✅ Tabela story_views criada com sucesso!';
+  ELSE
+    RAISE EXCEPTION '❌ Erro ao criar tabela story_views';
+  END IF;
+END $$;
 

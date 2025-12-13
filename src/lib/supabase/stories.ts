@@ -98,26 +98,41 @@ export async function getAllActiveStories(
     // Get all non-expired stories
     const { data, error } = await supabaseAdmin
       .from('stories')
-      .select(`
-        id,
-        user_id,
-        media_url,
-        media_type,
-        created_at,
-        expires_at,
-        users (
-          id,
-          name,
-          email,
-          avatar_url,
-          nickname
-        )
-      `)
+      .select('id, user_id, media_url, media_type, created_at, expires_at')
       .gt('expires_at', new Date().toISOString())
       .order('created_at', { ascending: false });
 
     if (error || !data) {
+      console.error('Error fetching stories:', error);
       return { stories: [], error: error?.message || 'Failed to fetch stories' };
+    }
+
+    if (data.length === 0) {
+      return { stories: [], error: null };
+    }
+
+    // Get unique user IDs from stories
+    const userIds = [...new Set(data.map((s: any) => s.user_id))];
+    
+    // Fetch users separately
+    let usersMap: Record<string, any> = {};
+    if (userIds.length > 0) {
+      const { data: usersData, error: usersError } = await supabaseAdmin
+        .from('users')
+        .select('id, name, email, avatar_url, nickname')
+        .in('id', userIds);
+
+      if (!usersError && usersData) {
+        usersData.forEach((user: any) => {
+          usersMap[user.id] = {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            avatarUrl: user.avatar_url || undefined,
+            nickname: user.nickname || undefined,
+          };
+        });
+      }
     }
 
     // Get story views for current user to check which stories were viewed
@@ -158,15 +173,7 @@ export async function getAllActiveStories(
       mediaType: story.media_type as 'image' | 'video',
       createdAt: new Date(story.created_at),
       expiresAt: new Date(story.expires_at),
-      user: story.users
-        ? {
-            id: story.users.id,
-            name: story.users.name,
-            email: story.users.email,
-            avatarUrl: story.users.avatar_url || undefined,
-            nickname: story.users.nickname || undefined,
-          }
-        : undefined,
+      user: usersMap[story.user_id],
       viewCount: viewCountsMap[story.id] || 0,
       isViewed: viewedStoryIds.has(story.id),
     }));
