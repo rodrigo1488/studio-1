@@ -102,6 +102,9 @@ export type Story = {
   user?: User;
   viewCount?: number;
   isViewed?: boolean;
+  reactionsCount?: number;
+  userReaction?: 'like' | 'love' | 'laugh' | 'wow' | 'sad' | 'angry';
+  isLoaded?: boolean;
 };
 
 export type StoryView = {

@@ -333,6 +333,39 @@ export function NotificationManager() {
     };
   }, []);
 
+  // Listener para reações em stories
+  useEffect(() => {
+    const handleStoryReaction = async (event: CustomEvent) => {
+      const { storyId, storyUserId, reactionType, userId } = event.detail;
+
+      // Não notificar se for a própria reação do usuário
+      if (userId === currentUserId) return;
+
+      // Não notificar se for a própria story do usuário
+      if (storyUserId === currentUserId) {
+        // Buscar dados do usuário que reagiu
+        try {
+          const userResponse = await fetch(`/api/users/${userId}`);
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            // Criar notificação visual (pode ser um toast ou badge)
+            console.log(`[Notifications] ${userData.name} reagiu à sua story com ${reactionType}`);
+            // Aqui você pode adicionar um toast ou atualizar um contador de notificações
+          }
+        } catch (error) {
+          console.error('[Notifications] Error fetching user data for story reaction:', error);
+        }
+      }
+    };
+
+    const handler = handleStoryReaction as unknown as EventListener;
+    window.addEventListener('storyReaction', handler);
+
+    return () => {
+      window.removeEventListener('storyReaction', handler);
+    };
+  }, [currentUserId]);
+
   // Listener para novas mensagens em tempo real
   useEffect(() => {
     const handleNewMessage = async (event: CustomEvent) => {

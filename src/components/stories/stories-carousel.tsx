@@ -16,7 +16,7 @@ export function StoriesCarousel({ currentUserId }: StoriesCarouselProps) {
   const [storiesByUser, setStoriesByUser] = useState<Record<string, Story[]>>({});
   const [users, setUsers] = useState<Record<string, User>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedStory, setSelectedStory] = useState<{ stories: Story[]; initialIndex: number } | null>(null);
+  const [selectedStory, setSelectedStory] = useState<{ stories: Story[]; initialIndex: number; userId: string } | null>(null);
 
   useEffect(() => {
     async function fetchStories() {
@@ -69,6 +69,7 @@ export function StoriesCarousel({ currentUserId }: StoriesCarouselProps) {
       setSelectedStory({
         stories: userStories,
         initialIndex: 0,
+        userId,
       });
     }
   };
@@ -132,7 +133,8 @@ export function StoriesCarousel({ currentUserId }: StoriesCarouselProps) {
 
       {selectedStory && (
         <StoryViewer
-          stories={selectedStory.stories}
+          allStoriesByUser={storiesByUser}
+          initialUserId={selectedStory.userId}
           initialIndex={selectedStory.initialIndex}
           currentUserId={currentUserId}
           onClose={() => setSelectedStory(null)}
