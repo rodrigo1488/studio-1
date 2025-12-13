@@ -1,4 +1,4 @@
-import { supabase } from './client';
+import { supabaseServer } from './server';
 import type { Message } from '@/lib/data';
 
 export interface MessageInsert {
@@ -33,7 +33,11 @@ export async function sendMessage(
       return { message: null, error: 'RoomId é obrigatório' };
     }
 
-    const { data, error } = await supabase
+    if (!supabaseServer) {
+      return { message: null, error: 'Supabase não inicializado' };
+    }
+
+    const { data, error } = await supabaseServer
       .from('messages')
       .insert({
         room_id: roomId,
@@ -84,7 +88,11 @@ export async function getRoomMessages(
   before?: Date
 ): Promise<{ messages: Message[]; hasMore: boolean }> {
   try {
-    let query = supabase
+    if (!supabaseServer) {
+      return { messages: [], hasMore: false };
+    }
+
+    let query = supabaseServer
       .from('messages')
       .select('id, room_id, sender_id, text, media_url, media_type, created_at, reply_to_id', { count: 'exact' })
       .eq('room_id', roomId);
@@ -110,7 +118,7 @@ export async function getRoomMessages(
     // Fetch reply messages if any
     let replyMessagesMap: Record<string, any> = {};
     if (replyToIds.length > 0) {
-      const { data: replyData } = await supabase
+      const { data: replyData } = await supabaseServer
         .from('messages')
         .select(`
           id,
