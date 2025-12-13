@@ -57,6 +57,7 @@ import { MessageReply } from '@/components/chat/message-reply';
 import { ForwardMessageDialog } from '@/components/chat/forward-message-dialog';
 import { MessageSearch } from '@/components/chat/message-search';
 import { GifPicker } from '@/components/chat/gif-picker';
+import { TypingIndicator } from '@/components/chat/typing-indicator';
 
 interface ChatLayoutProps {
   room: Room;
