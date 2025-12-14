@@ -162,3 +162,8 @@ nextjs-portal[data-cursor-element-id="cursor-el-772"] {
   left: -1px;
   top: 1px;
 }
+
+nextjs-portal[data-cursor-element-id="cursor-el-123"] {
+  left: 5px;
+  top: 0px;
+}
