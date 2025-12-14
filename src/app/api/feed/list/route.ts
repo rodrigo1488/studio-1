@@ -17,11 +17,19 @@ export async function GET(request: NextRequest) {
     const searchQuery = searchParams.get('q') || undefined;
     const sortBy = (searchParams.get('sortBy') as 'recent' | 'likes' | 'comments') || 'recent';
     const filterByUserId = searchParams.get('userId') || undefined;
+    const dateFilter = (searchParams.get('dateFilter') as 'today' | 'week' | 'month' | 'year' | 'all') || 'all';
+    const mediaTypeFilter = (searchParams.get('mediaType') as 'image' | 'video' | 'all') || 'all';
+    const filterByLiked = searchParams.get('liked') === 'true';
+    const filterBySaved = searchParams.get('saved') === 'true';
 
     const { posts, error } = await getFeedPosts(user.id, limit, offset, {
       searchQuery,
       sortBy,
       filterByUserId,
+      dateFilter,
+      mediaTypeFilter,
+      filterByLiked,
+      filterBySaved,
     });
 
     if (error) {

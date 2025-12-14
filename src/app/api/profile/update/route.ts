@@ -13,7 +13,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const { name, avatarUrl, nickname } = await request.json();
+    const { name, avatarUrl, nickname, bio } = await request.json();
 
     if (!name || name.trim().length === 0) {
       return NextResponse.json(
@@ -46,15 +46,24 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Validate bio length (max 500 characters)
+    if (bio && bio.trim().length > 500) {
+      return NextResponse.json(
+        { error: 'A biografia não pode ter mais de 500 caracteres' },
+        { status: 400 }
+      );
+    }
+
     const { data, error } = await supabaseServer
       .from('users')
       .update({
         name: name.trim(),
         avatar_url: avatarUrl || null,
         nickname: nickname && nickname.trim().length > 0 ? nickname.trim() : null,
+        bio: bio && bio.trim().length > 0 ? bio.trim() : null,
       })
       .eq('id', user.id)
-      .select('id, email, name, avatar_url, nickname')
+      .select('id, email, name, avatar_url, nickname, bio')
       .single();
 
     if (error) {
@@ -71,6 +80,7 @@ export async function PUT(request: NextRequest) {
         name: data.name,
         avatarUrl: data.avatar_url || undefined,
         nickname: data.nickname || undefined,
+        bio: data.bio || undefined,
       },
     });
   } catch (error) {

@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, LogOut, Camera, X, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -26,6 +27,7 @@ export default function ProfilePage() {
   const [user, setUser] = useState<User | undefined>(undefined);
   const [name, setName] = useState('');
   const [nickname, setNickname] = useState('');
+  const [bio, setBio] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -45,6 +47,7 @@ export default function ProfilePage() {
           setUser(data.user);
           setName(data.user.name);
           setNickname(data.user.nickname || '');
+          setBio(data.user.bio || '');
           
           // Buscar posts do usuário
           if (data.user?.id) {
@@ -151,6 +154,7 @@ export default function ProfilePage() {
         body: JSON.stringify({
           name: name.trim() || user?.name,
           nickname: nickname.trim() || null,
+          bio: bio.trim() || null,
           avatarUrl: uploadData.url,
         }),
       });
@@ -194,6 +198,7 @@ export default function ProfilePage() {
         body: JSON.stringify({
           name: name.trim() || user?.name,
           nickname: nickname.trim() || null,
+          bio: bio.trim() || null,
           avatarUrl: null,
         }),
       });
@@ -231,6 +236,15 @@ export default function ProfilePage() {
       return;
     }
 
+    if (bio.trim().length > 500) {
+      toast({
+        title: 'Biografia muito longa',
+        description: 'A biografia não pode ter mais de 500 caracteres',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -242,6 +256,7 @@ export default function ProfilePage() {
         body: JSON.stringify({
           name: name.trim(),
           nickname: nickname.trim() || null,
+          bio: bio.trim() || null,
           avatarUrl: user?.avatarUrl || null,
         }),
       });
@@ -358,9 +373,15 @@ export default function ProfilePage() {
                 )}
               </div>
             </div>
-            <div>
+            <div className="flex-1">
                 <h2 className="text-xl font-semibold">{user.name}</h2>
+                {user.nickname && (
+                  <p className="text-sm text-muted-foreground">@{user.nickname}</p>
+                )}
                 <p className="text-sm text-muted-foreground">{user.email}</p>
+                {user.bio && (
+                  <p className="text-sm text-foreground mt-2 whitespace-pre-wrap">{user.bio}</p>
+                )}
             </div>
           </div>
           <div className="space-y-4">
@@ -390,6 +411,22 @@ export default function ProfilePage() {
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" value={user.email} disabled />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bio">Biografia</Label>
+              <Textarea
+                id="bio"
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Conte um pouco sobre você..."
+                disabled={isSaving}
+                maxLength={500}
+                rows={4}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">
+                {bio.length}/500 caracteres
+              </p>
             </div>
           </div>
           <div className="space-y-3">

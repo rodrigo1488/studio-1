@@ -1,12 +1,9 @@
 import { supabaseServer } from './server';
 import bcrypt from 'bcryptjs';
+import type { User } from '@/lib/data';
 
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  avatarUrl?: string;
-}
+// Re-export for backward compatibility
+export type { User };
 
 /**
  * Register a new user
@@ -128,7 +125,7 @@ export async function getUserById(userId: string): Promise<User | null> {
 
     const { data, error } = await supabaseServer
       .from('users')
-      .select('id, email, name, avatar_url')
+      .select('id, email, name, avatar_url, nickname, bio')
       .eq('id', userId)
       .single();
 
@@ -141,6 +138,8 @@ export async function getUserById(userId: string): Promise<User | null> {
       email: data.email,
       name: data.name,
       avatarUrl: data.avatar_url || undefined,
+      nickname: data.nickname || undefined,
+      bio: data.bio || undefined,
     };
   } catch (error) {
     return null;

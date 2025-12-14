@@ -4,6 +4,7 @@ export type User = {
   email: string;
   avatarUrl?: string;
   nickname?: string;
+  bio?: string;
 };
 
 export type Message = {
@@ -17,6 +18,12 @@ export type Message = {
   status?: 'sending' | 'sent' | 'error'; // Status de envio da mensagem
   replyToId?: string;
   replyTo?: Message & { user?: User };
+  isEdited?: boolean;
+  editedAt?: Date;
+  expiresAt?: Date;
+  threadId?: string;
+  threadCount?: number;
+  threadMessages?: Message[];
 };
 
 export type Room = {

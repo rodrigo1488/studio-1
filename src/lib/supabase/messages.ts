@@ -1,5 +1,5 @@
-import { supabaseServer } from './server';
-import type { Message } from '@/lib/data';
+import { supabaseServer, supabaseAdmin } from './server';
+import type { Message, User } from '@/lib/data';
 
 export interface MessageInsert {
   id: string;
@@ -20,7 +20,8 @@ export async function sendMessage(
   text: string,
   mediaUrl?: string,
   mediaType?: 'image' | 'video' | 'audio' | 'gif',
-  replyToId?: string
+  replyToId?: string,
+  expiresAt?: Date | null
 ): Promise<{ message: Message; error: null } | { message: null; error: string }> {
   try {
     // VALIDAÇÃO RIGOROSA: Garantir que senderId não está vazio e é um UUID válido
@@ -60,8 +61,9 @@ export async function sendMessage(
         media_url: mediaUrl,
         media_type: mediaType,
         reply_to_id: replyToId || null,
+        expires_at: expiresAt ? expiresAt.toISOString() : null,
       })
-      .select('id, room_id, sender_id, text, media_url, media_type, created_at, reply_to_id')
+      .select('id, room_id, sender_id, text, media_url, media_type, created_at, reply_to_id, expires_at')
       .single();
 
     if (error) {
@@ -74,6 +76,44 @@ export async function sendMessage(
       // Ainda assim retornar a mensagem, mas com o senderId do banco (fonte da verdade)
     }
 
+    // Fetch reply message if replyToId exists
+    let replyTo: Message & { user?: User } | undefined = undefined;
+    if (data.reply_to_id) {
+      const { data: replyData } = await supabaseServer
+        .from('messages')
+        .select(`
+          id,
+          sender_id,
+          text,
+          media_url,
+          media_type,
+          created_at,
+          users!messages_sender_id_fkey (id, name, email, avatar_url, nickname)
+        `)
+        .eq('id', data.reply_to_id)
+        .single();
+
+      if (replyData) {
+        const userData = Array.isArray(replyData.users) ? replyData.users[0] : replyData.users;
+        replyTo = {
+          id: replyData.id,
+          roomId: roomId,
+          senderId: replyData.sender_id,
+          text: replyData.text,
+          timestamp: new Date(replyData.created_at),
+          mediaUrl: replyData.media_url || undefined,
+          mediaType: replyData.media_type || undefined,
+          user: userData ? {
+            id: userData.id,
+            name: userData.name,
+            email: userData.email,
+            avatarUrl: userData.avatar_url || undefined,
+            nickname: userData.nickname || undefined,
+          } : undefined,
+        };
+      }
+    }
+
     return {
       message: {
         id: data.id,
@@ -84,6 +124,8 @@ export async function sendMessage(
         mediaUrl: data.media_url || undefined,
         mediaType: data.media_type || undefined,
         replyToId: data.reply_to_id || undefined,
+        replyTo: replyTo,
+        expiresAt: data.expires_at ? new Date(data.expires_at) : undefined,
       },
       error: null,
     };
@@ -108,8 +150,11 @@ export async function getRoomMessages(
 
     let query = supabaseServer
       .from('messages')
-      .select('id, room_id, sender_id, text, media_url, media_type, created_at, reply_to_id', { count: 'exact' })
+      .select('id, room_id, sender_id, text, media_url, media_type, created_at, reply_to_id, is_edited, edited_at, expires_at', { count: 'exact' })
       .eq('room_id', roomId);
+    
+    // Filter out expired messages
+    query = query.or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
 
     // If before date is provided, get messages before that date
     if (before) {
@@ -182,6 +227,10 @@ export async function getRoomMessages(
           mediaUrl: msg.media_url || undefined,
           mediaType: msg.media_type || undefined,
           replyToId: msg.reply_to_id || undefined,
+          isEdited: msg.is_edited || false,
+          editedAt: msg.edited_at ? new Date(msg.edited_at) : undefined,
+          expiresAt: msg.expires_at ? new Date(msg.expires_at) : undefined,
+          threadId: msg.thread_id || undefined,
         };
 
         // Add replyTo if exists
@@ -198,6 +247,145 @@ export async function getRoomMessages(
     return { messages, hasMore };
   } catch (error) {
     return { messages: [], hasMore: false };
+  }
+}
+
+/**
+ * Edit a message
+ * Only the sender can edit their own message, and only within a time limit (e.g., 15 minutes)
+ */
+export async function editMessage(
+  messageId: string,
+  userId: string,
+  newText: string,
+  timeLimitMinutes: number = 15
+): Promise<{ message: Message | null; error: string | null }> {
+  try {
+    if (!supabaseServer || !supabaseAdmin) {
+      return { message: null, error: 'Supabase não inicializado' };
+    }
+
+    // Get the original message (use admin to bypass RLS)
+    const { data: originalMessage, error: fetchError } = await supabaseAdmin
+      .from('messages')
+      .select('id, sender_id, text, created_at, is_edited, media_url')
+      .eq('id', messageId)
+      .single();
+
+    if (fetchError) {
+      console.error('[Edit Message] Error fetching message:', fetchError);
+      return { message: null, error: fetchError.message || 'Mensagem não encontrada' };
+    }
+
+    if (!originalMessage) {
+      return { message: null, error: 'Mensagem não encontrada' };
+    }
+
+    // Não permitir editar mensagens com mídia
+    if (originalMessage.media_url) {
+      return { message: null, error: 'Não é possível editar mensagens com mídia' };
+    }
+
+    // Verify ownership
+    if (originalMessage.sender_id !== userId) {
+      return { message: null, error: 'Você não pode editar esta mensagem' };
+    }
+
+    // Check time limit
+    const messageDate = new Date(originalMessage.created_at);
+    const now = new Date();
+    const minutesSinceCreation = (now.getTime() - messageDate.getTime()) / (1000 * 60);
+
+    if (minutesSinceCreation > timeLimitMinutes) {
+      return { message: null, error: `Você só pode editar mensagens dentro de ${timeLimitMinutes} minutos após o envio` };
+    }
+
+    // Save edit history (always create a new entry to track all edits)
+    try {
+      const { error: editHistoryError } = await supabaseAdmin
+        .from('message_edits')
+        .insert({
+          message_id: messageId,
+          original_text: originalMessage.text,
+          edited_text: newText,
+        });
+
+      if (editHistoryError) {
+        // Log but don't fail if edit history fails (table might not exist yet)
+        console.warn('[Edit Message] Error saving edit history:', editHistoryError);
+      }
+    } catch (error) {
+      // Ignore errors in edit history (table might not exist)
+      console.warn('[Edit Message] Exception saving edit history:', error);
+    }
+
+    // Update the message (use admin to bypass RLS)
+    const { data: updatedMessage, error: updateError } = await supabaseAdmin
+      .from('messages')
+      .update({
+        text: newText,
+        is_edited: true,
+        edited_at: now.toISOString(),
+      })
+      .eq('id', messageId)
+      .select('id, room_id, sender_id, text, media_url, media_type, created_at, reply_to_id, is_edited, edited_at')
+      .single();
+
+    if (updateError || !updatedMessage) {
+      return { message: null, error: updateError?.message || 'Erro ao editar mensagem' };
+    }
+
+    return {
+      message: {
+        id: updatedMessage.id,
+        roomId: updatedMessage.room_id,
+        senderId: updatedMessage.sender_id,
+        text: updatedMessage.text,
+        timestamp: new Date(updatedMessage.created_at),
+        mediaUrl: updatedMessage.media_url || undefined,
+        mediaType: updatedMessage.media_type || undefined,
+        replyToId: updatedMessage.reply_to_id || undefined,
+        isEdited: updatedMessage.is_edited || false,
+        editedAt: updatedMessage.edited_at ? new Date(updatedMessage.edited_at) : undefined,
+      },
+      error: null,
+    };
+  } catch (error: any) {
+    return { message: null, error: error.message || 'Erro ao editar mensagem' };
+  }
+}
+
+/**
+ * Get edit history for a message
+ */
+export async function getMessageEditHistory(
+  messageId: string
+): Promise<{ edits: Array<{ id: string; originalText: string; editedText: string; editedAt: Date }>; error: string | null }> {
+  try {
+    if (!supabaseServer) {
+      return { edits: [], error: 'Supabase não inicializado' };
+    }
+
+    const { data, error } = await supabaseServer
+      .from('message_edits')
+      .select('id, original_text, edited_text, edited_at')
+      .eq('message_id', messageId)
+      .order('edited_at', { ascending: true });
+
+    if (error) {
+      return { edits: [], error: error.message };
+    }
+
+    const edits = (data || []).map((edit: any) => ({
+      id: edit.id,
+      originalText: edit.original_text,
+      editedText: edit.edited_text,
+      editedAt: new Date(edit.edited_at),
+    }));
+
+    return { edits, error: null };
+  } catch (error: any) {
+    return { edits: [], error: error.message || 'Erro ao buscar histórico de edições' };
   }
 }
 

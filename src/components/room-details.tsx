@@ -11,10 +11,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, MessageSquare, Users, X } from 'lucide-react';
+import { Camera, MessageSquare, Users, X, Clock } from 'lucide-react';
 import { getInitials, cn } from '@/lib/utils';
 import type { Room, User } from '@/lib/data';
 import { useRouter } from 'next/navigation';
+import { TemporaryMessageSettings } from '@/components/chat/temporary-message-settings';
 
 interface RoomDetailsProps {
   room: Room;
@@ -31,6 +32,7 @@ export function RoomDetails({ room, currentUser, open, onOpenChange }: RoomDetai
   const [members, setMembers] = useState<RoomMember[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [showTemporarySettings, setShowTemporarySettings] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -207,6 +209,22 @@ export function RoomDetails({ room, currentUser, open, onOpenChange }: RoomDetai
             </div>
           </div>
 
+          {/* Mensagens Temporárias */}
+          <div>
+            <h4 className="font-semibold mb-3 flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Configurações
+            </h4>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => setShowTemporarySettings(true)}
+            >
+              <Clock className="h-4 w-4 mr-2" />
+              Mensagens Temporárias
+            </Button>
+          </div>
+
           {/* Participantes */}
           <div>
             <h4 className="font-semibold mb-3 flex items-center gap-2">
@@ -267,6 +285,12 @@ export function RoomDetails({ room, currentUser, open, onOpenChange }: RoomDetai
           </div>
         </div>
       </DialogContent>
+
+      <TemporaryMessageSettings
+        open={showTemporarySettings}
+        onOpenChange={setShowTemporarySettings}
+        roomId={room.id}
+      />
     </Dialog>
   );
 }

@@ -13,10 +13,10 @@ export async function GET() {
       );
     }
 
-    // Get full user data including nickname
+    // Get full user data including nickname and bio
     const { data: fullUser, error } = await supabaseServer
       .from('users')
-      .select('id, email, name, avatar_url, nickname')
+      .select('id, email, name, avatar_url, nickname, bio')
       .eq('id', user.id)
       .single();
 
@@ -34,6 +34,7 @@ export async function GET() {
         name: fullUser.name,
         avatarUrl: fullUser.avatar_url || undefined,
         nickname: fullUser.nickname || undefined,
+        bio: fullUser.bio || undefined,
       },
     });
   } catch (error) {

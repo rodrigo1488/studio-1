@@ -140,6 +140,10 @@ export async function getFeedPosts(
     searchQuery?: string;
     sortBy?: 'recent' | 'likes' | 'comments';
     filterByUserId?: string;
+    dateFilter?: 'today' | 'week' | 'month' | 'year' | 'all';
+    mediaTypeFilter?: 'image' | 'video' | 'all';
+    filterByLiked?: boolean;
+    filterBySaved?: boolean;
   }
 ): Promise<{ posts: Post[]; error: string | null }> {
   if (!supabaseServer) {
@@ -147,6 +151,30 @@ export async function getFeedPosts(
   }
 
   try {
+    // Build date filter
+    let dateFilterStart: Date | null = null;
+    if (options?.dateFilter && options.dateFilter !== 'all') {
+      const now = new Date();
+      switch (options.dateFilter) {
+        case 'today':
+          dateFilterStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'week':
+          dateFilterStart = new Date(now);
+          dateFilterStart.setDate(now.getDate() - 7);
+          break;
+        case 'month':
+          dateFilterStart = new Date(now);
+          dateFilterStart.setMonth(now.getMonth() - 1);
+          break;
+        case 'year':
+          dateFilterStart = new Date(now);
+          dateFilterStart.setFullYear(now.getFullYear() - 1);
+          break;
+      }
+    }
+
+    // Start with base query
     let query = supabaseServer
       .from('posts')
       .select(`
@@ -165,6 +193,11 @@ export async function getFeedPosts(
       query = query.eq('user_id', options.filterByUserId);
     }
 
+    // Apply date filter
+    if (dateFilterStart) {
+      query = query.gte('created_at', dateFilterStart.toISOString());
+    }
+
     // Apply sorting (default: most recent)
     query = query.order('created_at', { ascending: false });
 
@@ -175,8 +208,53 @@ export async function getFeedPosts(
       return { posts: [], error: postsError.message };
     }
 
+    let filteredPosts = postsData || [];
+
+    // Apply media type filter
+    if (options?.mediaTypeFilter && options.mediaTypeFilter !== 'all') {
+      filteredPosts = filteredPosts.filter((p: any) => {
+        const media = p.post_media || [];
+        if (media.length === 0) return false;
+        return media.some((m: any) => m.media_type === options.mediaTypeFilter);
+      });
+    }
+
+    // Apply liked filter
+    if (options?.filterByLiked) {
+      const postIds = filteredPosts.map((p: any) => p.id);
+      if (postIds.length > 0) {
+        const { data: likedPosts } = await supabaseServer
+          .from('post_likes')
+          .select('post_id')
+          .eq('user_id', userId)
+          .in('post_id', postIds);
+        
+        const likedPostIds = new Set((likedPosts || []).map((lp: any) => lp.post_id));
+        filteredPosts = filteredPosts.filter((p: any) => likedPostIds.has(p.id));
+      } else {
+        filteredPosts = [];
+      }
+    }
+
+    // Apply saved filter
+    if (options?.filterBySaved) {
+      const postIds = filteredPosts.map((p: any) => p.id);
+      if (postIds.length > 0) {
+        const { data: savedPosts } = await supabaseServer
+          .from('saved_posts')
+          .select('post_id')
+          .eq('user_id', userId)
+          .in('post_id', postIds);
+        
+        const savedPostIds = new Set((savedPosts || []).map((sp: any) => sp.post_id));
+        filteredPosts = filteredPosts.filter((p: any) => savedPostIds.has(p.id));
+      } else {
+        filteredPosts = [];
+      }
+    }
+
     // Get mentions for all posts
-    const postIds = (postsData || []).map((p: any) => p.id);
+    const postIds = filteredPosts.map((p: any) => p.id);
     let mentionsMap: Record<string, any[]> = {};
     
     if (postIds.length > 0) {
@@ -214,7 +292,7 @@ export async function getFeedPosts(
       }
     }
 
-    const posts = (postsData || []).map((p: any) => convertToPost(p, mentionsMap[p.id] || []));
+    const posts = filteredPosts.map((p: any) => convertToPost(p, mentionsMap[p.id] || []));
     return { posts, error: null };
   } catch (error: any) {
     return { posts: [], error: error.message || 'Failed to fetch feed' };

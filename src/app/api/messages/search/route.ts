@@ -13,10 +13,13 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const roomId = searchParams.get('roomId');
     const q = searchParams.get('q');
+    const type = searchParams.get('type') as 'text' | 'media' | 'link' | 'all' | null;
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
 
-    if (!roomId || !q) {
+    if (!roomId) {
       return NextResponse.json(
-        { error: 'roomId e q são obrigatórios' },
+        { error: 'roomId é obrigatório' },
         { status: 400 }
       );
     }
@@ -25,8 +28,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Supabase não inicializado' }, { status: 500 });
     }
 
-    // Search messages in the room
-    const { data: messages, error } = await supabaseServer
+    // Build query
+    let query = supabaseServer
       .from('messages')
       .select(`
         id,
@@ -37,12 +40,40 @@ export async function GET(request: NextRequest) {
         media_type,
         created_at,
         reply_to_id,
+        is_edited,
+        edited_at,
         users (id, name, email, avatar_url, nickname)
       `)
-      .eq('room_id', roomId)
-      .ilike('text', `%${q}%`)
+      .eq('room_id', roomId);
+
+    // Apply text search
+    if (q && q.trim().length > 0) {
+      query = query.ilike('text', `%${q.trim()}%`);
+    }
+
+    // Apply type filter
+    if (type && type !== 'all') {
+      if (type === 'text') {
+        query = query.is('media_url', null);
+      } else if (type === 'media') {
+        query = query.not('media_url', 'is', null);
+      } else if (type === 'link') {
+        // Search for links in text (basic URL detection)
+        query = query.or('text.ilike.%http%,text.ilike.%https%,text.ilike.%www.%');
+      }
+    }
+
+    // Apply date filters
+    if (dateFrom) {
+      query = query.gte('created_at', dateFrom);
+    }
+    if (dateTo) {
+      query = query.lte('created_at', dateTo);
+    }
+
+    const { data: messages, error } = await query
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(100);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -57,6 +88,8 @@ export async function GET(request: NextRequest) {
       mediaUrl: msg.media_url || undefined,
       mediaType: msg.media_type || undefined,
       replyToId: msg.reply_to_id || undefined,
+      isEdited: msg.is_edited || false,
+      editedAt: msg.edited_at ? new Date(msg.edited_at) : undefined,
       user: msg.users ? {
         id: msg.users.id,
         name: msg.users.name,

@@ -103,18 +103,36 @@ export function NotificationManager() {
     const createSubscription = async (roomId: string, retries = 3): Promise<void> => {
       const channelName = `notifications:${roomId}`;
       
-      // Verificar se já existe um canal para esta sala e removê-lo se necessário
+      // Verificar se já existe um canal ativo para esta sala
       const existingChannelIndex = channelsRef.current.findIndex(
         (ch) => ch.topic === channelName
       );
+      
       if (existingChannelIndex !== -1) {
         const existingChannel = channelsRef.current[existingChannelIndex];
-        console.log(`[Notifications] Removing existing channel for room ${roomId} before creating new one`);
+        // Verificar se o canal está realmente ativo antes de remover
         try {
+          const channelState = existingChannel.state;
+          if (channelState === 'joined' || channelState === 'joining') {
+            console.log(`[Notifications] Channel already exists and is active (${channelState}) for room ${roomId}, skipping creation`);
+            return; // Canal já existe e está ativo, não precisa criar novamente
+          }
+          
+          // Remover apenas se o canal estiver em estado de erro ou fechado
+          console.log(`[Notifications] Removing existing channel in state ${channelState} for room ${roomId}`);
           await supabase.removeChannel(existingChannel);
           channelsRef.current.splice(existingChannelIndex, 1);
+          // Aguardar um pouco para garantir que o canal foi removido
+          await new Promise((resolve) => setTimeout(resolve, 500));
         } catch (error) {
-          console.warn('[Notifications] Error removing existing channel:', error);
+          console.warn('[Notifications] Error checking/removing existing channel:', error);
+          // Se houver erro ao verificar/remover, tentar remover mesmo assim
+          try {
+            await supabase.removeChannel(existingChannel);
+            channelsRef.current.splice(existingChannelIndex, 1);
+          } catch (removeError) {
+            console.warn('[Notifications] Error removing channel after check failed:', removeError);
+          }
         }
       }
 
@@ -255,20 +273,57 @@ export function NotificationManager() {
             if (channel && !channelsRef.current.includes(channel)) {
               channelsRef.current.push(channel);
             }
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            console.error(`[Notifications] ❌ Error subscribing to room ${roomId}:`, status, err);
+          } else if (status === 'CHANNEL_ERROR') {
+            // Verificar se o erro é realmente crítico ou apenas um estado transitório
+            const errorMessage = err?.message || String(err || '');
+            
+            // Ignorar erros de conexão transitórios que serão resolvidos automaticamente
+            if (errorMessage.includes('connection') || errorMessage.includes('timeout')) {
+              console.warn(`[Notifications] ⚠️ Transient connection error for room ${roomId}, will retry:`, errorMessage);
+            } else {
+              console.error(`[Notifications] ❌ Error subscribing to room ${roomId}:`, status, errorMessage);
+            }
             
             // Tentar novamente se houver tentativas restantes
             if (retries > 0) {
-              console.log(`[Notifications] Retrying subscription for room ${roomId}... (${retries} retries left)`);
+              const delay = Math.min(2000 * (4 - retries), 5000); // Backoff exponencial até 5s
+              console.log(`[Notifications] Retrying subscription for room ${roomId}... (${retries} retries left, delay: ${delay}ms)`);
               setTimeout(() => {
                 createSubscription(roomId, retries - 1);
-              }, 2000); // Aguardar 2 segundos antes de tentar novamente
+              }, delay);
             } else {
-              console.error(`[Notifications] Failed to subscribe to room ${roomId} after all retries`);
+              console.warn(`[Notifications] Failed to subscribe to room ${roomId} after all retries. This may be a temporary issue.`);
+            }
+          } else if (status === 'TIMED_OUT') {
+            console.warn(`[Notifications] ⚠️ Timeout subscribing to room ${roomId}, retrying...`);
+            
+            // Tentar novamente se houver tentativas restantes
+            if (retries > 0) {
+              const delay = Math.min(2000 * (4 - retries), 5000);
+              setTimeout(() => {
+                createSubscription(roomId, retries - 1);
+              }, delay);
+            } else {
+              console.warn(`[Notifications] Timeout for room ${roomId} after all retries`);
+            }
+          } else if (status === 'CLOSED') {
+            // CLOSED pode ser um estado transitório normal - tentar recriar a subscription
+            console.warn(`[Notifications] ⚠️ Channel closed for room ${roomId}, attempting to reconnect...`);
+            
+            // Tentar novamente se houver tentativas restantes
+            if (retries > 0) {
+              const delay = Math.min(2000 * (4 - retries), 5000);
+              setTimeout(() => {
+                createSubscription(roomId, retries - 1);
+              }, delay);
+            } else {
+              console.warn(`[Notifications] Channel for room ${roomId} closed after all retries - will retry on next message`);
             }
           } else {
-            console.warn(`[Notifications] ⚠️ Channel status for room ${roomId}: ${status}`, err);
+            // Outros status como 'JOINING', 'LEAVING' são normais e não precisam de ação
+            if (status !== 'JOINING' && status !== 'LEAVING') {
+              console.warn(`[Notifications] ⚠️ Channel status for room ${roomId}: ${status}`, err);
+            }
           }
         });
 

@@ -18,6 +18,7 @@ import {
   Info,
   Smile,
   Forward,
+  Search,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -56,6 +57,10 @@ import { getCachedUser, saveUserToCache } from '@/lib/storage/room-cache';
 import { MessageReactions } from '@/components/chat/message-reactions';
 import { MessageReply } from '@/components/chat/message-reply';
 import { ForwardMessageDialog } from '@/components/chat/forward-message-dialog';
+import { EditMessageDialog } from '@/components/chat/edit-message-dialog';
+import { MessageEditIndicator } from '@/components/chat/message-edit-indicator';
+import { TemporaryMessageIndicator } from '@/components/chat/temporary-message-indicator';
+import { MessageThread } from '@/components/chat/message-thread';
 import { MessageSearch } from '@/components/chat/message-search';
 import { GifPicker } from '@/components/chat/gif-picker';
 import { TypingIndicator } from '@/components/chat/typing-indicator';
@@ -129,6 +134,7 @@ export default function ChatLayout({
   const [showRoomDetails, setShowRoomDetails] = useState(false);
   const [replyingTo, setReplyingTo] = useState<(Message & { user?: User }) | null>(null);
   const [forwardingMessage, setForwardingMessage] = useState<(Message & { user?: User }) | null>(null);
+  const [editingMessage, setEditingMessage] = useState<(Message & { user?: User }) | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -681,12 +687,21 @@ export default function ChatLayout({
                       senderId: data.message.senderId, // SEMPRE usar o senderId do servidor
                       status: 'sent' as const,
                       timestamp: ensureDate(data.message.timestamp || msg.timestamp),
+                      replyToId: data.message.replyToId || msg.replyToId,
+                      replyTo: data.message.replyTo ? {
+                        ...data.message.replyTo,
+                        timestamp: ensureDate(data.message.replyTo.timestamp),
+                      } : msg.replyTo,
                     }
                   : msg
               );
               const normalized = updated.map(msg => ({
                 ...msg,
-                timestamp: ensureDate(msg.timestamp)
+                timestamp: ensureDate(msg.timestamp),
+                replyTo: msg.replyTo ? {
+                  ...msg.replyTo,
+                  timestamp: ensureDate(msg.replyTo.timestamp),
+                } : undefined,
               }));
               return sortMessagesByTimestamp(normalized);
             });
@@ -695,6 +710,10 @@ export default function ChatLayout({
             addMessageToCache(room.id, {
               ...data.message,
               timestamp: ensureDate(data.message.timestamp),
+              replyTo: data.message.replyTo ? {
+                ...data.message.replyTo,
+                timestamp: ensureDate(data.message.replyTo.timestamp),
+              } : undefined,
               user: currentUser,
             });
           }
@@ -1458,6 +1477,23 @@ export default function ChatLayout({
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => setShowSearch(!showSearch)}
+                  className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 touch-manipulation"
+                >
+                  <Search className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Buscar mensagens</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           {room.code && !room.code.startsWith('DM-') && (
             <TooltipProvider>
               <Tooltip>
@@ -1503,6 +1539,28 @@ export default function ChatLayout({
           <CallButton room={room} currentUser={currentUser} />
         </div>
       </header>
+
+      {/* Search Bar */}
+      {showSearch && (
+        <div className="px-2 sm:px-3 md:px-4 py-2 border-b bg-muted/30">
+          <MessageSearch
+            roomId={room.id}
+            onMessageSelect={(message) => {
+              // Scroll to message
+              const messageElement = document.querySelector(`[data-message-id="${message.id}"]`);
+              if (messageElement) {
+                messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Highlight message temporarily
+                messageElement.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+                setTimeout(() => {
+                  messageElement.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+                }, 2000);
+              }
+              setShowSearch(false);
+            }}
+          />
+        </div>
+      )}
 
       {/* Message Area */}
       <ScrollArea className="flex-1" ref={scrollAreaRef}>
@@ -1597,6 +1655,18 @@ export default function ChatLayout({
                   }
                   document.body.removeChild(menu);
                 };
+                
+                // Add edit button only for own messages that are not temporary
+                if (message.senderId === currentUser.id && !message.id.startsWith('temp-') && !message.mediaUrl) {
+                  const editBtn = document.createElement('button');
+                  editBtn.className = 'w-full text-left px-3 py-2 hover:bg-muted rounded text-sm';
+                  editBtn.textContent = 'Editar';
+                  editBtn.onclick = () => {
+                    setEditingMessage(message);
+                    document.body.removeChild(menu);
+                  };
+                  menu.appendChild(editBtn);
+                }
                 
                 menu.appendChild(replyBtn);
                 menu.appendChild(forwardBtn);
@@ -1701,7 +1771,18 @@ export default function ChatLayout({
                     }
                   </p>
                 )}
-                <div className="flex items-center gap-1 mt-1 self-end">
+                <div className="flex items-center gap-1 mt-1 self-end flex-wrap justify-end">
+                  {message.expiresAt && (
+                    <TemporaryMessageIndicator
+                      expiresAt={message.expiresAt}
+                      className={message.senderId === currentUser.id ? 'text-white/80' : ''}
+                    />
+                  )}
+                  {message.isEdited && (
+                    <MessageEditIndicator 
+                      className={message.senderId === currentUser.id ? 'text-white/80' : ''}
+                    />
+                  )}
                   <span className={cn(
                       "text-xs",
                        message.senderId === currentUser.id
@@ -1780,6 +1861,13 @@ export default function ChatLayout({
                   currentUserId={currentUser.id}
                 />
               </div>
+              {!message.threadId && (
+                <MessageThread
+                  parentMessage={message}
+                  currentUser={currentUser}
+                  roomId={room.id}
+                />
+              )}
             </div>
             );
               });
@@ -2101,6 +2189,20 @@ export default function ChatLayout({
           open={!!forwardingMessage}
           onOpenChange={(open) => !open && setForwardingMessage(null)}
           message={forwardingMessage}
+        />
+      )}
+
+      {editingMessage && (
+        <EditMessageDialog
+          open={!!editingMessage}
+          onOpenChange={(open) => !open && setEditingMessage(null)}
+          message={editingMessage}
+          onMessageEdited={(editedMessage) => {
+            setMessages((prev) =>
+              prev.map((m) => (m.id === editedMessage.id ? { ...m, ...editedMessage } : m))
+            );
+            setEditingMessage(null);
+          }}
         />
       )}
     </div>

@@ -147,3 +147,13 @@ body {
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
+
+/* Estilos para nextjs-portal */
+nextjs-portal[data-cursor-element-id="cursor-el-45"] {
+  left: -2px;
+  top: 1px;
+}
+
+nextjs-portal[data-cursor-element-id="cursor-el-43"] {
+  left: -1px;
+}

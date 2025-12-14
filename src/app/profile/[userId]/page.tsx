@@ -11,8 +11,8 @@ import {
 } from '@/components/ui/card';
 import { ArrowLeft, Image as ImageIcon, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState, use } from 'react';
 import type { User, Post } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { getInitials } from '@/lib/utils';
@@ -20,9 +20,8 @@ import { PostGridItem } from '@/components/feed/post-grid-item';
 import { ProfileStats } from '@/components/profile/profile-stats';
 import { FollowButton } from '@/components/profile/follow-button';
 
-export default function UserProfilePage() {
-  const params = useParams();
-  const userId = params?.userId as string;
+export default function UserProfilePage({ params }: { params: Promise<{ userId: string }> }) {
+  const { userId } = use(params);
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -169,6 +168,9 @@ export default function UserProfilePage() {
                 <p className="text-sm text-muted-foreground">@{profileUser.nickname}</p>
               )}
               <p className="text-sm text-muted-foreground">{profileUser.email}</p>
+              {profileUser.bio && (
+                <p className="text-sm text-foreground mt-2 whitespace-pre-wrap">{profileUser.bio}</p>
+              )}
             </div>
           </div>
         </CardContent>

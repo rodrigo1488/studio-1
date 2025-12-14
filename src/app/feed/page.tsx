@@ -30,6 +30,10 @@ export default function FeedPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'recent' | 'likes' | 'comments'>('recent');
   const [filterByUser, setFilterByUser] = useState<string | undefined>(undefined);
+  const [filterByDate, setFilterByDate] = useState<'today' | 'week' | 'month' | 'year' | 'all'>('all');
+  const [filterByMediaType, setFilterByMediaType] = useState<'image' | 'video' | 'all'>('all');
+  const [filterByLiked, setFilterByLiked] = useState(false);
+  const [filterBySaved, setFilterBySaved] = useState(false);
   const { toast } = useToast();
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -41,7 +45,7 @@ export default function FeedPage() {
     if (currentUserId) {
       fetchPosts(true);
     }
-  }, [currentUserId, searchQuery, sortBy, filterByUser]);
+  }, [currentUserId, searchQuery, sortBy, filterByUser, filterByDate, filterByMediaType, filterByLiked, filterBySaved]);
 
   const fetchCurrentUser = async () => {
     try {
@@ -78,6 +82,18 @@ export default function FeedPage() {
       }
       if (filterByUser) {
         params.append('userId', filterByUser);
+      }
+      if (filterByDate !== 'all') {
+        params.append('dateFilter', filterByDate);
+      }
+      if (filterByMediaType !== 'all') {
+        params.append('mediaType', filterByMediaType);
+      }
+      if (filterByLiked) {
+        params.append('liked', 'true');
+      }
+      if (filterBySaved) {
+        params.append('saved', 'true');
       }
       const response = await fetch(`/api/feed/list?${params.toString()}`);
       if (response.ok) {
@@ -279,6 +295,14 @@ export default function FeedPage() {
         onSortChange={setSortBy}
         filterByUser={filterByUser}
         onFilterByUserChange={setFilterByUser}
+        filterByDate={filterByDate}
+        onFilterByDateChange={setFilterByDate}
+        filterByMediaType={filterByMediaType}
+        onFilterByMediaTypeChange={setFilterByMediaType}
+        filterByLiked={filterByLiked}
+        onFilterByLikedChange={setFilterByLiked}
+        filterBySaved={filterBySaved}
+        onFilterBySavedChange={setFilterBySaved}
       />
 
       {/* Posts */}

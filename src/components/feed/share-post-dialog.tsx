@@ -13,7 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AvatarWithPresence } from '@/components/ui/avatar-with-presence';
 import { useToast } from '@/hooks/use-toast';
-import { MessageSquare, Users, Copy, Check } from 'lucide-react';
+import { MessageSquare, Users, Copy, Check, Share2, ExternalLink } from 'lucide-react';
 import type { User } from '@/lib/data';
 import { getInitials } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -30,15 +30,31 @@ export function SharePostDialog({ open, onOpenChange, postId }: SharePostDialogP
   const [isLoading, setIsLoading] = useState(true);
   const [isSharing, setIsSharing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [postData, setPostData] = useState<any>(null);
   const { toast } = useToast();
   const router = useRouter();
+  
+  const isWebShareSupported = typeof navigator !== 'undefined' && 'share' in navigator;
 
   useEffect(() => {
     if (open) {
       fetchContacts();
       fetchRooms();
+      fetchPostData();
     }
-  }, [open]);
+  }, [open, postId]);
+  
+  const fetchPostData = async () => {
+    try {
+      const response = await fetch(`/api/feed/post/${postId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPostData(data.post);
+      }
+    } catch (error) {
+      console.error('Error fetching post data:', error);
+    }
+  };
 
   const fetchContacts = async () => {
     try {
@@ -164,6 +180,38 @@ export function SharePostDialog({ open, onOpenChange, postId }: SharePostDialogP
     }
   };
 
+  const handleWebShare = async () => {
+    if (!isWebShareSupported || !postData) return;
+
+    const link = `${window.location.origin}/feed?post=${postId}`;
+    const text = postData.description || 'Confira este post!';
+    const title = postData.user?.name 
+      ? `Post de ${postData.user.name}`
+      : 'Post do FamilyChat';
+
+    try {
+      await navigator.share({
+        title,
+        text,
+        url: link,
+      });
+      toast({
+        title: 'Compartilhado!',
+        description: 'O post foi compartilhado com sucesso.',
+      });
+      onOpenChange(false);
+    } catch (error: any) {
+      // User cancelled or error occurred
+      if (error.name !== 'AbortError') {
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível compartilhar o post',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
@@ -175,6 +223,21 @@ export function SharePostDialog({ open, onOpenChange, postId }: SharePostDialogP
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col space-y-4">
+          {/* Web Share API */}
+          {isWebShareSupported && (
+            <div className="border rounded-lg p-3">
+              <Button
+                variant="default"
+                className="w-full justify-start"
+                onClick={handleWebShare}
+                disabled={!postData}
+              >
+                <Share2 className="mr-2 h-4 w-4" />
+                Compartilhar externamente
+              </Button>
+            </div>
+          )}
+
           {/* Copy Link */}
           <div className="border rounded-lg p-3">
             <Button

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { sendMessage } from '@/lib/supabase/messages';
 import { getCurrentUser } from '@/lib/supabase/middleware';
 import { sendPushNotificationToRoomMembers } from '@/lib/push/notify-room';
+import { supabaseServer } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,7 +67,23 @@ export async function POST(request: NextRequest) {
       console.warn(`SenderId mismatch: client sent ${senderId}, but server using ${actualSenderId}`);
     }
 
-    const result = await sendMessage(roomId, actualSenderId, text || '', mediaUrl, mediaType, replyToId);
+    // Check if room has temporary message TTL configured
+    let expiresAt: Date | null = null;
+    if (supabaseServer) {
+      const { data: roomData } = await supabaseServer
+        .from('rooms')
+        .select('temporary_message_ttl')
+        .eq('id', roomId)
+        .single();
+      
+      if (roomData?.temporary_message_ttl && roomData.temporary_message_ttl > 0) {
+        // Calculate expiration time
+        const now = new Date();
+        expiresAt = new Date(now.getTime() + roomData.temporary_message_ttl * 60 * 1000);
+      }
+    }
+
+    const result = await sendMessage(roomId, actualSenderId, text || '', mediaUrl, mediaType, replyToId, expiresAt);
 
     if (result.error) {
       return NextResponse.json(
@@ -140,7 +157,17 @@ export async function POST(request: NextRequest) {
       }
     })();
 
-    return NextResponse.json({ message: result.message });
+    // Serialize the message with replyTo if it exists
+    const serializedMessage = {
+      ...result.message,
+      timestamp: result.message.timestamp instanceof Date ? result.message.timestamp.toISOString() : result.message.timestamp,
+      replyTo: result.message.replyTo ? {
+        ...result.message.replyTo,
+        timestamp: result.message.replyTo.timestamp instanceof Date ? result.message.replyTo.timestamp.toISOString() : result.message.replyTo.timestamp,
+      } : undefined,
+    };
+
+    return NextResponse.json({ message: serializedMessage });
   } catch (error) {
     return NextResponse.json(
       { error: 'Erro ao enviar mensagem' },

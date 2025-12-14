@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Bell } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -120,7 +120,7 @@ export function ContactRequestsNotification() {
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative h-9 w-9">
-          <Bell className="h-4 w-4" />
+          <UserPlus className="h-4 w-4" />
           {pendingCount > 0 && (
             <Badge
               variant="destructive"
@@ -129,7 +129,7 @@ export function ContactRequestsNotification() {
               {pendingCount > 9 ? '9+' : pendingCount}
             </Badge>
           )}
-          <span className="sr-only">Notificações</span>
+          <span className="sr-only">Solicitações de Amizade</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 sm:w-96" align="end">

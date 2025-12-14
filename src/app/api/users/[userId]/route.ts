@@ -16,7 +16,17 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ user });
+    // Explicitly include all fields to ensure bio is returned
+    return NextResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl || undefined,
+        nickname: user.nickname || undefined,
+        bio: user.bio || undefined,
+      },
+    });
   } catch (error) {
     return NextResponse.json(
       { error: 'Erro ao buscar usuário' },
