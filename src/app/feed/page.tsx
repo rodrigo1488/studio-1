@@ -4,25 +4,15 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { PostCard } from '@/components/feed/post-card';
 import { PostGridItem } from '@/components/feed/post-grid-item';
 import { CreatePost } from '@/components/feed/create-post';
-import { FeedViewToggle } from '@/components/feed/feed-view-toggle';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Loader2, ArrowLeft, User, Image as ImageIcon, Plus } from 'lucide-react';
+import { Loader2, Image as ImageIcon, Plus } from 'lucide-react';
 import Link from 'next/link';
-import { getInitials } from '@/lib/utils';
+import { useFeed } from '@/components/feed/feed-context';
 import type { Post } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { PostCardSkeleton, PostGridSkeleton } from '@/components/ui/post-skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
-import { FeedFilters } from '@/components/feed/feed-filters';
+// import { FeedFilters } from '@/components/feed/feed-filters';
 import { StoriesCarousel } from '@/components/stories/stories-carousel';
 import { CreateStory } from '@/components/stories/create-story';
 import {
@@ -35,12 +25,12 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 
 export default function FeedPage() {
+  const { viewMode } = useFeed();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
-  const [viewMode, setViewMode] = useState<'timeline' | 'grid'>('timeline');
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [showCreateStory, setShowCreateStory] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -316,60 +306,10 @@ export default function FeedPage() {
   }
 
   return (
-    <div className="space-y-2 sm:space-y-3 md:space-y-4 lg:space-y-6 px-1.5 sm:px-2 md:px-4 lg:px-6 pb-4">
-      {/* Header - Mobile First */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 md:gap-4 pt-1.5 sm:pt-2 md:pt-4">
-        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 min-w-0">
-          <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 shrink-0" asChild>
-            <Link href="/dashboard">
-              <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5" />
-              <span className="sr-only">Voltar ao dashboard</span>
-            </Link>
-          </Button>
-          <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold truncate">Feed</h1>
-          {currentUser && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost"
-                  className="relative h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 rounded-full shrink-0 p-0"
-                >
-                  <Avatar className="h-full w-full">
-                    <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
-                    <AvatarFallback className="text-[10px] sm:text-xs">{getInitials(currentUser.name)}</AvatarFallback>
-                  </Avatar>
-                  <span className="sr-only">Menu do usuário</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{currentUser.name}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="cursor-pointer">
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Meu Perfil</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowCreatePost(true)} className="cursor-pointer">
-                  <Plus className="mr-2 h-4 w-4" />
-                  <span>Nova Publicação</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 flex-shrink-0">
-          <FeedViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
-        </div>
-      </div>
-
+    <div className="w-full max-w-6xl mx-auto space-y-2 sm:space-y-3 md:space-y-4 lg:space-y-6">
       {/* Stories Carousel */}
       {currentUserId && (
-        <div className="bg-card rounded-lg border p-2 sm:p-3 md:p-4 overflow-hidden">
+        <div className="p-2 sm:p-3 md:p-4 overflow-hidden">
           <StoriesCarousel 
             currentUserId={currentUserId} 
             onCreateStory={() => setShowCreateStory(true)}
@@ -378,7 +318,7 @@ export default function FeedPage() {
       )}
 
       {/* Filters */}
-      <FeedFilters
+      {/* <FeedFilters
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         sortBy={sortBy}
@@ -393,7 +333,7 @@ export default function FeedPage() {
         onFilterByLikedChange={setFilterByLiked}
         filterBySaved={filterBySaved}
         onFilterBySavedChange={setFilterBySaved}
-      />
+      /> */}
 
       {/* Posts */}
       {isLoading ? (
