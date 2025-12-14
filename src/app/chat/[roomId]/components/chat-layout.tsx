@@ -1424,14 +1424,33 @@ export default function ChatLayout({
             </Link>
           </Button>
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <Avatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0">
-              <AvatarImage src={otherUser?.avatarUrl} />
-              <AvatarFallback>{getInitials(otherUser?.name || room.name)}</AvatarFallback>
-            </Avatar>
+            {otherUser ? (
+              <Link href={`/profile/${otherUser.id}`} className="hover:opacity-80 transition-opacity shrink-0">
+                <Avatar className="h-8 w-8 sm:h-9 sm:w-9 cursor-pointer">
+                  <AvatarImage src={otherUser.avatarUrl} />
+                  <AvatarFallback>{getInitials(otherUser.name)}</AvatarFallback>
+                </Avatar>
+              </Link>
+            ) : (
+              <Avatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0">
+                <AvatarImage src={otherUser?.avatarUrl} />
+                <AvatarFallback>{getInitials(otherUser?.name || room.name)}</AvatarFallback>
+              </Avatar>
+            )}
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="font-semibold text-sm sm:text-base truncate" title={otherUser?.name || room.name}>
-                {otherUser?.name || room.name}
-              </span>
+              {otherUser ? (
+                <Link 
+                  href={`/profile/${otherUser.id}`}
+                  className="font-semibold text-sm sm:text-base truncate hover:underline"
+                  title={otherUser.name}
+                >
+                  {otherUser.name}
+                </Link>
+              ) : (
+                <span className="font-semibold text-sm sm:text-base truncate" title={room.name}>
+                  {room.name}
+                </span>
+              )}
               <span className="text-xs text-muted-foreground">
                 {room.code?.startsWith('DM-') ? 'Conversa direta' : `${room.members.length} membros`}
               </span>
@@ -1594,10 +1613,12 @@ export default function ChatLayout({
               }}
             >
               {message.senderId !== currentUser.id && (
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={message.user?.avatarUrl} />
-                  <AvatarFallback>{getInitials(message.user?.name)}</AvatarFallback>
-                </Avatar>
+                <Link href={`/profile/${message.senderId}`} className="hover:opacity-80 transition-opacity">
+                  <Avatar className="h-8 w-8 cursor-pointer">
+                    <AvatarImage src={message.user?.avatarUrl} />
+                    <AvatarFallback>{getInitials(message.user?.name)}</AvatarFallback>
+                  </Avatar>
+                </Link>
               )}
               <div
                 className={cn(

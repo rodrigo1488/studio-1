@@ -17,6 +17,7 @@ import type { User, ContactRequest } from '@/lib/data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getInitials, cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { getCachedContacts, saveContactsToCache } from '@/lib/storage/lists-cache';
 import { ContactSkeleton } from '@/components/ui/contact-skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -292,14 +293,20 @@ export default function ContactsList() {
                         className="flex items-center justify-between p-2 sm:p-3 rounded-xl border-2 border-primary/30 bg-gradient-to-r from-primary/10 to-secondary/10 gap-2 sm:gap-3 shadow-md"
                       >
                         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                          <Avatar className="h-10 w-10 sm:h-12 sm:w-12 shrink-0">
-                            <AvatarImage src={user.avatarUrl} />
-                            <AvatarFallback className="text-xs sm:text-sm">{getInitials(user.name)}</AvatarFallback>
-                          </Avatar>
+                          <Link href={`/profile/${user.id}`} className="hover:opacity-80 transition-opacity shrink-0">
+                            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 cursor-pointer">
+                              <AvatarImage src={user.avatarUrl} />
+                              <AvatarFallback className="text-xs sm:text-sm">{getInitials(user.name)}</AvatarFallback>
+                            </Avatar>
+                          </Link>
                           <div className="min-w-0 flex-1 overflow-hidden">
-                            <p className="font-medium truncate text-sm sm:text-base" title={user.name}>
+                            <Link 
+                              href={`/profile/${user.id}`}
+                              className="font-medium truncate text-sm sm:text-base hover:underline block"
+                              title={user.name}
+                            >
                               {user.name}
-                            </p>
+                            </Link>
                             {user.nickname && (
                               <p className="text-xs sm:text-sm text-muted-foreground truncate" title={`@${user.nickname}`}>
                                 @{user.nickname}
@@ -390,14 +397,20 @@ export default function ContactsList() {
               "bg-gradient-to-r from-white to-primary/5"
             )}
           >
-            <Avatar className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 shrink-0">
-              <AvatarImage src={contact.avatarUrl} />
-              <AvatarFallback className="text-xs sm:text-sm">{getInitials(contact.name)}</AvatarFallback>
-            </Avatar>
+            <Link href={`/profile/${contact.id}`} className="hover:opacity-80 transition-opacity shrink-0">
+              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 cursor-pointer">
+                <AvatarImage src={contact.avatarUrl} />
+                <AvatarFallback className="text-xs sm:text-sm">{getInitials(contact.name)}</AvatarFallback>
+              </Avatar>
+            </Link>
             <div className="flex-1 min-w-0 overflow-hidden">
-              <p className="font-medium truncate text-xs sm:text-sm md:text-base" title={contact.name}>
+              <Link 
+                href={`/profile/${contact.id}`}
+                className="font-medium truncate text-xs sm:text-sm md:text-base hover:underline block"
+                title={contact.name}
+              >
                 {contact.name}
-              </p>
+              </Link>
               {contact.nickname && (
                 <p className="text-[10px] sm:text-xs text-muted-foreground truncate" title={`@${contact.nickname}`}>
                   @{contact.nickname}

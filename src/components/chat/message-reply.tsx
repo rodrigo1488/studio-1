@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import type { Message, User } from '@/lib/data';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import Link from 'next/link';
 
 interface MessageReplyProps {
   replyTo: Message & { user?: User };
@@ -22,9 +23,18 @@ export function MessageReply({ replyTo, onCancel, isOwnMessage = false }: Messag
         : 'bg-muted border-muted-foreground/30'
     )}>
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-xs mb-1">
-          {replyTo.user?.name || 'Usuário'}
-        </p>
+        {replyTo.senderId ? (
+          <Link 
+            href={`/profile/${replyTo.senderId}`}
+            className="font-semibold text-xs mb-1 hover:underline block"
+          >
+            {replyTo.user?.name || 'Usuário'}
+          </Link>
+        ) : (
+          <p className="font-semibold text-xs mb-1">
+            {replyTo.user?.name || 'Usuário'}
+          </p>
+        )}
         <p className="text-muted-foreground truncate">
           {replyTo.text || (replyTo.mediaUrl ? 'Mídia' : 'Mensagem')}
         </p>

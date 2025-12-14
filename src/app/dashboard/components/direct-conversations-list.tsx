@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { getInitials, cn } from '@/lib/utils';
 import type { User } from '@/lib/data';
 import { useSidebar } from '@/components/dashboard-sidebar';
@@ -139,17 +140,28 @@ export default function DirectConversationsList() {
           onClick={() => handleConversationClick(conversation.id)}
         >
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Avatar className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 shrink-0">
-              <AvatarImage src={conversation.otherUser.avatarUrl} />
-              <AvatarFallback className="text-xs sm:text-sm">
-                {getInitials(conversation.otherUser.name)}
-              </AvatarFallback>
-            </Avatar>
+            <Link 
+              href={`/profile/${conversation.otherUser.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="hover:opacity-80 transition-opacity shrink-0"
+            >
+              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 cursor-pointer">
+                <AvatarImage src={conversation.otherUser.avatarUrl} />
+                <AvatarFallback className="text-xs sm:text-sm">
+                  {getInitials(conversation.otherUser.name)}
+                </AvatarFallback>
+              </Avatar>
+            </Link>
             <div className="flex-1 min-w-0 overflow-hidden">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <p className="font-medium truncate text-xs sm:text-sm md:text-base flex-1" title={conversation.otherUser.name}>
+                <Link
+                  href={`/profile/${conversation.otherUser.id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-medium truncate text-xs sm:text-sm md:text-base flex-1 hover:underline"
+                  title={conversation.otherUser.name}
+                >
                   {conversation.otherUser.name}
-                </p>
+                </Link>
                 {unreadCounts[conversation.id] > 0 && (
                   <Badge variant="destructive" className="h-4 min-w-4 px-1 text-[10px] sm:h-5 sm:min-w-5 sm:px-1.5 sm:text-xs shrink-0">
                     {unreadCounts[conversation.id] > 99 ? '99+' : unreadCounts[conversation.id]}
