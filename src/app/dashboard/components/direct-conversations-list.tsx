@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card } from '@/components/ui/card';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { getInitials, cn } from '@/lib/utils';
 import type { User } from '@/lib/data';
 import { useSidebar } from '@/components/dashboard-sidebar';
@@ -106,86 +104,94 @@ export default function DirectConversationsList() {
     );
   }
 
-  const rainbowBorders = [
-    'border-[#3B82F6]',
-    'border-[#EC4899]',
-    'border-[#10B981]',
-    'border-[#F59E0B]',
-    'border-[#8B5CF6]',
-    'border-[#EF4444]',
-  ];
-  const rainbowBackgrounds = [
-    'bg-gradient-to-r from-[#3B82F6]/10 to-[#3B82F6]/5',
-    'bg-gradient-to-r from-[#EC4899]/10 to-[#EC4899]/5',
-    'bg-gradient-to-r from-[#10B981]/10 to-[#10B981]/5',
-    'bg-gradient-to-r from-[#F59E0B]/10 to-[#F59E0B]/5',
-    'bg-gradient-to-r from-[#8B5CF6]/10 to-[#8B5CF6]/5',
-    'bg-gradient-to-r from-[#EF4444]/10 to-[#EF4444]/5',
-  ];
-
   return (
-    <div className="space-y-2 h-full overflow-y-auto">
-      {conversations.map((conversation, index) => {
-        const borderColor = rainbowBorders[index % rainbowBorders.length];
-        const bgGradient = rainbowBackgrounds[index % rainbowBackgrounds.length];
+    <div className="h-full overflow-y-auto">
+      {conversations.map((conversation) => {
+        const unreadCount = unreadCounts[conversation.id] || 0;
+        const hasUnread = unreadCount > 0;
         
         return (
-        <Card
-          key={conversation.id}
-          className={cn(
-            "p-2 sm:p-3 md:p-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-slide-in-color rounded-lg sm:rounded-xl",
-            borderColor,
-            bgGradient
-          )}
-          onClick={() => handleConversationClick(conversation.id)}
-        >
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Link 
-              href={`/profile/${conversation.otherUser.id}`}
-              onClick={(e) => e.stopPropagation()}
-              className="hover:opacity-80 transition-opacity shrink-0"
-            >
-              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 cursor-pointer">
+          <div
+            key={conversation.id}
+            className={cn(
+              "flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-4 cursor-pointer transition-colors duration-150",
+              "hover:bg-muted/50 active:bg-muted",
+              "border-b border-border/50 last:border-b-0"
+            )}
+            onClick={() => handleConversationClick(conversation.id)}
+          >
+            {/* Avatar */}
+            <div className="shrink-0">
+              <Avatar className="h-12 w-12 sm:h-14 sm:w-14">
                 <AvatarImage src={conversation.otherUser.avatarUrl} />
-                <AvatarFallback className="text-xs sm:text-sm">
+                <AvatarFallback className="text-sm sm:text-base font-semibold bg-primary/10 text-primary">
                   {getInitials(conversation.otherUser.name)}
                 </AvatarFallback>
               </Avatar>
-            </Link>
+            </div>
+
+            {/* Content */}
             <div className="flex-1 min-w-0 overflow-hidden">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <Link
-                  href={`/profile/${conversation.otherUser.id}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="font-medium truncate text-xs sm:text-sm md:text-base flex-1 hover:underline"
-                  title={conversation.otherUser.name}
-                >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                {/* Name - não é mais um link */}
+                <h3 className={cn(
+                  "font-medium truncate text-sm sm:text-base",
+                  hasUnread ? "text-foreground font-semibold" : "text-foreground"
+                )} title={conversation.otherUser.name}>
                   {conversation.otherUser.name}
-                </Link>
-                {unreadCounts[conversation.id] > 0 && (
-                  <Badge variant="destructive" className="h-4 min-w-4 px-1 text-[10px] sm:h-5 sm:min-w-5 sm:px-1.5 sm:text-xs shrink-0">
-                    {unreadCounts[conversation.id] > 99 ? '99+' : unreadCounts[conversation.id]}
-                  </Badge>
+                </h3>
+                
+                {/* Time and Badge */}
+                <div className="flex items-center gap-2 shrink-0">
+                  {conversation.lastMessage && (() => {
+                    const timestamp = conversation.lastMessage.timestamp;
+                    let timeText: string;
+                    
+                    if (isToday(timestamp)) {
+                      // Se for hoje, mostra apenas a hora (ex: "14:30")
+                      timeText = format(timestamp, 'HH:mm', { locale: ptBR });
+                    } else if (isYesterday(timestamp)) {
+                      // Se for ontem, mostra "Ontem"
+                      timeText = 'Ontem';
+                    } else {
+                      // Se for mais antigo, mostra a data (ex: "15/01")
+                      timeText = format(timestamp, 'dd/MM', { locale: ptBR });
+                    }
+                    
+                    return (
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {timeText}
+                      </span>
+                    );
+                  })()}
+                  {hasUnread && (
+                    <Badge 
+                      variant="destructive" 
+                      className="h-5 min-w-5 px-1.5 text-xs font-semibold shrink-0"
+                    >
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              
+              {/* Last Message */}
+              <div className="flex items-center gap-2">
+                {conversation.lastMessage ? (
+                  <>
+                    <p className={cn(
+                      "text-sm truncate flex-1",
+                      hasUnread ? "text-foreground font-medium" : "text-muted-foreground"
+                    )} title={conversation.lastMessage.text}>
+                      {conversation.lastMessage.text}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">Nenhuma mensagem ainda</p>
                 )}
               </div>
-              {conversation.lastMessage ? (
-                <>
-                  <p className="text-xs sm:text-sm text-muted-foreground truncate mt-1" title={conversation.lastMessage.text}>
-                    {conversation.lastMessage.text}
-                  </p>
-                  <p className="text-xs text-muted-foreground/80 mt-1">
-                    {formatDistanceToNow(conversation.lastMessage.timestamp, {
-                      addSuffix: true,
-                      locale: ptBR,
-                    })}
-                  </p>
-                </>
-              ) : (
-                <p className="text-xs sm:text-sm text-muted-foreground mt-1">Nenhuma mensagem ainda</p>
-              )}
             </div>
           </div>
-        </Card>
         );
       })}
     </div>
