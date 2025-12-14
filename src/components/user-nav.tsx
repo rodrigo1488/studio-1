@@ -11,10 +11,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, User as UserIcon, Bell, BellOff } from 'lucide-react';
+import { LogOut, User as UserIcon, Bell, BellOff, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { CreatePost } from '@/components/feed/create-post';
 import {
   isPushNotificationSupported,
   getNotificationPermission,
@@ -34,6 +35,7 @@ export function UserNav() {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isTogglingNotifications, setIsTogglingNotifications] = useState(false);
+  const [showCreatePost, setShowCreatePost] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -205,66 +207,81 @@ export function UserNav() {
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={user.avatarUrl} alt={user.name} />
-            <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.name}</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {user.email}
-            </p>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <Link href="/profile">
-              <UserIcon className="mr-2 h-4 w-4" />
-              <span>Perfil</span>
-            </Link>
-          </DropdownMenuItem>
-          {isPushSupported && (
-            <DropdownMenuItem 
-              onClick={handleToggleNotifications}
-              disabled={isTogglingNotifications || notificationPermission === 'denied'}
-            >
-              {isTogglingNotifications ? (
-                <>
-                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  <span>{isSubscribed ? 'Desativando...' : 'Ativando...'}</span>
-                </>
-              ) : (
-                <>
-                  {isSubscribed ? (
-                    <>
-                      <Bell className="mr-2 h-4 w-4 text-green-500" />
-                      <span>Notificações Ativadas</span>
-                    </>
-                  ) : (
-                    <>
-                      <BellOff className="mr-2 h-4 w-4" />
-                      <span>Ativar Notificações</span>
-                    </>
-                  )}
-                </>
-              )}
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={user.avatarUrl} alt={user.name} />
+              <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+            </Avatar>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56" align="end" forceMount>
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none">{user.name}</p>
+              <p className="text-xs leading-none text-muted-foreground">
+                {user.email}
+              </p>
+            </div>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => setShowCreatePost(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              <span>Nova Publicação</span>
             </DropdownMenuItem>
-          )}
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout}>
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Sair</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+            <DropdownMenuItem asChild>
+              <Link href="/profile">
+                <UserIcon className="mr-2 h-4 w-4" />
+                <span>Perfil</span>
+              </Link>
+            </DropdownMenuItem>
+            {isPushSupported && (
+              <DropdownMenuItem 
+                onClick={handleToggleNotifications}
+                disabled={isTogglingNotifications || notificationPermission === 'denied'}
+              >
+                {isTogglingNotifications ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    <span>{isSubscribed ? 'Desativando...' : 'Ativando...'}</span>
+                  </>
+                ) : (
+                  <>
+                    {isSubscribed ? (
+                      <>
+                        <Bell className="mr-2 h-4 w-4 text-green-500" />
+                        <span>Notificações Ativadas</span>
+                      </>
+                    ) : (
+                      <>
+                        <BellOff className="mr-2 h-4 w-4" />
+                        <span>Ativar Notificações</span>
+                      </>
+                    )}
+                  </>
+                )}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Sair</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <CreatePost
+        open={showCreatePost}
+        onClose={() => setShowCreatePost(false)}
+        onPostCreated={() => {
+          setShowCreatePost(false);
+          // Refresh the page to show the new post
+          window.location.reload();
+        }}
+      />
+    </>
   );
 }
