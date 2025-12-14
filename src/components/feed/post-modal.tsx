@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Heart, MessageCircle, Send, ChevronLeft, ChevronRight, MoreVertical, X } from 'lucide-react';
+import { Heart, MessageCircle, Send, ChevronLeft, ChevronRight, MoreVertical, X, ThumbsUp } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getInitials, cn } from '@/lib/utils';
@@ -175,32 +175,39 @@ export function PostModal({ post, currentUserId, onClose, onLike, onDelete, onEd
                   <>
                     <Button
                       variant="ghost"
-                      size="icon"
-                      className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                      size="lg"
+                      className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-black/60 hover:bg-black/80 text-white shadow-lg border-2 border-white/20 backdrop-blur-sm transition-all"
                       onClick={handlePreviousImage}
+                      aria-label="Imagem anterior"
                     >
-                      <ChevronLeft className="h-5 w-5" />
+                      <ChevronLeft className="h-6 w-6 sm:h-7 sm:w-7" />
                     </Button>
                     <Button
                       variant="ghost"
-                      size="icon"
-                      className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                      size="lg"
+                      className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-black/60 hover:bg-black/80 text-white shadow-lg border-2 border-white/20 backdrop-blur-sm transition-all"
                       onClick={handleNextImage}
+                      aria-label="Próxima imagem"
                     >
-                      <ChevronRight className="h-5 w-5" />
+                      <ChevronRight className="h-6 w-6 sm:h-7 sm:w-7" />
                     </Button>
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1">
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 sm:gap-2 bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
                       {post.media.map((_, index) => (
-                        <div
+                        <button
                           key={index}
+                          onClick={() => setCurrentImageIndex(index)}
                           className={cn(
-                            'h-2 rounded-full transition-all',
+                            'h-2.5 sm:h-3 rounded-full transition-all duration-300',
                             index === currentImageIndex
-                              ? 'w-8 bg-white'
-                              : 'w-2 bg-white/50'
+                              ? 'w-8 sm:w-10 bg-white shadow-md'
+                              : 'w-2.5 sm:w-3 bg-white/50 hover:bg-white/70'
                           )}
+                          aria-label={`Imagem ${index + 1} de ${post.media.length}`}
                         />
                       ))}
+                    </div>
+                    <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium">
+                      {currentImageIndex + 1} / {post.media.length}
                     </div>
                   </>
                 )}
@@ -211,15 +218,17 @@ export function PostModal({ post, currentUserId, onClose, onLike, onDelete, onEd
           {/* Content Section */}
           <div className="flex flex-col w-full md:w-96 border-t md:border-t-0 md:border-l">
             {/* Header */}
-            <div className="p-4 border-b flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-8 w-8">
+            <div className="p-4 sm:p-5 border-b bg-background/50 flex items-center justify-between">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <Avatar className="h-10 w-10 sm:h-12 sm:w-12 ring-2 ring-primary/20">
                   <AvatarImage src={post.user?.avatarUrl} />
-                  <AvatarFallback>{getInitials(post.user?.name || 'U')}</AvatarFallback>
+                  <AvatarFallback className="text-sm sm:text-base font-semibold">
+                    {getInitials(post.user?.name || 'U')}
+                  </AvatarFallback>
                 </Avatar>
-                <div>
-                  <p className="font-semibold text-sm">{post.user?.name || 'Usuário'}</p>
-                  <p className="text-xs text-muted-foreground">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm sm:text-base truncate">{post.user?.name || 'Usuário'}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     {formatDistanceToNow(createdAt, { addSuffix: true, locale: ptBR })}
                   </p>
                 </div>
@@ -227,22 +236,27 @@ export function PostModal({ post, currentUserId, onClose, onLike, onDelete, onEd
               {isOwner && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreVertical className="h-4 w-4" />
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-9 w-9 sm:h-10 sm:w-10 hover:bg-muted"
+                      aria-label="Opções do post"
+                    >
+                      <MoreVertical className="h-5 w-5" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     {onEdit && (
                       <DropdownMenuItem onClick={() => onEdit(post.id)}>
-                        Editar
+                        ✏️ Editar post
                       </DropdownMenuItem>
                     )}
                     {onDelete && (
                       <DropdownMenuItem
                         onClick={() => onDelete(post.id)}
-                        className="text-destructive"
+                        className="text-destructive focus:text-destructive"
                       >
-                        Excluir
+                        🗑️ Excluir post
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
@@ -252,49 +266,59 @@ export function PostModal({ post, currentUserId, onClose, onLike, onDelete, onEd
 
             {/* Description */}
             {post.description && (
-              <div className="p-4 border-b">
-                <div className="text-sm">
-                  <span className="font-semibold">{post.user?.name || 'Usuário'}</span>{' '}
-                  <span>{post.description}</span>
+              <div className="p-4 sm:p-5 border-b bg-background/30">
+                <div className="text-sm sm:text-base leading-relaxed">
+                  <span className="font-semibold text-foreground">{post.user?.name || 'Usuário'}</span>{' '}
+                  <span className="text-foreground/90">{post.description}</span>
                 </div>
               </div>
             )}
 
             {/* Comments Section */}
-            <div className="flex flex-col flex-1 min-h-0">
-              <div className="px-4 py-2 border-b">
-                <h3 className="text-sm font-semibold">
-                  {commentsCount > 0 ? `${commentsCount} comentário${commentsCount !== 1 ? 's' : ''}` : 'Comentários'}
+            <div className="flex flex-col flex-1 min-h-0 bg-background">
+              <div className="px-4 sm:px-5 py-3 sm:py-4 border-b bg-muted/30">
+                <h3 className="text-sm sm:text-base font-semibold flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                  {commentsCount > 0 ? (
+                    <span>{commentsCount} comentário{commentsCount !== 1 ? 's' : ''}</span>
+                  ) : (
+                    <span>Comentários</span>
+                  )}
                 </h3>
               </div>
               <ScrollArea className="flex-1">
-                <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+                <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
                   {isLoadingComments ? (
-                    <div className="text-center text-muted-foreground py-8 text-sm">
-                      Carregando comentários...
+                    <div className="text-center text-muted-foreground py-12">
+                      <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent mb-2" />
+                      <p className="text-sm">Carregando comentários...</p>
                     </div>
                   ) : comments.length === 0 ? (
-                    <div className="text-center text-muted-foreground py-8 text-sm">
-                      Nenhum comentário ainda. Seja o primeiro a comentar!
+                    <div className="text-center text-muted-foreground py-12">
+                      <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm sm:text-base font-medium mb-1">Nenhum comentário ainda</p>
+                      <p className="text-xs sm:text-sm">Seja o primeiro a comentar!</p>
                     </div>
                   ) : (
                     comments.map((comment) => (
-                      <div key={comment.id} className="flex gap-2 sm:gap-3 pb-2 sm:pb-3 border-b last:border-0">
-                        <Avatar className="h-7 w-7 sm:h-8 sm:w-8 shrink-0">
+                      <div key={comment.id} className="flex gap-3 sm:gap-4 pb-4 sm:pb-5 border-b last:border-0 last:pb-0">
+                        <Avatar className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 ring-2 ring-primary/10">
                           <AvatarImage src={comment.user?.avatarUrl} />
-                          <AvatarFallback className="text-xs">
+                          <AvatarFallback className="text-xs sm:text-sm font-semibold">
                             {getInitials(comment.user?.name || 'U')}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start gap-2">
                             <div className="flex-1 min-w-0">
-                              <div className="text-xs sm:text-sm">
-                                <span className="font-semibold">{comment.user?.name || 'Usuário'}</span>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm sm:text-base font-semibold">{comment.user?.name || 'Usuário'}</span>
+                                <span className="text-[10px] sm:text-xs text-muted-foreground">
+                                  {formatDistanceToNow(comment.createdAt, { addSuffix: true, locale: ptBR })}
+                                </span>
                               </div>
-                              <p className="text-xs sm:text-sm mt-1 break-words">{comment.text}</p>
-                              <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                                {formatDistanceToNow(comment.createdAt, { addSuffix: true, locale: ptBR })}
+                              <p className="text-sm sm:text-base mt-1 break-words leading-relaxed text-foreground/90">
+                                {comment.text}
                               </p>
                             </div>
                           </div>
@@ -307,54 +331,85 @@ export function PostModal({ post, currentUserId, onClose, onLike, onDelete, onEd
             </div>
 
             {/* Actions */}
-            <div className="p-3 sm:p-4 border-t space-y-2 sm:space-y-3 bg-muted/30">
-              <div className="flex items-center gap-3 sm:gap-4">
+            <div className="p-4 sm:p-5 border-t space-y-3 sm:space-y-4 bg-background">
+              {/* Like and Comment Count */}
+              <div className="flex items-center gap-4 sm:gap-5">
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className={cn('h-8 w-8 sm:h-9 sm:w-9 touch-manipulation', isLiked && 'text-red-500')}
+                  size="lg"
+                  className={cn(
+                    'h-11 w-11 sm:h-12 sm:w-12 rounded-full touch-manipulation transition-all',
+                    'hover:scale-110 active:scale-95',
+                    isLiked 
+                      ? 'text-red-500 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/50' 
+                      : 'hover:bg-muted'
+                  )}
                   onClick={handleLike}
                   disabled={isLiking}
+                  aria-label={isLiked ? 'Descurtir' : 'Curtir'}
                 >
-                  <Heart className={cn('h-5 w-5 sm:h-6 sm:w-6', isLiked && 'fill-current')} />
+                  <Heart className={cn('h-6 w-6 sm:h-7 sm:w-7 transition-all', isLiked && 'fill-current scale-110')} />
                 </Button>
-                <div className="flex items-center gap-1 text-sm sm:text-base">
-                  <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span className="font-medium">{commentsCount}</span>
+                <div className="flex items-center gap-2 text-base sm:text-lg">
+                  <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
+                  <span className="font-semibold">{commentsCount}</span>
+                  <span className="text-sm sm:text-base text-muted-foreground">comentários</span>
                 </div>
               </div>
 
               {likesCount > 0 && (
-                <p className="text-xs sm:text-sm font-semibold">
-                  {likesCount} curtida{likesCount !== 1 ? 's' : ''}
-                </p>
+                <div className="flex items-center gap-2 text-sm sm:text-base">
+                  <ThumbsUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                  <p className="font-semibold">
+                    {likesCount} pessoa{likesCount !== 1 ? 's' : ''} curti{likesCount !== 1 ? 'ram' : 'u'}
+                  </p>
+                </div>
               )}
 
               {/* Comment Input */}
-              <div className="flex gap-2 items-end">
-                <div className="flex-1 relative">
-                  <Textarea
-                    placeholder="Adicione um comentário..."
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSubmitComment();
-                      }
-                    }}
-                    className="min-h-[50px] sm:min-h-[60px] max-h-[120px] resize-none pr-10 text-xs sm:text-sm"
-                    rows={2}
-                  />
-                  <Button
-                    size="icon"
-                    className="absolute bottom-2 right-2 h-7 w-7 sm:h-8 sm:w-8"
-                    onClick={handleSubmitComment}
-                    disabled={!commentText.trim() || isSubmittingComment}
-                  >
-                    <Send className="h-3 w-3 sm:h-4 sm:w-4" />
-                  </Button>
+              <div className="space-y-2">
+                <label htmlFor="comment-input" className="text-xs sm:text-sm font-medium text-muted-foreground block">
+                  Adicionar comentário
+                </label>
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1 relative">
+                    <Textarea
+                      id="comment-input"
+                      placeholder="Escreva seu comentário aqui..."
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSubmitComment();
+                        }
+                      }}
+                      className="min-h-[60px] sm:min-h-[70px] max-h-[140px] resize-none pr-12 sm:pr-14 text-sm sm:text-base border-2 focus:border-primary transition-colors"
+                      rows={3}
+                    />
+                    <Button
+                      size="icon"
+                      className={cn(
+                        'absolute bottom-2 right-2 h-8 w-8 sm:h-9 sm:w-9 transition-all',
+                        commentText.trim() 
+                          ? 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:scale-110' 
+                          : 'bg-muted text-muted-foreground'
+                      )}
+                      onClick={handleSubmitComment}
+                      disabled={!commentText.trim() || isSubmittingComment}
+                      aria-label="Enviar comentário"
+                    >
+                      {isSubmittingComment ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      ) : (
+                        <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Pressione Enter para enviar, Shift+Enter para nova linha
+                </p>
               </div>
             </div>
           </div>
