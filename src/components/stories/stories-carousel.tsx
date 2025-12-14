@@ -82,7 +82,7 @@ export function StoriesCarousel({ currentUserId, onCreateStory }: StoriesCarouse
       <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2">
         {[...Array(5)].map((_, i) => (
           <div key={i} className="flex-shrink-0">
-            <div className="h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 animate-pulse rounded-full bg-muted" />
+            <div className="h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 animate-pulse rounded-full bg-muted" />
           </div>
         ))}
       </div>
@@ -106,12 +106,12 @@ export function StoriesCarousel({ currentUserId, onCreateStory }: StoriesCarouse
               className="flex flex-shrink-0 flex-col items-center gap-1 sm:gap-1.5 touch-manipulation"
               aria-label="Criar story"
             >
-              <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 items-center justify-center rounded-full p-0.5 bg-muted border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 transition-colors">
+              <div className="relative flex h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 items-center justify-center rounded-full p-0.5 bg-muted border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 transition-colors">
                 <div className="h-full w-full rounded-full bg-background flex items-center justify-center">
-                  <Plus className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 text-muted-foreground" />
+                  <Plus className="h-6 w-6 sm:h-8 sm:w-8 md:h-10 md:w-10 text-muted-foreground" />
                 </div>
               </div>
-              <span className="max-w-[60px] sm:max-w-[70px] md:max-w-[80px] truncate text-[10px] sm:text-xs text-muted-foreground">Criar</span>
+              <span className="max-w-[70px] sm:max-w-[85px] md:max-w-[100px] truncate text-[10px] sm:text-xs text-muted-foreground">Criar</span>
             </button>
           )}
           
@@ -132,7 +132,7 @@ export function StoriesCarousel({ currentUserId, onCreateStory }: StoriesCarouse
               >
                 <div
                   className={cn(
-                    'relative flex h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 items-center justify-center rounded-full p-0.5',
+                    'relative flex h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 items-center justify-center rounded-full p-0.5',
                     hasUnviewed
                       ? 'bg-gradient-to-tr from-purple-500 via-pink-500 to-orange-500'
                       : 'bg-muted'
@@ -140,10 +140,10 @@ export function StoriesCarousel({ currentUserId, onCreateStory }: StoriesCarouse
                 >
                   <Avatar className="h-full w-full border-2 border-background">
                     <AvatarImage src={user.avatarUrl} alt={user.name} />
-                    <AvatarFallback className="text-[9px] sm:text-[10px] md:text-xs">{getInitials(user.name)}</AvatarFallback>
+                    <AvatarFallback className="text-xs sm:text-sm md:text-base">{getInitials(user.name)}</AvatarFallback>
                   </Avatar>
                 </div>
-                <span className="max-w-[60px] sm:max-w-[70px] md:max-w-[80px] truncate text-[10px] sm:text-xs text-muted-foreground">{user.name}</span>
+                <span className="max-w-[70px] sm:max-w-[85px] md:max-w-[100px] truncate text-[10px] sm:text-xs text-muted-foreground">{user.name}</span>
               </button>
             );
           })}

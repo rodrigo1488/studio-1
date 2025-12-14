@@ -152,22 +152,25 @@ export function PostModal({ post, currentUserId, onClose, onLike, onDelete, onEd
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] sm:max-h-[95vh] p-0 gap-0 w-full h-full sm:h-auto">
+      <DialogContent className="max-w-[95vw] md:max-w-4xl max-h-[90vh] sm:max-h-[95vh] p-0 gap-0 w-[95vw] md:w-full h-full sm:h-auto overflow-hidden !mx-0">
         <DialogTitle className="sr-only">
           Post de {post.user?.name || 'Usuário'}
         </DialogTitle>
-        <div className="flex flex-col md:flex-row h-[100vh] sm:h-[90vh]">
+        <div className="flex flex-col md:flex-row h-[100vh] sm:h-[90vh] max-h-[90vh] sm:max-h-[95vh]">
           {/* Image Section */}
-          <div className="relative flex-1 bg-black flex items-center justify-center">
+          <div className="relative flex-1 bg-black flex items-center justify-center min-w-0 overflow-hidden">
             {post.media.length > 0 && (
               <>
-                <Image
-                  src={post.media[currentImageIndex].mediaUrl}
-                  alt={post.description || 'Post image'}
-                  width={800}
-                  height={800}
-                  className="object-contain max-h-full w-full"
-                />
+                <div className="relative w-full h-full flex items-center justify-center">
+                  <Image
+                    src={post.media[currentImageIndex].mediaUrl}
+                    alt={post.description || 'Post image'}
+                    width={800}
+                    height={800}
+                    className="object-contain"
+                    style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto' }}
+                  />
+                </div>
                 {hasMultipleImages && (
                   <>
                     <Button
