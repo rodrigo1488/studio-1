@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { NotificationPopup } from './notification-popup';
 import { NotificationCarousel } from './notification-carousel';
-import { addNotification, getNotifications, markNotificationsAsRead } from '@/lib/storage/notifications';
+import { addNotification, getNotifications, markNotificationsAsRead, addPostNotification, addStoryNotification } from '@/lib/storage/notifications';
 import type { Message, User } from '@/lib/data';
 import { useRouter } from 'next/navigation';
 import { getCachedUser, getCachedRoom } from '@/lib/storage/room-cache';
@@ -333,6 +333,156 @@ export function NotificationManager() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, []);
+
+  // Escutar novos posts em tempo real
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    // Subscribe to posts table changes
+    const channel = supabase
+      .channel('notifications:posts')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'posts',
+        },
+        async (payload) => {
+          const newPost = payload.new as any;
+          
+          // Não notificar se for o próprio post do usuário
+          if (newPost.user_id === currentUserId) {
+            return;
+          }
+
+          // Verificar se o usuário segue o autor do post
+          try {
+            const followResponse = await fetch(`/api/follow/${newPost.user_id}`);
+            if (followResponse.ok) {
+              const followData = await followResponse.json();
+              if (!followData.following) {
+                return; // Não notificar se não seguir
+              }
+            }
+          } catch (error) {
+            console.error('[Notifications] Error checking follow status:', error);
+          }
+
+          // Buscar dados do autor
+          try {
+            const userResponse = await fetch(`/api/users/${newPost.user_id}`);
+            if (userResponse.ok) {
+              const userData = await userResponse.json();
+              const author = userData.user;
+
+              if (author) {
+                const title = `${author.name} publicou um novo post`;
+                const body = newPost.description || (newPost.media && newPost.media.length > 0 ? '📷 Nova publicação' : 'Nova publicação');
+
+                // Adicionar notificação
+                addPostNotification(
+                  newPost.id,
+                  author.id,
+                  author.name,
+                  author.avatarUrl,
+                  title,
+                  body
+                );
+
+                console.log(`[Notifications] New post from ${author.name}`);
+              }
+            }
+          } catch (error) {
+            console.error('[Notifications] Error fetching post author:', error);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Notifications] ✅ Subscribed to posts');
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId]);
+
+  // Escutar novas stories em tempo real
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    // Subscribe to stories table changes
+    const channel = supabase
+      .channel('notifications:stories')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'stories',
+        },
+        async (payload) => {
+          const newStory = payload.new as any;
+          
+          // Não notificar se for a própria story do usuário
+          if (newStory.user_id === currentUserId) {
+            return;
+          }
+
+          // Verificar se o usuário segue o autor da story
+          try {
+            const followResponse = await fetch(`/api/follow/${newStory.user_id}`);
+            if (followResponse.ok) {
+              const followData = await followResponse.json();
+              if (!followData.following) {
+                return; // Não notificar se não seguir
+              }
+            }
+          } catch (error) {
+            console.error('[Notifications] Error checking follow status:', error);
+          }
+
+          // Buscar dados do autor
+          try {
+            const userResponse = await fetch(`/api/users/${newStory.user_id}`);
+            if (userResponse.ok) {
+              const userData = await userResponse.json();
+              const author = userData.user;
+
+              if (author) {
+                const title = `${author.name} publicou uma nova story`;
+                const body = newStory.media_type === 'image' ? '📷 Nova story' : '🎥 Nova story';
+
+                // Adicionar notificação
+                addStoryNotification(
+                  newStory.id,
+                  author.id,
+                  author.name,
+                  author.avatarUrl,
+                  title,
+                  body
+                );
+
+                console.log(`[Notifications] New story from ${author.name}`);
+              }
+            }
+          } catch (error) {
+            console.error('[Notifications] Error fetching story author:', error);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Notifications] ✅ Subscribed to stories');
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId]);
 
   // Listener para reações em stories
   useEffect(() => {

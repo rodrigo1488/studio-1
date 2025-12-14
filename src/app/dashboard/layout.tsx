@@ -4,6 +4,7 @@ import { Logo } from '@/components/logo';
 import { UserNav } from '@/components/user-nav';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { ContactRequestsNotification } from '@/components/notifications/contact-requests-notification';
+import { AllNotifications } from '@/components/notifications/all-notifications';
 import { CallProviderWrapper } from '@/components/webrtc/call-provider-wrapper';
 import {
   DashboardSidebarProvider,
@@ -24,6 +25,7 @@ export default function DashboardLayout({
             <DashboardSidebarMobile />
             <Logo />
             <div className="ml-auto flex items-center gap-1 sm:gap-2">
+              <AllNotifications />
               <ContactRequestsNotification />
               <ThemeToggle />
               <UserNav />
