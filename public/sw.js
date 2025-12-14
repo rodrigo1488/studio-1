@@ -1,5 +1,5 @@
 // Service Worker para Push Notifications e Offline Support
-const CACHE_VERSION = 'familychat-v2';
+const CACHE_VERSION = 'familychat-v3';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const IMAGE_CACHE = `${CACHE_VERSION}-images`;
 const API_CACHE = `${CACHE_VERSION}-api`;

@@ -57,19 +57,53 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
  */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!('serviceWorker' in navigator)) {
-    console.warn('Service Worker não suportado');
+    console.warn('[Service Worker] Service Worker não suportado neste navegador');
     return null;
   }
 
   try {
+    // Check if already registered
+    const existingRegistration = await navigator.serviceWorker.getRegistration('/');
+    if (existingRegistration) {
+      console.log('[Service Worker] Service Worker já registrado:', existingRegistration);
+      
+      // Check if there's an update available
+      existingRegistration.update();
+      
+      // Listen for updates
+      existingRegistration.addEventListener('updatefound', () => {
+        const newWorker = existingRegistration.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('[Service Worker] Nova versão disponível. Recarregue a página para atualizar.');
+            }
+          });
+        }
+      });
+      
+      return existingRegistration;
+    }
+
+    // Register new service worker
     const registration = await navigator.serviceWorker.register('/sw.js', {
       scope: '/',
+      updateViaCache: 'none', // Always check for updates
     });
 
-    console.log('[Push Notifications] Service Worker registrado:', registration);
+    console.log('[Service Worker] Service Worker registrado com sucesso:', registration);
+    
+    // Wait for service worker to be ready
+    await navigator.serviceWorker.ready;
+    console.log('[Service Worker] Service Worker está pronto');
+    
     return registration;
-  } catch (error) {
-    console.error('[Push Notifications] Erro ao registrar Service Worker:', error);
+  } catch (error: any) {
+    console.error('[Service Worker] Erro ao registrar Service Worker:', error);
+    console.error('[Service Worker] Detalhes do erro:', {
+      message: error.message,
+      stack: error.stack,
+    });
     return null;
   }
 }
