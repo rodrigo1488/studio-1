@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -153,6 +153,9 @@ export function PostModal({ post, currentUserId, onClose, onLike, onDelete, onEd
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] sm:max-h-[95vh] p-0 gap-0 w-full h-full sm:h-auto">
+        <DialogTitle className="sr-only">
+          Post de {post.user?.name || 'Usuário'}
+        </DialogTitle>
         <div className="flex flex-col md:flex-row h-[100vh] sm:h-[90vh]">
           {/* Image Section */}
           <div className="relative flex-1 bg-black flex items-center justify-center">
