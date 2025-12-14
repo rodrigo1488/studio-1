@@ -11,11 +11,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, MessageSquare, Users, X, Clock } from 'lucide-react';
+import { Camera, MessageSquare, Users, X, Clock, UserPlus } from 'lucide-react';
 import { getInitials, cn } from '@/lib/utils';
 import type { Room, User } from '@/lib/data';
 import { useRouter } from 'next/navigation';
 import { TemporaryMessageSettings } from '@/components/chat/temporary-message-settings';
+import { RoomCodeDisplay } from '@/components/room-code-display';
 
 interface RoomDetailsProps {
   room: Room;
@@ -33,6 +34,7 @@ export function RoomDetails({ room, currentUser, open, onOpenChange }: RoomDetai
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showTemporarySettings, setShowTemporarySettings] = useState(false);
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -209,6 +211,20 @@ export function RoomDetails({ room, currentUser, open, onOpenChange }: RoomDetai
             </div>
           </div>
 
+          {/* Botão de Convidar */}
+          {room.code && !isDirectConversation && (
+            <div>
+              <Button
+                onClick={() => setShowInviteDialog(true)}
+                className="w-full"
+                size="lg"
+              >
+                <UserPlus className="mr-2 h-5 w-5" />
+                Convidar para o Grupo
+              </Button>
+            </div>
+          )}
+
           {/* Mensagens Temporárias */}
           <div>
             <h4 className="font-semibold mb-3 flex items-center gap-2">
@@ -291,6 +307,28 @@ export function RoomDetails({ room, currentUser, open, onOpenChange }: RoomDetai
         onOpenChange={setShowTemporarySettings}
         roomId={room.id}
       />
+
+      {/* Dialog de Convite */}
+      {room.code && !isDirectConversation && (
+        <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <UserPlus className="h-5 w-5" />
+                Convidar para {room.name}
+              </DialogTitle>
+              <DialogDescription>
+                Compartilhe o código da sala para convidar pessoas para o grupo.
+              </DialogDescription>
+            </DialogHeader>
+            <RoomCodeDisplay
+              code={room.code}
+              roomName={room.name}
+              showInModal={false}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   );
 }

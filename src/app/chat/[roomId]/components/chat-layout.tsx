@@ -1512,7 +1512,7 @@ export default function ChatLayout({
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Ver código da sala</p>
+                  <p>Convidar para o grupo</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
