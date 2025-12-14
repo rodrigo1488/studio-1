@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Routes that require authentication
-const protectedRoutes = ['/dashboard', '/chat', '/profile'];
+const protectedRoutes = ['/dashboard', '/chat', '/profile', '/feed'];
 
-// Routes that should redirect to dashboard if already authenticated
+// Routes that should redirect to feed if already authenticated
 const authRoutes = ['/login', '/register'];
 
 export function middleware(request: NextRequest) {
@@ -26,9 +26,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Redirect to dashboard if accessing auth route while authenticated
+  // Redirect to feed if accessing auth route while authenticated
   if (isAuthRoute && userId) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL('/feed', request.url));
   }
 
   return NextResponse.next();

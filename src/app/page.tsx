@@ -17,8 +17,8 @@ export default function Home() {
       try {
         const response = await fetch('/api/auth/me');
         if (response.ok) {
-          // User is already logged in, redirect to dashboard
-          router.push('/dashboard');
+          // User is already logged in, redirect to feed
+          router.push('/feed');
           router.refresh();
         } else {
           // User is not authenticated, show home page

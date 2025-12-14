@@ -28,8 +28,8 @@ export default function LoginPage() {
       try {
         const response = await fetch('/api/auth/me');
         if (response.ok) {
-          // User is already logged in, redirect to dashboard
-          router.push('/dashboard');
+          // User is already logged in, redirect to feed
+          router.push('/feed');
           router.refresh();
         } else {
           // User is not authenticated, show login form
@@ -76,7 +76,7 @@ export default function LoginPage() {
         description: 'Redirecionando...',
       });
 
-      router.push('/dashboard');
+      router.push('/feed');
       router.refresh();
     } catch (error) {
       toast({

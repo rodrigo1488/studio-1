@@ -316,7 +316,7 @@ export default function FeedPage() {
   }
 
   return (
-    <div className="space-y-2 sm:space-y-3 md:space-y-4 lg:space-y-6 px-1.5 sm:px-2 md:px-4 lg:px-6 pb-20 sm:pb-6">
+    <div className="space-y-2 sm:space-y-3 md:space-y-4 lg:space-y-6 px-1.5 sm:px-2 md:px-4 lg:px-6 pb-4">
       {/* Header - Mobile First */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 md:gap-4 pt-1.5 sm:pt-2 md:pt-4">
         <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 min-w-0">
