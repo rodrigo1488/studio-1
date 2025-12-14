@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -11,7 +11,7 @@ import DirectConversationsList from '@/app/dashboard/components/direct-conversat
 import ContactsList from '@/app/dashboard/components/contacts-list';
 import { FeedPreview } from '@/components/feed/feed-preview';
 
-export default function DashboardPage() {
+function DashboardContent() {
   const sidebar = useSidebar();
   const searchParams = useSearchParams();
   const activeView = sidebar?.activeView || 'conversations';
@@ -49,5 +49,19 @@ export default function DashboardPage() {
       {activeView === 'contacts' && <ContactsList />}
       {activeView === 'feed' && <FeedPreview />}
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="w-full max-w-6xl mx-auto">
+        <div className="flex items-center justify-center h-64">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }
