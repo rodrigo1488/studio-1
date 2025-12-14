@@ -85,25 +85,52 @@ export function NotificationManager() {
   useEffect(() => {
     if (!currentUserId || userRooms.length === 0) return;
 
-    // Limpar canais anteriores
-    channelsRef.current.forEach((channel) => {
-      supabase.removeChannel(channel);
-    });
-    channelsRef.current = [];
+    // Limpar canais anteriores de forma assíncrona
+    const cleanupChannels = async () => {
+      const channelsToRemove = [...channelsRef.current];
+      channelsRef.current = [];
+      
+      for (const channel of channelsToRemove) {
+        try {
+          await supabase.removeChannel(channel);
+        } catch (error) {
+          console.warn('[Notifications] Error removing channel:', error);
+        }
+      }
+    };
 
-    // Criar canais para cada sala
-    userRooms.forEach((roomId) => {
-      let channel;
+    // Função para criar subscription com retry
+    const createSubscription = async (roomId: string, retries = 3): Promise<void> => {
+      const channelName = `notifications:${roomId}`;
+      
+      // Verificar se já existe um canal para esta sala e removê-lo se necessário
+      const existingChannelIndex = channelsRef.current.findIndex(
+        (ch) => ch.topic === channelName
+      );
+      if (existingChannelIndex !== -1) {
+        const existingChannel = channelsRef.current[existingChannelIndex];
+        console.log(`[Notifications] Removing existing channel for room ${roomId} before creating new one`);
+        try {
+          await supabase.removeChannel(existingChannel);
+          channelsRef.current.splice(existingChannelIndex, 1);
+        } catch (error) {
+          console.warn('[Notifications] Error removing existing channel:', error);
+        }
+      }
+
       try {
-        const channelName = `notifications:${roomId}`;
         console.log(`[Notifications] Creating channel for room: ${roomId} (${channelName})`);
         
         // Usar UUID formatado corretamente no filtro
         const filter = `room_id=eq.${roomId}`;
-        console.log(`[Notifications] Filter: ${filter}`);
         
-        channel = supabase
-          .channel(channelName)
+        const channel = supabase
+          .channel(channelName, {
+            config: {
+              broadcast: { self: false },
+              presence: { key: '' },
+            },
+          })
           .on(
             'postgres_changes',
             {
@@ -225,26 +252,55 @@ export function NotificationManager() {
         .subscribe((status, err) => {
           if (status === 'SUBSCRIBED') {
             console.log(`[Notifications] ✅ Successfully subscribed to room: ${roomId}`);
-            if (channel) {
+            if (channel && !channelsRef.current.includes(channel)) {
               channelsRef.current.push(channel);
             }
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             console.error(`[Notifications] ❌ Error subscribing to room ${roomId}:`, status, err);
+            
+            // Tentar novamente se houver tentativas restantes
+            if (retries > 0) {
+              console.log(`[Notifications] Retrying subscription for room ${roomId}... (${retries} retries left)`);
+              setTimeout(() => {
+                createSubscription(roomId, retries - 1);
+              }, 2000); // Aguardar 2 segundos antes de tentar novamente
+            } else {
+              console.error(`[Notifications] Failed to subscribe to room ${roomId} after all retries`);
+            }
           } else {
             console.warn(`[Notifications] ⚠️ Channel status for room ${roomId}: ${status}`, err);
           }
         });
+
+        // Aguardar um pouco antes de criar o próximo canal para evitar sobrecarga
+        await new Promise((resolve) => setTimeout(resolve, 100));
       } catch (error) {
         console.error(`[Notifications] Error creating channel for room ${roomId}:`, error);
+        
+        // Tentar novamente se houver tentativas restantes
+        if (retries > 0) {
+          console.log(`[Notifications] Retrying channel creation for room ${roomId}... (${retries} retries left)`);
+          setTimeout(() => {
+            createSubscription(roomId, retries - 1);
+          }, 2000);
+        }
       }
+    };
+
+    // Limpar canais anteriores primeiro, depois criar subscriptions
+    cleanupChannels().then(() => {
+      // Criar subscriptions sequencialmente para evitar sobrecarga
+      const createSubscriptionsSequentially = async () => {
+        for (const roomId of userRooms) {
+          await createSubscription(roomId);
+        }
+      };
+      createSubscriptionsSequentially();
     });
 
     return () => {
       // Limpar canais ao desmontar
-      channelsRef.current.forEach((channel) => {
-        supabase.removeChannel(channel);
-      });
-      channelsRef.current = [];
+      cleanupChannels();
     };
   }, [currentUserId, userRooms]);
 

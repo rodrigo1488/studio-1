@@ -76,10 +76,10 @@ export function StoriesCarousel({ currentUserId }: StoriesCarouselProps) {
 
   if (isLoading) {
     return (
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2">
         {[...Array(5)].map((_, i) => (
           <div key={i} className="flex-shrink-0">
-            <div className="h-16 w-16 animate-pulse rounded-full bg-muted" />
+            <div className="h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 animate-pulse rounded-full bg-muted" />
           </div>
         ))}
       </div>
@@ -95,7 +95,7 @@ export function StoriesCarousel({ currentUserId }: StoriesCarouselProps) {
   return (
     <>
       <ScrollArea className="w-full whitespace-nowrap">
-        <div className="flex gap-3 pb-2">
+        <div className="flex gap-2 sm:gap-2.5 md:gap-3 pb-2">
           {userIds.map((userId) => {
             const userStories = storiesByUser[userId];
             const user = users[userId];
@@ -108,11 +108,12 @@ export function StoriesCarousel({ currentUserId }: StoriesCarouselProps) {
               <button
                 key={userId}
                 onClick={() => handleStoryClick(userId)}
-                className="flex flex-shrink-0 flex-col items-center gap-1.5"
+                className="flex flex-shrink-0 flex-col items-center gap-1 sm:gap-1.5 touch-manipulation"
+                aria-label={`Ver stories de ${user.name}`}
               >
                 <div
                   className={cn(
-                    'relative flex h-16 w-16 items-center justify-center rounded-full p-0.5',
+                    'relative flex h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 items-center justify-center rounded-full p-0.5',
                     hasUnviewed
                       ? 'bg-gradient-to-tr from-purple-500 via-pink-500 to-orange-500'
                       : 'bg-muted'
@@ -120,10 +121,10 @@ export function StoriesCarousel({ currentUserId }: StoriesCarouselProps) {
                 >
                   <Avatar className="h-full w-full border-2 border-background">
                     <AvatarImage src={user.avatarUrl} alt={user.name} />
-                    <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                    <AvatarFallback className="text-[9px] sm:text-[10px] md:text-xs">{getInitials(user.name)}</AvatarFallback>
                   </Avatar>
                 </div>
-                <span className="max-w-[70px] truncate text-xs text-muted-foreground">{user.name}</span>
+                <span className="max-w-[60px] sm:max-w-[70px] md:max-w-[80px] truncate text-[10px] sm:text-xs text-muted-foreground">{user.name}</span>
               </button>
             );
           })}

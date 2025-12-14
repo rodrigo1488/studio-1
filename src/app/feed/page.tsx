@@ -228,36 +228,36 @@ export default function FeedPage() {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 md:space-y-6 px-2 sm:px-4 md:px-6 pb-20 sm:pb-6">
+    <div className="space-y-2 sm:space-y-3 md:space-y-4 lg:space-y-6 px-1.5 sm:px-2 md:px-4 lg:px-6 pb-20 sm:pb-6">
       {/* Header - Mobile First */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 pt-2 sm:pt-4">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" asChild>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 md:gap-4 pt-1.5 sm:pt-2 md:pt-4">
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 min-w-0">
+          <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 shrink-0" asChild>
             <Link href="/dashboard">
-              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+              <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5" />
               <span className="sr-only">Voltar ao dashboard</span>
             </Link>
           </Button>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">Feed</h1>
+          <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold truncate">Feed</h1>
         </div>
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 flex-shrink-0">
           <FeedViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
           <Button 
             onClick={() => setShowCreateStory(true)}
             variant="outline"
             size="sm"
-            className="text-xs sm:text-sm"
+            className="text-[10px] sm:text-xs md:text-sm h-7 sm:h-8 md:h-9 px-2 sm:px-3"
           >
-            <ImageIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <ImageIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 mr-1" />
             <span className="hidden sm:inline">Story</span>
-            <span className="sm:hidden">Story</span>
+            <span className="sm:hidden">S</span>
           </Button>
           <Button 
             onClick={() => setShowCreatePost(true)}
             size="sm"
-            className="text-xs sm:text-sm"
+            className="text-[10px] sm:text-xs md:text-sm h-7 sm:h-8 md:h-9 px-2 sm:px-3"
           >
-            <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 mr-1" />
             <span className="hidden sm:inline">Nova publicação</span>
             <span className="sm:hidden">Novo</span>
           </Button>
@@ -266,7 +266,7 @@ export default function FeedPage() {
 
       {/* Stories Carousel */}
       {currentUserId && (
-        <div className="bg-card rounded-lg border p-3 sm:p-4">
+        <div className="bg-card rounded-lg border p-2 sm:p-3 md:p-4 overflow-hidden">
           <StoriesCarousel currentUserId={currentUserId} />
         </div>
       )}
@@ -308,7 +308,7 @@ export default function FeedPage() {
         />
       ) : viewMode === 'timeline' ? (
         <>
-          <div className="space-y-3 sm:space-y-4 md:space-y-6">
+          <div className="space-y-2 sm:space-y-3 md:space-y-4 lg:space-y-6">
             {posts.map((post) => (
               <PostCard
                 key={post.id}
@@ -321,16 +321,16 @@ export default function FeedPage() {
             ))}
           </div>
           {hasMore && (
-            <div ref={loadMoreRef} className="flex justify-center py-4">
+            <div ref={loadMoreRef} className="flex justify-center py-3 sm:py-4">
               {isLoadingMore && (
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-muted-foreground" />
               )}
             </div>
           )}
         </>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1 sm:gap-2 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-0.5 sm:gap-1 md:gap-2 lg:gap-4">
             {posts.map((post) => (
               <PostGridItem
                 key={post.id}
@@ -343,9 +343,9 @@ export default function FeedPage() {
             ))}
           </div>
           {hasMore && (
-            <div ref={loadMoreRef} className="flex justify-center py-4">
+            <div ref={loadMoreRef} className="flex justify-center py-3 sm:py-4">
               {isLoadingMore && (
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-muted-foreground" />
               )}
             </div>
           )}
@@ -355,10 +355,11 @@ export default function FeedPage() {
       {/* FAB para mobile */}
       <Button
         onClick={() => setShowCreatePost(true)}
-        className="fixed bottom-20 right-4 sm:hidden h-14 w-14 rounded-full shadow-lg z-50"
+        className="fixed bottom-20 sm:bottom-24 right-3 sm:right-4 h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-lg z-50 touch-manipulation"
         size="icon"
+        aria-label="Criar nova publicação"
       >
-        <Plus className="h-6 w-6" />
+        <Plus className="h-5 w-5 sm:h-6 sm:w-6" />
       </Button>
 
       <CreatePost

@@ -1416,48 +1416,48 @@ export default function ChatLayout({
   return (
     <div className="flex h-full w-full flex-col relative">
       {/* Chat Header */}
-      <header className="flex h-16 items-center justify-between border-b-2 border-primary/30 bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 backdrop-blur-sm px-2 sm:px-4 shrink-0 shadow-md z-10">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-          <Button asChild variant="ghost" size="icon" className="-ml-2 shrink-0">
+      <header className="flex h-14 sm:h-16 items-center justify-between border-b-2 border-primary/30 bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 backdrop-blur-sm px-1.5 sm:px-2 md:px-4 shrink-0 shadow-md z-10">
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 min-w-0 flex-1">
+          <Button asChild variant="ghost" size="icon" className="-ml-1 sm:-ml-2 shrink-0 h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 touch-manipulation">
             <Link href="/dashboard">
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
             </Link>
           </Button>
-          <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
             {otherUser ? (
               <Link href={`/profile/${otherUser.id}`} className="hover:opacity-80 transition-opacity shrink-0">
-                <Avatar className="h-8 w-8 sm:h-9 sm:w-9 cursor-pointer">
+                <Avatar className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 cursor-pointer">
                   <AvatarImage src={otherUser.avatarUrl} />
-                  <AvatarFallback>{getInitials(otherUser.name)}</AvatarFallback>
+                  <AvatarFallback className="text-[10px] sm:text-xs">{getInitials(otherUser.name)}</AvatarFallback>
                 </Avatar>
               </Link>
             ) : (
-              <Avatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0">
+              <Avatar className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 shrink-0">
                 <AvatarImage src={otherUser?.avatarUrl} />
-                <AvatarFallback>{getInitials(otherUser?.name || room.name)}</AvatarFallback>
+                <AvatarFallback className="text-[10px] sm:text-xs">{getInitials(otherUser?.name || room.name)}</AvatarFallback>
               </Avatar>
             )}
             <div className="flex flex-col min-w-0 flex-1">
               {otherUser ? (
                 <Link 
                   href={`/profile/${otherUser.id}`}
-                  className="font-semibold text-sm sm:text-base truncate hover:underline"
+                  className="font-semibold text-xs sm:text-sm md:text-base truncate hover:underline"
                   title={otherUser.name}
                 >
                   {otherUser.name}
                 </Link>
               ) : (
-                <span className="font-semibold text-sm sm:text-base truncate" title={room.name}>
+                <span className="font-semibold text-xs sm:text-sm md:text-base truncate" title={room.name}>
                   {room.name}
                 </span>
               )}
-              <span className="text-xs text-muted-foreground">
+              <span className="text-[10px] sm:text-xs text-muted-foreground truncate">
                 {room.code?.startsWith('DM-') ? 'Conversa direta' : `${room.members.length} membros`}
               </span>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           {room.code && !room.code.startsWith('DM-') && (
             <TooltipProvider>
               <Tooltip>
@@ -1468,8 +1468,8 @@ export default function ChatLayout({
                       roomName={room.name}
                       showInModal={true}
                       trigger={
-                        <Button variant="ghost" size="icon">
-                          <QrCode className="h-5 w-5" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 touch-manipulation">
+                          <QrCode className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
                         </Button>
                       }
                     />
@@ -1489,8 +1489,9 @@ export default function ChatLayout({
                     variant="ghost" 
                     size="icon"
                     onClick={() => setShowRoomDetails(true)}
+                    className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 touch-manipulation"
                   >
-                    <Info className="h-5 w-5" />
+                    <Info className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -1505,7 +1506,7 @@ export default function ChatLayout({
 
       {/* Message Area */}
       <ScrollArea className="flex-1" ref={scrollAreaRef}>
-        <div className="p-2 sm:p-4 space-y-2 sm:space-y-4">
+        <div className="p-1.5 sm:p-2 md:p-4 space-y-1.5 sm:space-y-2 md:space-y-4">
           {isLoadingMore && (
             <div className="flex justify-center py-2">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -1613,16 +1614,16 @@ export default function ChatLayout({
               }}
             >
               {message.senderId !== currentUser.id && (
-                <Link href={`/profile/${message.senderId}`} className="hover:opacity-80 transition-opacity">
-                  <Avatar className="h-8 w-8 cursor-pointer">
+                <Link href={`/profile/${message.senderId}`} className="hover:opacity-80 transition-opacity shrink-0">
+                  <Avatar className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 cursor-pointer">
                     <AvatarImage src={message.user?.avatarUrl} />
-                    <AvatarFallback>{getInitials(message.user?.name)}</AvatarFallback>
+                    <AvatarFallback className="text-[9px] sm:text-[10px] md:text-xs">{getInitials(message.user?.name)}</AvatarFallback>
                   </Avatar>
                 </Link>
               )}
               <div
                 className={cn(
-                  'max-w-xs md:max-w-md lg:max-w-lg rounded-3xl p-4 text-sm flex flex-col shadow-md',
+                  'max-w-[85%] sm:max-w-xs md:max-w-md lg:max-w-lg rounded-3xl p-2.5 sm:p-3 md:p-4 text-xs sm:text-sm flex flex-col shadow-md',
                   message.senderId === currentUser.id
                     ? `${ownColor} text-white rounded-br-none`
                     : `${otherColor} text-foreground rounded-bl-none border-2 border-primary/20`
@@ -1791,21 +1792,21 @@ export default function ChatLayout({
 
       {/* Input Area - Fixed at bottom */}
       <footer className="fixed bottom-0 left-0 right-0 border-t-2 border-primary/30 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 shadow-md z-20 bg-background">
-        {isRecordingAudio && (
+            {isRecordingAudio && (
           <div className={cn(
-            "px-4 py-2 border-b flex items-center justify-between transition-colors",
+            "px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 border-b flex items-center justify-between transition-colors",
             shouldCancelRecording 
               ? "bg-destructive/20" 
               : "bg-destructive/10"
           )}>
-            <div className="flex items-center gap-2 flex-1">
-              <div className="h-3 w-3 rounded-full bg-destructive animate-pulse" />
-              <span className="text-sm font-mono">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+              <div className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-destructive animate-pulse shrink-0" />
+              <span className="text-xs sm:text-sm font-mono truncate">
                 {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
               </span>
             </div>
             <span className={cn(
-              "text-sm font-medium",
+              "text-[10px] sm:text-xs md:text-sm font-medium truncate ml-2",
               shouldCancelRecording 
                 ? "text-destructive" 
                 : "text-muted-foreground"
@@ -1815,10 +1816,10 @@ export default function ChatLayout({
           </div>
         )}
         <form
-          className="flex w-full items-center gap-2 p-2 md:p-4"
+          className="flex w-full items-center gap-1 sm:gap-1.5 md:gap-2 p-1.5 sm:p-2 md:p-4"
           onSubmit={handleSendMessage}
         >
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
             <input
               type="file"
               id="image-upload"
@@ -1842,9 +1843,9 @@ export default function ChatLayout({
                     type="button"
                     onClick={() => setShowCamera(true)}
                     disabled={isSending || isRecordingAudio}
-                    className="text-muted-foreground hover:text-foreground"
+                    className="text-muted-foreground hover:text-foreground h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 touch-manipulation"
                   >
-                    <Camera className="h-5 w-5" />
+                    <Camera className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -1861,9 +1862,9 @@ export default function ChatLayout({
                     type="button"
                     onClick={() => document.getElementById('image-upload')?.click()}
                     disabled={isSending || isRecordingAudio}
-                    className="text-muted-foreground hover:text-foreground"
+                    className="text-muted-foreground hover:text-foreground h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 touch-manipulation"
                   >
-                    <ImageIcon className="h-5 w-5" />
+                    <ImageIcon className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -1881,7 +1882,7 @@ export default function ChatLayout({
                     type="button"
                     disabled={isSending}
                     className={cn(
-                      "text-muted-foreground hover:text-foreground hover:bg-primary/10",
+                      "text-muted-foreground hover:text-foreground hover:bg-primary/10 h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 touch-manipulation",
                       isRecordingAudio && "bg-gradient-to-r from-[#EF4444] to-[#DC2626] text-white hover:from-[#DC2626] hover:to-[#B91C1C] shadow-lg animate-pulse"
                     )}
                     onMouseDown={(e) => {
@@ -1936,7 +1937,7 @@ export default function ChatLayout({
                       }
                     }}
                   >
-                    <Mic className="h-5 w-5" />
+                    <Mic className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -1953,9 +1954,9 @@ export default function ChatLayout({
                       size="icon"
                       type="button"
                       disabled={isSending || isRecordingAudio}
-                      className="text-muted-foreground hover:text-foreground"
+                      className="text-muted-foreground hover:text-foreground h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 touch-manipulation"
                     >
-                      <Smile className="h-5 w-5" />
+                      <Smile className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[350px] sm:w-[400px] p-0" align="start">
@@ -2027,23 +2028,23 @@ export default function ChatLayout({
                 }).catch(() => {});
               }}
               disabled={isSending || isRecordingAudio}
-              className="w-full"
+              className="w-full text-xs sm:text-sm md:text-base min-h-[36px] sm:min-h-[40px] md:min-h-[44px]"
             />
           </div>
           
           {messageText.trim() && !isRecordingAudio ? (
-            <Button type="submit" size="icon" disabled={isSending}>
+            <Button type="submit" size="icon" disabled={isSending} className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 touch-manipulation flex-shrink-0">
               {isSending ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <Loader2 className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5 animate-spin" />
               ) : (
-                <Send className="h-5 w-5" />
+                <Send className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
               )}
             </Button>
           ) : (
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" type="button" disabled={isSending || isRecordingAudio}>
-                  <Paperclip className="h-5 w-5" />
+                <Button variant="ghost" size="icon" type="button" disabled={isSending || isRecordingAudio} className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 touch-manipulation flex-shrink-0">
+                  <Paperclip className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-1">

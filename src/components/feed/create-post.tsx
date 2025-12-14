@@ -192,12 +192,12 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] sm:max-h-[90vh] h-[100vh] sm:h-auto w-full sm:w-auto m-0 sm:m-auto rounded-none sm:rounded-lg">
-        <DialogHeader>
-          <DialogTitle>Criar nova publicação</DialogTitle>
+      <DialogContent className="max-w-2xl max-h-[90vh] sm:max-h-[90vh] h-[100vh] sm:h-auto w-full sm:w-auto m-0 sm:m-auto rounded-none sm:rounded-lg p-3 sm:p-4 md:p-6">
+        <DialogHeader className="pb-2 sm:pb-3">
+          <DialogTitle className="text-base sm:text-lg md:text-xl">Criar nova publicação</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4 overflow-y-auto flex-1">
           {/* File Input */}
           <div>
             <input
@@ -212,16 +212,16 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
               type="button"
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full"
+              className="w-full text-xs sm:text-sm md:text-base h-9 sm:h-10 md:h-11 touch-manipulation"
             >
-              <ImageIcon className="h-4 w-4 mr-2" />
+              <ImageIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5 mr-1.5 sm:mr-2" />
               Selecionar fotos
             </Button>
           </div>
 
           {/* Previews */}
           {previews.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4 max-h-[40vh] sm:max-h-none overflow-y-auto">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2 md:gap-4 max-h-[35vh] sm:max-h-[40vh] md:max-h-none overflow-y-auto">
               {previews.map((preview, index) => (
                 <div key={index} className="relative aspect-square rounded-lg overflow-hidden border">
                   <Image
@@ -233,10 +233,11 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute top-2 right-2 h-8 w-8 bg-black/50 hover:bg-black/70 text-white"
+                    className="absolute top-1 right-1 sm:top-2 sm:right-2 h-7 w-7 sm:h-8 sm:w-8 bg-black/50 hover:bg-black/70 text-white touch-manipulation"
                     onClick={() => removeFile(index)}
+                    aria-label="Remover imagem"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </Button>
                 </div>
               ))}
@@ -249,7 +250,7 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
               placeholder="Escreva uma legenda..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="min-h-[120px] resize-none"
+              className="min-h-[100px] sm:min-h-[120px] md:min-h-[140px] resize-none text-xs sm:text-sm md:text-base"
             />
           </div>
 
@@ -263,15 +264,25 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
           )}
 
           {/* Actions */}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
+          <div className="flex justify-end gap-1.5 sm:gap-2 pt-2 border-t">
+            <Button 
+              variant="outline" 
+              onClick={handleClose} 
+              disabled={isSubmitting}
+              className="text-xs sm:text-sm md:text-base h-8 sm:h-9 md:h-10 px-3 sm:px-4 touch-manipulation"
+            >
               Cancelar
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting || selectedFiles.length === 0}>
+            <Button 
+              onClick={handleSubmit} 
+              disabled={isSubmitting || selectedFiles.length === 0}
+              className="text-xs sm:text-sm md:text-base h-8 sm:h-9 md:h-10 px-3 sm:px-4 touch-manipulation"
+            >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Publicando...
+                  <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5 mr-1.5 sm:mr-2 animate-spin" />
+                  <span className="hidden sm:inline">Publicando...</span>
+                  <span className="sm:hidden">...</span>
                 </>
               ) : (
                 'Publicar'

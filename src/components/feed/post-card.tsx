@@ -104,21 +104,21 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
   return (
     <>
       <Card className="w-full overflow-hidden border-2 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 animate-slide-in">
-        <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5">
-          <div className="flex items-center justify-between">
+        <CardHeader className="pb-1.5 sm:pb-2 md:pb-3 px-2 sm:px-3 md:px-4 lg:px-6 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2">
             <Link 
               href={`/profile/${post.userId}`}
-              className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 hover:opacity-80 transition-opacity"
+              className="flex items-center gap-1.5 sm:gap-2 md:gap-3 min-w-0 flex-1 hover:opacity-80 transition-opacity"
             >
-              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 ring-2 ring-primary/20">
+              <Avatar className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 shrink-0 ring-2 ring-primary/20">
                 <AvatarImage src={post.user?.avatarUrl} />
-                <AvatarFallback className="text-xs bg-gradient-to-br from-primary to-secondary text-primary-foreground">
+                <AvatarFallback className="text-[10px] sm:text-xs bg-gradient-to-br from-primary to-secondary text-primary-foreground">
                   {getInitials(post.user?.name || 'U')}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-xs sm:text-sm truncate text-foreground hover:underline">{post.user?.name || 'Usuário'}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">
+                <p className="font-semibold text-[11px] sm:text-xs md:text-sm truncate text-foreground hover:underline">{post.user?.name || 'Usuário'}</p>
+                <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground truncate">
                   {formatDistanceToNow(createdAt, { addSuffix: true, locale: ptBR })}
                 </p>
               </div>
@@ -126,8 +126,8 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
             {isOwner && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 shrink-0">
-                    <MoreVertical className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <Button variant="ghost" size="icon" className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 shrink-0 touch-manipulation">
+                    <MoreVertical className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -200,62 +200,66 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
           </div>
 
           {/* Actions */}
-          <div className="p-3 sm:p-4 md:p-6 space-y-2 sm:space-y-3 bg-gradient-to-b from-background to-muted/20">
-            <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
+          <div className="p-2 sm:p-3 md:p-4 lg:p-6 space-y-1.5 sm:space-y-2 md:space-y-3 bg-gradient-to-b from-background to-muted/20">
+            <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 lg:gap-4">
               <Button
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  'h-9 w-9 sm:h-10 sm:w-10 touch-manipulation transition-all duration-200',
+                  'h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 touch-manipulation transition-all duration-200',
                   isLiked 
                     ? 'text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950' 
                     : 'hover:text-red-500 hover:bg-muted'
                 )}
                 onClick={handleLike}
                 disabled={isLiking}
+                aria-label={isLiked ? 'Descurtir' : 'Curtir'}
               >
-                <Heart className={cn('h-5 w-5 sm:h-6 sm:w-6 transition-transform', isLiked && 'fill-current scale-110')} />
+                <Heart className={cn('h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 transition-transform', isLiked && 'fill-current scale-110')} />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 sm:h-10 sm:w-10 touch-manipulation hover:text-primary hover:bg-muted transition-all duration-200"
+                className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 touch-manipulation hover:text-primary hover:bg-muted transition-all duration-200"
                 onClick={() => setShowModal(true)}
+                aria-label="Comentar"
               >
-                <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+                <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 sm:h-10 sm:w-10 touch-manipulation hover:text-primary hover:bg-muted transition-all duration-200"
+                className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 touch-manipulation hover:text-primary hover:bg-muted transition-all duration-200"
                 onClick={() => setShowShareDialog(true)}
+                aria-label="Compartilhar"
               >
-                <Share2 className="h-5 w-5 sm:h-6 sm:w-6" />
+                <Share2 className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  'h-9 w-9 sm:h-10 sm:w-10 touch-manipulation transition-all duration-200',
+                  'h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 touch-manipulation transition-all duration-200',
                   isSaved
                     ? 'text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-950'
                     : 'hover:text-yellow-500 hover:bg-muted'
                 )}
                 onClick={handleSave}
                 disabled={isSaving}
+                aria-label={isSaved ? 'Remover dos salvos' : 'Salvar'}
               >
-                <Bookmark className={cn('h-5 w-5 sm:h-6 sm:w-6 transition-transform', isSaved && 'fill-current')} />
+                <Bookmark className={cn('h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 transition-transform', isSaved && 'fill-current')} />
               </Button>
             </div>
 
             {likesCount > 0 && (
-              <p className="text-xs sm:text-sm font-semibold text-foreground">
+              <p className="text-[10px] sm:text-xs md:text-sm font-semibold text-foreground">
                 {likesCount} curtida{likesCount !== 1 ? 's' : ''}
               </p>
             )}
 
             {post.description && (
-              <div className="text-xs sm:text-sm md:text-base leading-relaxed space-y-1">
+              <div className="text-[11px] sm:text-xs md:text-sm lg:text-base leading-relaxed space-y-1 break-words">
                 <div>
                   <Link 
                     href={`/profile/${post.userId}`}
@@ -263,24 +267,24 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
                   >
                     {post.user?.name || 'Usuário'}
                   </Link>{' '}
-                  <span className="break-words text-foreground/90">{post.description}</span>
+                  <span className="text-foreground/90 break-words">{post.description}</span>
                 </div>
               </div>
             )}
 
             {/* Mentions */}
             {post.mentions && post.mentions.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-border/50">
-                <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
-                <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap pt-1 border-t border-border/50">
+                <User className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-primary shrink-0" />
+                <span className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground font-medium">
                   Marcado{post.mentions.length !== 1 ? 's' : ''}:
                 </span>
-                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-wrap">
                   {post.mentions.map((mention, index) => (
                     <Link
                       key={mention.id}
                       href={`/profile/${mention.userId}`}
-                      className="text-[10px] sm:text-xs font-semibold text-primary hover:underline cursor-pointer transition-colors"
+                      className="text-[9px] sm:text-[10px] md:text-xs font-semibold text-primary hover:underline cursor-pointer transition-colors"
                     >
                       {mention.user?.name || 'Usuário'}
                       {index < post.mentions!.length - 1 && <span className="text-muted-foreground">,</span>}
@@ -293,7 +297,7 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
             {post.commentsCount && post.commentsCount > 0 && (
               <Button
                 variant="ghost"
-                className="text-muted-foreground p-0 h-auto font-normal text-xs sm:text-sm hover:text-primary"
+                className="text-muted-foreground p-0 h-auto font-normal text-[10px] sm:text-xs md:text-sm hover:text-primary touch-manipulation"
                 onClick={() => setShowModal(true)}
               >
                 Ver {post.commentsCount} comentário{post.commentsCount !== 1 ? 's' : ''}
@@ -303,7 +307,7 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
             {(!post.commentsCount || post.commentsCount === 0) && (
               <Button
                 variant="ghost"
-                className="text-muted-foreground p-0 h-auto font-normal text-xs sm:text-sm hover:text-primary"
+                className="text-muted-foreground p-0 h-auto font-normal text-[10px] sm:text-xs md:text-sm hover:text-primary touch-manipulation"
                 onClick={() => setShowModal(true)}
               >
                 Comentar
