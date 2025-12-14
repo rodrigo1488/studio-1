@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { X, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { X, Image as ImageIcon, Loader2, Upload, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -24,8 +24,10 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const maxDescriptionLength = 500;
 
   useEffect(() => {
     if (open) {
@@ -190,104 +192,232 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
     onClose();
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      const fakeEvent = {
+        target: { files },
+      } as React.ChangeEvent<HTMLInputElement>;
+      handleFileSelect(fakeEvent);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] sm:max-h-[90vh] h-[100vh] sm:h-auto w-full sm:w-auto m-0 sm:m-auto rounded-none sm:rounded-lg p-3 sm:p-4 md:p-6">
-        <DialogHeader className="pb-2 sm:pb-3">
-          <DialogTitle className="text-base sm:text-lg md:text-xl">Criar nova publicação</DialogTitle>
+    <Dialog open={open} onOpenChange={handleClose} modal={true}>
+      <DialogContent 
+        className="max-w-3xl max-h-[95vh] h-[100vh] sm:h-auto w-full sm:w-auto m-0 sm:m-auto rounded-none sm:rounded-xl p-0 sm:p-0 overflow-hidden"
+        onInteractOutside={(e) => {
+          // Allow Popover interactions inside Dialog
+          const target = e.target as HTMLElement;
+          const isPopover = target.closest('[data-radix-popover-content]') || 
+                           target.closest('[data-radix-popper-content-wrapper]') ||
+                           target.closest('.mention-selector-content');
+          if (isPopover) {
+            e.preventDefault();
+          }
+        }}
+        onPointerDownOutside={(e) => {
+          // Allow Popover interactions inside Dialog
+          const target = e.target as HTMLElement;
+          const isPopover = target.closest('[data-radix-popover-content]') || 
+                           target.closest('[data-radix-popper-content-wrapper]') ||
+                           target.closest('.mention-selector-content');
+          if (isPopover) {
+            e.preventDefault();
+          }
+        }}
+      >
+        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-lg sm:text-xl md:text-2xl font-bold flex items-center gap-2">
+                <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                Nova Publicação
+              </DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-1">
+                Compartilhe seus momentos com a família
+              </DialogDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleClose}
+              className="h-8 w-8 sm:h-9 sm:w-9"
+              disabled={isSubmitting}
+            >
+              <X className="h-4 w-4 sm:h-5 sm:w-5" />
+            </Button>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-3 sm:space-y-4 overflow-y-auto flex-1">
-          {/* File Input */}
-          <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full text-xs sm:text-sm md:text-base h-9 sm:h-10 md:h-11 touch-manipulation"
-            >
-              <ImageIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5 mr-1.5 sm:mr-2" />
-              Selecionar fotos
-            </Button>
-          </div>
-
-          {/* Previews */}
-          {previews.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2 md:gap-4 max-h-[35vh] sm:max-h-[40vh] md:max-h-none overflow-y-auto">
-              {previews.map((preview, index) => (
-                <div key={index} className="relative aspect-square rounded-lg overflow-hidden border">
-                  <Image
-                    src={preview}
-                    alt={`Preview ${index + 1}`}
-                    fill
-                    className="object-cover"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-1 right-1 sm:top-2 sm:right-2 h-7 w-7 sm:h-8 sm:w-8 bg-black/50 hover:bg-black/70 text-white touch-manipulation"
-                    onClick={() => removeFile(index)}
-                    aria-label="Remover imagem"
-                  >
-                    <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  </Button>
+        <div className="flex flex-col sm:flex-row h-[calc(100vh-80px)] sm:h-auto max-h-[calc(95vh-80px)] sm:max-h-[70vh]">
+          {/* Área de Upload e Preview - Lado Esquerdo */}
+          <div className={cn(
+            "flex-1 p-4 sm:p-6 border-b sm:border-b-0 sm:border-r bg-muted/30",
+            previews.length === 0 && "flex items-center justify-center min-h-[200px] sm:min-h-[400px]"
+          )}>
+            {previews.length === 0 ? (
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={cn(
+                  "w-full h-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-4 p-8 transition-colors cursor-pointer",
+                  isDragging
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/30 hover:border-primary/50 hover:bg-primary/5"
+                )}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <div className={cn(
+                  "rounded-full p-4 sm:p-6 transition-all",
+                  isDragging ? "bg-primary/10 scale-110" : "bg-muted"
+                )}>
+                  <Upload className={cn(
+                    "h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 transition-colors",
+                    isDragging ? "text-primary" : "text-muted-foreground"
+                  )} />
                 </div>
-              ))}
-            </div>
-          )}
-
-          {/* Description */}
-          <div>
-            <Textarea
-              placeholder="Escreva uma legenda..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="min-h-[100px] sm:min-h-[120px] md:min-h-[140px] resize-none text-xs sm:text-sm md:text-base"
-            />
+                <div className="text-center space-y-2">
+                  <p className="text-sm sm:text-base md:text-lg font-semibold">
+                    {isDragging ? 'Solte as imagens aqui' : 'Arraste imagens ou clique para selecionar'}
+                  </p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Suporte para múltiplas imagens (máx. 10MB cada)
+                  </p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </div>
+            ) : (
+              <div className="space-y-4 h-full overflow-y-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
+                  {previews.map((preview, index) => (
+                    <div key={index} className="relative group aspect-square rounded-xl overflow-hidden border-2 border-border shadow-md">
+                      <Image
+                        src={preview}
+                        alt={`Preview ${index + 1}`}
+                        fill
+                        className="object-cover transition-transform group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-2 right-2 h-8 w-8 sm:h-9 sm:w-9 bg-destructive/90 hover:bg-destructive text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFile(index);
+                        }}
+                        aria-label="Remover imagem"
+                      >
+                        <X className="h-4 w-4 sm:h-5 sm:w-5" />
+                      </Button>
+                      <div className="absolute bottom-2 left-2 text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                        Imagem {index + 1}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full"
+                >
+                  <ImageIcon className="h-4 w-4 mr-2" />
+                  Adicionar mais imagens
+                </Button>
+              </div>
+            )}
           </div>
 
-          {/* Mention Selector */}
-          {currentUserId && (
-            <MentionSelector
-              selectedUsers={selectedUsers}
-              onUsersChange={setSelectedUsers}
-              currentUserId={currentUserId}
-            />
-          )}
+          {/* Área de Conteúdo - Lado Direito */}
+          <div className="flex-1 flex flex-col p-4 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto min-w-0">
+            {/* Description */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Legenda
+              </label>
+              <Textarea
+                placeholder="O que você está pensando? Compartilhe com a família..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="min-h-[120px] sm:min-h-[150px] resize-none text-sm sm:text-base"
+                maxLength={maxDescriptionLength}
+              />
+              <div className="flex justify-end">
+                <span className={cn(
+                  "text-xs",
+                  description.length > maxDescriptionLength * 0.9
+                    ? "text-destructive"
+                    : "text-muted-foreground"
+                )}>
+                  {description.length}/{maxDescriptionLength}
+                </span>
+              </div>
+            </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-1.5 sm:gap-2 pt-2 border-t">
-            <Button 
-              variant="outline" 
-              onClick={handleClose} 
-              disabled={isSubmitting}
-              className="text-xs sm:text-sm md:text-base h-8 sm:h-9 md:h-10 px-3 sm:px-4 touch-manipulation"
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleSubmit} 
-              disabled={isSubmitting || selectedFiles.length === 0}
-              className="text-xs sm:text-sm md:text-base h-8 sm:h-9 md:h-10 px-3 sm:px-4 touch-manipulation"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5 mr-1.5 sm:mr-2 animate-spin" />
-                  <span className="hidden sm:inline">Publicando...</span>
-                  <span className="sm:hidden">...</span>
-                </>
-              ) : (
-                'Publicar'
-              )}
-            </Button>
+            {/* Mention Selector */}
+            {currentUserId && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Marcar pessoas</label>
+                <MentionSelector
+                  selectedUsers={selectedUsers}
+                  onUsersChange={setSelectedUsers}
+                  currentUserId={currentUserId}
+                />
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-4 border-t mt-auto">
+              <Button 
+                variant="outline" 
+                onClick={handleClose} 
+                disabled={isSubmitting}
+                className="flex-1 sm:flex-none"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleSubmit} 
+                disabled={isSubmitting || selectedFiles.length === 0}
+                className="flex-1 sm:flex-none"
+                size="lg"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Publicando...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Publicar
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

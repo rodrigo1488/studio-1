@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, MoreVertical, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,13 @@ import { getInitials } from '@/lib/utils';
 import type { Story } from '@/lib/data';
 import Image from 'next/image';
 import { StoryReactions } from './story-reactions';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useToast } from '@/hooks/use-toast';
 
 interface StoryViewerProps {
   allStoriesByUser: Record<string, Story[]>;
@@ -16,6 +23,7 @@ interface StoryViewerProps {
   initialIndex: number;
   currentUserId: string;
   onClose: () => void;
+  onStoryDeleted?: (storyId: string) => void;
 }
 
 const STORY_DURATION = 5000; // 5 seconds per story
@@ -27,6 +35,7 @@ export function StoryViewer({
   initialIndex,
   currentUserId,
   onClose,
+  onStoryDeleted,
 }: StoryViewerProps) {
   const [currentUserIdState, setCurrentUserIdState] = useState(initialUserId);
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -43,6 +52,8 @@ export function StoryViewer({
 
   const currentUserStories = allStoriesByUser[currentUserIdState] || [];
   const currentStory = currentUserStories[currentIndex];
+  const isOwner = currentStory?.userId === currentUserId;
+  const { toast } = useToast();
 
   // Preload first 5 stories
   useEffect(() => {
@@ -299,17 +310,97 @@ export function StoryViewer({
             })}
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white hover:bg-white/20"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
-        >
-          <X className="h-5 w-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          {isOwner && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-white hover:bg-white/20"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreVertical className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (!confirm('Tem certeza que deseja excluir esta story?')) return;
+                    
+                    try {
+                      const response = await fetch(`/api/stories/${currentStory.id}`, {
+                        method: 'DELETE',
+                      });
+                      
+                      if (response.ok) {
+                        toast({
+                          title: 'Story excluída',
+                          description: 'A story foi excluída com sucesso.',
+                        });
+                        
+                        // Notificar o componente pai sobre a exclusão
+                        if (onStoryDeleted) {
+                          onStoryDeleted(currentStory.id);
+                        }
+                        
+                        // Se era a última story do usuário, fechar o viewer
+                        if (currentUserStories.length === 1) {
+                          onClose();
+                        } else {
+                          // Remover a story da lista local e ir para a próxima/anterior
+                          const newStories = currentUserStories.filter(s => s.id !== currentStory.id);
+                          if (newStories.length > 0) {
+                            if (currentIndex >= newStories.length) {
+                              setCurrentIndex(newStories.length - 1);
+                            }
+                            // Atualizar o estado local
+                            const updated = { ...allStoriesByUser };
+                            updated[currentUserIdState] = newStories;
+                            // Não precisamos atualizar allStoriesByUser aqui pois o componente pai fará isso
+                          } else {
+                            // Se não há mais stories, fechar
+                            onClose();
+                          }
+                        }
+                        
+                        // Recarregar a página para atualizar o carousel
+                        setTimeout(() => {
+                          window.location.reload();
+                        }, 500);
+                      } else {
+                        throw new Error('Failed to delete story');
+                      }
+                    } catch (error) {
+                      console.error('Error deleting story:', error);
+                      toast({
+                        title: 'Erro',
+                        description: 'Não foi possível excluir a story.',
+                        variant: 'destructive',
+                      });
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/20"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
 
       {/* Story content */}

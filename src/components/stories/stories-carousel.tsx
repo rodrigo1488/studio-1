@@ -7,59 +7,62 @@ import { cn } from '@/lib/utils';
 import { getInitials } from '@/lib/utils';
 import type { Story, User } from '@/lib/data';
 import { StoryViewer } from './story-viewer';
+import { Plus } from 'lucide-react';
 
 interface StoriesCarouselProps {
   currentUserId: string;
+  onCreateStory?: () => void;
 }
 
-export function StoriesCarousel({ currentUserId }: StoriesCarouselProps) {
+export function StoriesCarousel({ currentUserId, onCreateStory }: StoriesCarouselProps) {
   const [storiesByUser, setStoriesByUser] = useState<Record<string, Story[]>>({});
   const [users, setUsers] = useState<Record<string, User>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [selectedStory, setSelectedStory] = useState<{ stories: Story[]; initialIndex: number; userId: string } | null>(null);
 
-  useEffect(() => {
-    async function fetchStories() {
-      try {
-        const response = await fetch('/api/stories/list');
-        if (response.ok) {
-          const data = await response.json();
-          const stories: Story[] = data.stories.map((s: any) => ({
-            ...s,
-            createdAt: new Date(s.createdAt),
-            expiresAt: new Date(s.expiresAt),
-          }));
+  const fetchStories = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/stories/list');
+      if (response.ok) {
+        const data = await response.json();
+        const stories: Story[] = data.stories.map((s: any) => ({
+          ...s,
+          createdAt: new Date(s.createdAt),
+          expiresAt: new Date(s.expiresAt),
+        }));
 
-          // Group by user
-          const grouped: Record<string, Story[]> = {};
-          const usersMap: Record<string, User> = {};
+        // Group by user
+        const grouped: Record<string, Story[]> = {};
+        const usersMap: Record<string, User> = {};
 
-          stories.forEach((story) => {
-            if (!grouped[story.userId]) {
-              grouped[story.userId] = [];
-            }
-            grouped[story.userId].push(story);
+        stories.forEach((story) => {
+          if (!grouped[story.userId]) {
+            grouped[story.userId] = [];
+          }
+          grouped[story.userId].push(story);
 
-            if (story.user && !usersMap[story.userId]) {
-              usersMap[story.userId] = story.user;
-            }
-          });
+          if (story.user && !usersMap[story.userId]) {
+            usersMap[story.userId] = story.user;
+          }
+        });
 
-          // Sort stories within each user by creation date (newest first)
-          Object.keys(grouped).forEach((userId) => {
-            grouped[userId].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-          });
+        // Sort stories within each user by creation date (newest first)
+        Object.keys(grouped).forEach((userId) => {
+          grouped[userId].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        });
 
-          setStoriesByUser(grouped);
-          setUsers(usersMap);
-        }
-      } catch (error) {
-        console.error('Error fetching stories:', error);
-      } finally {
-        setIsLoading(false);
+        setStoriesByUser(grouped);
+        setUsers(usersMap);
       }
+    } catch (error) {
+      console.error('Error fetching stories:', error);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
+  useEffect(() => {
     fetchStories();
   }, []);
 
@@ -96,6 +99,22 @@ export function StoriesCarousel({ currentUserId }: StoriesCarouselProps) {
     <>
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex gap-2 sm:gap-2.5 md:gap-3 pb-2">
+          {/* Botão de criar story - primeiro item, como no Instagram */}
+          {onCreateStory && (
+            <button
+              onClick={onCreateStory}
+              className="flex flex-shrink-0 flex-col items-center gap-1 sm:gap-1.5 touch-manipulation"
+              aria-label="Criar story"
+            >
+              <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 items-center justify-center rounded-full p-0.5 bg-muted border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 transition-colors">
+                <div className="h-full w-full rounded-full bg-background flex items-center justify-center">
+                  <Plus className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 text-muted-foreground" />
+                </div>
+              </div>
+              <span className="max-w-[60px] sm:max-w-[70px] md:max-w-[80px] truncate text-[10px] sm:text-xs text-muted-foreground">Criar</span>
+            </button>
+          )}
+          
           {userIds.map((userId) => {
             const userStories = storiesByUser[userId];
             const user = users[userId];
@@ -138,7 +157,21 @@ export function StoriesCarousel({ currentUserId }: StoriesCarouselProps) {
           initialUserId={selectedStory.userId}
           initialIndex={selectedStory.initialIndex}
           currentUserId={currentUserId}
-          onClose={() => setSelectedStory(null)}
+          onClose={() => {
+            setSelectedStory(null);
+          }}
+          onStoryDeleted={(storyId) => {
+            // Remover a story do estado local
+            const updated = { ...storiesByUser };
+            if (updated[selectedStory.userId]) {
+              updated[selectedStory.userId] = updated[selectedStory.userId].filter(s => s.id !== storyId);
+              if (updated[selectedStory.userId].length === 0) {
+                delete updated[selectedStory.userId];
+                setSelectedStory(null);
+              }
+            }
+            setStoriesByUser(updated);
+          }}
         />
       )}
     </>

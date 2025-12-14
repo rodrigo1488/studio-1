@@ -20,7 +20,9 @@ export function FeedViewToggle({ viewMode, onViewModeChange }: FeedViewTogglePro
         onClick={() => onViewModeChange('timeline')}
         className={cn(
           'flex-1',
-          viewMode === 'timeline' && 'bg-background shadow-sm'
+          viewMode === 'timeline' 
+            ? 'bg-background text-foreground shadow-sm hover:bg-background/90' 
+            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
         )}
       >
         <List className="h-4 w-4 mr-2" />
@@ -32,7 +34,9 @@ export function FeedViewToggle({ viewMode, onViewModeChange }: FeedViewTogglePro
         onClick={() => onViewModeChange('grid')}
         className={cn(
           'flex-1',
-          viewMode === 'grid' && 'bg-background shadow-sm'
+          viewMode === 'grid' 
+            ? 'bg-background text-foreground shadow-sm hover:bg-background/90' 
+            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
         )}
       >
         <LayoutGrid className="h-4 w-4 mr-2" />
