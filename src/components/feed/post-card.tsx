@@ -10,6 +10,7 @@ import { ptBR } from 'date-fns/locale';
 import { getInitials, cn } from '@/lib/utils';
 import type { Post } from '@/lib/data';
 import Image from 'next/image';
+import Link from 'next/link';
 import { PostModal } from './post-modal';
 import { SharePostDialog } from './share-post-dialog';
 import {
@@ -105,7 +106,10 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
       <Card className="w-full overflow-hidden border-2 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 animate-slide-in">
         <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            <Link 
+              href={`/profile/${post.userId}`}
+              className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 hover:opacity-80 transition-opacity"
+            >
               <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 ring-2 ring-primary/20">
                 <AvatarImage src={post.user?.avatarUrl} />
                 <AvatarFallback className="text-xs bg-gradient-to-br from-primary to-secondary text-primary-foreground">
@@ -113,12 +117,12 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-xs sm:text-sm truncate text-foreground">{post.user?.name || 'Usuário'}</p>
+                <p className="font-semibold text-xs sm:text-sm truncate text-foreground hover:underline">{post.user?.name || 'Usuário'}</p>
                 <p className="text-[10px] sm:text-xs text-muted-foreground">
                   {formatDistanceToNow(createdAt, { addSuffix: true, locale: ptBR })}
                 </p>
               </div>
-            </div>
+            </Link>
             {isOwner && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -253,7 +257,12 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
             {post.description && (
               <div className="text-xs sm:text-sm md:text-base leading-relaxed space-y-1">
                 <div>
-                  <span className="font-semibold text-foreground">{post.user?.name || 'Usuário'}</span>{' '}
+                  <Link 
+                    href={`/profile/${post.userId}`}
+                    className="font-semibold text-foreground hover:underline"
+                  >
+                    {post.user?.name || 'Usuário'}
+                  </Link>{' '}
                   <span className="break-words text-foreground/90">{post.description}</span>
                 </div>
               </div>
@@ -268,13 +277,14 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
                 </span>
                 <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                   {post.mentions.map((mention, index) => (
-                    <span 
-                      key={mention.id} 
+                    <Link
+                      key={mention.id}
+                      href={`/profile/${mention.userId}`}
                       className="text-[10px] sm:text-xs font-semibold text-primary hover:underline cursor-pointer transition-colors"
                     >
                       {mention.user?.name || 'Usuário'}
                       {index < post.mentions!.length - 1 && <span className="text-muted-foreground">,</span>}
-                    </span>
+                    </Link>
                   ))}
                 </div>
               </div>
