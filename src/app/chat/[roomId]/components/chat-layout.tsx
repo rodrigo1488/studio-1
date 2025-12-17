@@ -88,6 +88,17 @@ const formatDate = (date: Date) => {
   return format(date, 'P p', { locale: ptBR });
 };
 
+// Formata apenas o rótulo de dia para separadores (igual WhatsApp)
+const formatDayLabel = (date: Date) => {
+  if (isToday(date)) {
+    return 'Hoje';
+  }
+  if (isYesterday(date)) {
+    return 'Ontem';
+  }
+  return format(date, 'dd \'de\' MMMM \'de\' yyyy', { locale: ptBR });
+};
+
 // Helper function to ensure timestamp is a Date object
 const ensureDate = (timestamp: Date | string | number): Date => {
   if (timestamp instanceof Date) {
@@ -1410,6 +1421,333 @@ export default function ChatLayout({
     };
   }, [room.id]);
 
+  const renderedMessages = (() => {
+    if (messages.length === 0) return null;
+
+    const uniqueMessages = messages
+      .filter((msg, index, self) => index === self.findIndex((m) => m.id === msg.id))
+      .map((msg) => ({
+        ...msg,
+        timestamp: ensureDate(msg.timestamp),
+      }));
+
+    const sortedMessages = sortMessagesByTimestamp(uniqueMessages);
+
+    let lastRenderedDate: string | null = null;
+
+    return sortedMessages.map((message, index) => {
+      const messageDate = ensureDate(message.timestamp);
+      const dayKey = format(messageDate, 'yyyy-MM-dd');
+      const showDaySeparator = dayKey !== lastRenderedDate;
+      if (showDaySeparator) {
+        lastRenderedDate = dayKey;
+      }
+
+      // Generate rainbow colors for messages
+      const rainbowColors = [
+        'bg-[#3B82F6]', // Blue
+        'bg-[#EC4899]', // Pink
+        'bg-[#10B981]', // Green
+        'bg-[#F59E0B]', // Amber
+        'bg-[#8B5CF6]', // Purple
+        'bg-[#EF4444]', // Red
+      ];
+      const rainbowPastels = [
+        'bg-[#BFDBFE]', // Light Blue
+        'bg-[#FBCFE8]', // Light Pink
+        'bg-[#A7F3D0]', // Light Green
+        'bg-[#FDE68A]', // Light Amber
+        'bg-[#DDD6FE]', // Light Purple
+        'bg-[#FECACA]', // Light Red
+      ];
+      const ownColor = rainbowColors[index % rainbowColors.length];
+      const otherColor = rainbowPastels[index % rainbowPastels.length];
+
+      return (
+        <div
+          key={message.id}
+          data-message-id={message.id}
+          className="space-y-2"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            // Show menu with reply and forward options
+            const menu = document.createElement('div');
+            menu.className = 'fixed bg-background border rounded-lg shadow-lg p-1 z-50';
+            menu.style.left = `${e.clientX}px`;
+            menu.style.top = `${e.clientY}px`;
+
+            const replyBtn = document.createElement('button');
+            replyBtn.className = 'w-full text-left px-3 py-2 hover:bg-muted rounded text-sm';
+            replyBtn.textContent = 'Responder';
+            replyBtn.onclick = () => {
+              // Skip temporary messages
+              if (!message.id.startsWith('temp-')) {
+                setReplyingTo(message);
+              } else {
+                toast({
+                  title: 'Aguarde',
+                  description: 'Aguarde a mensagem ser enviada para responder',
+                  variant: 'default',
+                });
+              }
+              document.body.removeChild(menu);
+            };
+
+            const forwardBtn = document.createElement('button');
+            forwardBtn.className = 'w-full text-left px-3 py-2 hover:bg-muted rounded text-sm';
+            forwardBtn.textContent = 'Encaminhar';
+            forwardBtn.onclick = () => {
+              // Skip temporary messages
+              if (!message.id.startsWith('temp-')) {
+                setForwardingMessage(message);
+              } else {
+                toast({
+                  title: 'Aguarde',
+                  description: 'Aguarde a mensagem ser enviada para encaminhar',
+                  variant: 'default',
+                });
+              }
+              document.body.removeChild(menu);
+            };
+
+            // Add edit button only for own messages that are not temporary
+            if (message.senderId === currentUser.id && !message.id.startsWith('temp-') && !message.mediaUrl) {
+              const editBtn = document.createElement('button');
+              editBtn.className = 'w-full text-left px-3 py-2 hover:bg-muted rounded text-sm';
+              editBtn.textContent = 'Editar';
+              editBtn.onclick = () => {
+                setEditingMessage(message);
+                document.body.removeChild(menu);
+              };
+              menu.appendChild(editBtn);
+            }
+
+            menu.appendChild(replyBtn);
+            menu.appendChild(forwardBtn);
+            document.body.appendChild(menu);
+
+            const removeMenu = () => {
+              if (document.body.contains(menu)) {
+                document.body.removeChild(menu);
+              }
+            };
+
+            setTimeout(() => {
+              document.addEventListener('click', removeMenu, { once: true });
+            }, 0);
+          }}
+        >
+          {showDaySeparator && (
+            <div className="flex justify-center my-2">
+              <span className="px-3 py-1 rounded-full bg-muted text-[11px] sm:text-xs text-muted-foreground border border-border shadow-sm">
+                {formatDayLabel(messageDate)}
+              </span>
+            </div>
+          )}
+          <div
+            className={cn(
+              'flex items-end gap-2 animate-slide-in-color group',
+              message.senderId === currentUser.id ? 'justify-end' : 'justify-start'
+            )}
+          >
+            {message.senderId !== currentUser.id && (
+              <Link href={`/profile/${message.senderId}`} className="hover:opacity-80 transition-opacity shrink-0">
+                <Avatar className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 cursor-pointer">
+                  <AvatarImage src={message.user?.avatarUrl} />
+                  <AvatarFallback className="text-[9px] sm:text-[10px] md:text-xs">
+                    {getInitials(message.user?.name)}
+                  </AvatarFallback>
+                </Avatar>
+              </Link>
+            )}
+            <div
+              className={cn(
+                'max-w-[85%] sm:max-w-xs md:max-w-md lg:max-w-lg rounded-3xl p-2.5 sm:p-3 md:p-4 text-xs sm:text-sm flex flex-col shadow-md',
+                message.senderId === currentUser.id
+                  ? `${ownColor} text-white rounded-br-none`
+                  : `${otherColor} text-foreground rounded-bl-none border-2 border-primary/20`
+              )}
+            >
+              {message.replyTo && (
+                <MessageReply
+                  replyTo={message.replyTo}
+                  isOwnMessage={message.senderId === currentUser.id}
+                />
+              )}
+              {message.text && message.text.startsWith('Encaminhado:') && (
+                <ForwardedMessageBadge
+                  isOwnMessage={message.senderId === currentUser.id}
+                />
+              )}
+              {message.mediaUrl && (
+                <div
+                  className={cn(
+                    'rounded-lg overflow-hidden',
+                    message.mediaType === 'audio' ? '' : 'mb-2'
+                  )}
+                >
+                  {message.mediaType === 'image' && (
+                    <div className="relative w-full max-w-sm">
+                      <Image
+                        src={message.mediaUrl}
+                        alt="Imagem enviada"
+                        width={400}
+                        height={400}
+                        className="rounded-lg object-contain w-full h-auto"
+                        style={{ maxHeight: '400px' }}
+                        unoptimized
+                      />
+                    </div>
+                  )}
+                  {message.mediaType === 'video' && (
+                    <video
+                      src={message.mediaUrl}
+                      controls
+                      className="rounded-lg w-full max-h-64"
+                      preload="metadata"
+                    >
+                      Seu navegador não suporta o elemento de vídeo.
+                    </video>
+                  )}
+                  {message.mediaType === 'audio' && (
+                    <div className="py-2">
+                      <AudioPlayer
+                        src={message.mediaUrl}
+                        isOwnMessage={message.senderId === currentUser.id}
+                      />
+                    </div>
+                  )}
+                  {message.mediaType === 'gif' && (
+                    <div className="relative w-full max-w-sm">
+                      <Image
+                        src={message.mediaUrl}
+                        alt="GIF"
+                        width={400}
+                        height={400}
+                        className="rounded-lg object-contain w-full h-auto"
+                        style={{ maxHeight: '400px' }}
+                        unoptimized
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+              {message.text && !message.text.match(/^(📷|🎥|🎵|🎬)/) && (
+                <p
+                  className={cn(
+                    message.text.startsWith('Encaminhado:') && 'text-xs opacity-90 italic'
+                  )}
+                >
+                  {message.text.startsWith('Encaminhado:')
+                    ? message.text.replace(/^Encaminhado:\s*/, '')
+                    : message.text}
+                </p>
+              )}
+              <div className="flex items-center gap-1 mt-1 self-end flex-wrap justify-end">
+                {message.expiresAt && (
+                  <TemporaryMessageIndicator
+                    expiresAt={message.expiresAt}
+                    className={message.senderId === currentUser.id ? 'text-white/80' : ''}
+                  />
+                )}
+                {message.isEdited && (
+                  <MessageEditIndicator
+                    className={message.senderId === currentUser.id ? 'text-white/80' : ''}
+                  />
+                )}
+                <span
+                  className={cn(
+                    'text-xs',
+                    message.senderId === currentUser.id ? 'text-white/80' : 'text-muted-foreground'
+                  )}
+                >
+                  {format(message.timestamp, 'p', { locale: ptBR })}
+                </span>
+                {message.senderId === currentUser.id && (
+                  <div className="flex items-center">
+                    {message.status === 'sending' && (
+                      <Loader2 className="h-3 w-3 text-white/60 animate-spin ml-1" />
+                    )}
+                    {message.status === 'sent' && (
+                      <CheckCheck className="h-3 w-3 text-white/80 ml-1" />
+                    )}
+                    {message.status === 'error' && (
+                      <div className="flex items-center gap-1 ml-1">
+                        <AlertCircle className="h-3 w-3 text-red-300" />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-4 w-4 p-0 text-red-300 hover:text-red-200 hover:bg-red-500/20"
+                          onClick={async () => {
+                            // Retry sending the message
+                            const text = message.text;
+                            setMessages((prev) => prev.filter((m) => m.id !== message.id));
+
+                            setIsSending(true);
+                            try {
+                              const response = await fetch('/api/messages/send', {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                  roomId: room.id,
+                                  text,
+                                }),
+                              });
+
+                              if (!response.ok) {
+                                const data = await response.json();
+                                toast({
+                                  title: 'Erro ao reenviar mensagem',
+                                  description: data.error || 'Tente novamente',
+                                  variant: 'destructive',
+                                });
+                              }
+                            } catch (error) {
+                              toast({
+                                title: 'Erro ao reenviar mensagem',
+                                description: 'Ocorreu um erro inesperado',
+                                variant: 'destructive',
+                              });
+                            } finally {
+                              setIsSending(false);
+                            }
+                          }}
+                          title="Tentar novamente"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div
+              className={cn(
+                'mt-1',
+                message.senderId === currentUser.id ? 'flex justify-end' : 'flex justify-start'
+              )}
+            >
+              <MessageReactions
+                messageId={message.id}
+                currentUserId={currentUser.id}
+              />
+            </div>
+            {!message.threadId && (
+              <MessageThread
+                parentMessage={message}
+                currentUser={currentUser}
+                roomId={room.id}
+              />
+            )}
+          </div>
+        </div>
+      );
+    });
+  })();
+
   return (
     <div className="flex h-full w-full flex-col relative">
       {/* Chat Header */}
@@ -1554,302 +1892,7 @@ export default function ChatLayout({
               <p className="text-muted-foreground text-xs mt-1">Comece uma conversa enviando uma mensagem</p>
             </div>
           ) : (
-            (() => {
-              const uniqueMessages = messages
-                .filter((msg, index, self) => index === self.findIndex(m => m.id === msg.id))
-                .map(msg => ({
-                  ...msg,
-                  timestamp: ensureDate(msg.timestamp)
-                }));
-              const sortedMessages = sortMessagesByTimestamp(uniqueMessages);
-              
-              return sortedMessages.map((message, index) => {
-            // Generate rainbow colors for messages
-            const rainbowColors = [
-              'bg-[#3B82F6]', // Blue
-              'bg-[#EC4899]', // Pink
-              'bg-[#10B981]', // Green
-              'bg-[#F59E0B]', // Amber
-              'bg-[#8B5CF6]', // Purple
-              'bg-[#EF4444]', // Red
-            ];
-            const rainbowPastels = [
-              'bg-[#BFDBFE]', // Light Blue
-              'bg-[#FBCFE8]', // Light Pink
-              'bg-[#A7F3D0]', // Light Green
-              'bg-[#FDE68A]', // Light Amber
-              'bg-[#DDD6FE]', // Light Purple
-              'bg-[#FECACA]', // Light Red
-            ];
-            const ownColor = rainbowColors[index % rainbowColors.length];
-            const otherColor = rainbowPastels[index % rainbowPastels.length];
-            
-            return (
-            <div
-              key={message.id}
-              data-message-id={message.id}
-              className={cn(
-                'flex items-end gap-2 animate-slide-in-color group',
-                message.senderId === currentUser.id ? 'justify-end' : 'justify-start'
-              )}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                // Show menu with reply and forward options
-                const menu = document.createElement('div');
-                menu.className = 'fixed bg-background border rounded-lg shadow-lg p-1 z-50';
-                menu.style.left = `${e.clientX}px`;
-                menu.style.top = `${e.clientY}px`;
-                
-                const replyBtn = document.createElement('button');
-                replyBtn.className = 'w-full text-left px-3 py-2 hover:bg-muted rounded text-sm';
-                replyBtn.textContent = 'Responder';
-                replyBtn.onclick = () => {
-                  // Skip temporary messages
-                  if (!message.id.startsWith('temp-')) {
-                    setReplyingTo(message);
-                  } else {
-                    toast({
-                      title: 'Aguarde',
-                      description: 'Aguarde a mensagem ser enviada para responder',
-                      variant: 'default',
-                    });
-                  }
-                  document.body.removeChild(menu);
-                };
-                
-                const forwardBtn = document.createElement('button');
-                forwardBtn.className = 'w-full text-left px-3 py-2 hover:bg-muted rounded text-sm';
-                forwardBtn.textContent = 'Encaminhar';
-                forwardBtn.onclick = () => {
-                  // Skip temporary messages
-                  if (!message.id.startsWith('temp-')) {
-                    setForwardingMessage(message);
-                  } else {
-                    toast({
-                      title: 'Aguarde',
-                      description: 'Aguarde a mensagem ser enviada para encaminhar',
-                      variant: 'default',
-                    });
-                  }
-                  document.body.removeChild(menu);
-                };
-                
-                // Add edit button only for own messages that are not temporary
-                if (message.senderId === currentUser.id && !message.id.startsWith('temp-') && !message.mediaUrl) {
-                  const editBtn = document.createElement('button');
-                  editBtn.className = 'w-full text-left px-3 py-2 hover:bg-muted rounded text-sm';
-                  editBtn.textContent = 'Editar';
-                  editBtn.onclick = () => {
-                    setEditingMessage(message);
-                    document.body.removeChild(menu);
-                  };
-                  menu.appendChild(editBtn);
-                }
-                
-                menu.appendChild(replyBtn);
-                menu.appendChild(forwardBtn);
-                document.body.appendChild(menu);
-                
-                const removeMenu = () => {
-                  if (document.body.contains(menu)) {
-                    document.body.removeChild(menu);
-                  }
-                };
-                
-                setTimeout(() => {
-                  document.addEventListener('click', removeMenu, { once: true });
-                }, 0);
-              }}
-            >
-              {message.senderId !== currentUser.id && (
-                <Link href={`/profile/${message.senderId}`} className="hover:opacity-80 transition-opacity shrink-0">
-                  <Avatar className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 cursor-pointer">
-                    <AvatarImage src={message.user?.avatarUrl} />
-                    <AvatarFallback className="text-[9px] sm:text-[10px] md:text-xs">{getInitials(message.user?.name)}</AvatarFallback>
-                  </Avatar>
-                </Link>
-              )}
-              <div
-                className={cn(
-                  'max-w-[85%] sm:max-w-xs md:max-w-md lg:max-w-lg rounded-3xl p-2.5 sm:p-3 md:p-4 text-xs sm:text-sm flex flex-col shadow-md',
-                  message.senderId === currentUser.id
-                    ? `${ownColor} text-white rounded-br-none`
-                    : `${otherColor} text-foreground rounded-bl-none border-2 border-primary/20`
-                )}
-              >
-                {message.replyTo && (
-                  <MessageReply
-                    replyTo={message.replyTo}
-                    isOwnMessage={message.senderId === currentUser.id}
-                  />
-                )}
-                {message.text && message.text.startsWith('Encaminhado:') && (
-                  <ForwardedMessageBadge
-                    isOwnMessage={message.senderId === currentUser.id}
-                  />
-                )}
-                {message.mediaUrl && (
-                  <div className={cn(
-                    "rounded-lg overflow-hidden",
-                    message.mediaType === 'audio' ? '' : 'mb-2'
-                  )}>
-                    {message.mediaType === 'image' && (
-                      <div className="relative w-full max-w-sm">
-                        <Image
-                          src={message.mediaUrl}
-                          alt="Imagem enviada"
-                          width={400}
-                          height={400}
-                          className="rounded-lg object-contain w-full h-auto"
-                          style={{ maxHeight: '400px' }}
-                          unoptimized
-                        />
-                      </div>
-                    )}
-                    {message.mediaType === 'video' && (
-                      <video
-                        src={message.mediaUrl}
-                        controls
-                        className="rounded-lg w-full max-h-64"
-                        preload="metadata"
-                      >
-                        Seu navegador não suporta o elemento de vídeo.
-                      </video>
-                    )}
-                    {message.mediaType === 'audio' && (
-                      <div className="py-2">
-                        <AudioPlayer 
-                          src={message.mediaUrl} 
-                          isOwnMessage={message.senderId === currentUser.id}
-                        />
-                      </div>
-                    )}
-                    {message.mediaType === 'gif' && (
-                      <div className="relative w-full max-w-sm">
-                        <Image
-                          src={message.mediaUrl}
-                          alt="GIF"
-                          width={400}
-                          height={400}
-                          className="rounded-lg object-contain w-full h-auto"
-                          style={{ maxHeight: '400px' }}
-                          unoptimized
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-                {message.text && !message.text.match(/^(📷|🎥|🎵|🎬)/) && (
-                  <p className={cn(
-                    message.text.startsWith('Encaminhado:') && 'text-xs opacity-90 italic'
-                  )}>
-                    {message.text.startsWith('Encaminhado:') 
-                      ? message.text.replace(/^Encaminhado:\s*/, '')
-                      : message.text
-                    }
-                  </p>
-                )}
-                <div className="flex items-center gap-1 mt-1 self-end flex-wrap justify-end">
-                  {message.expiresAt && (
-                    <TemporaryMessageIndicator
-                      expiresAt={message.expiresAt}
-                      className={message.senderId === currentUser.id ? 'text-white/80' : ''}
-                    />
-                  )}
-                  {message.isEdited && (
-                    <MessageEditIndicator 
-                      className={message.senderId === currentUser.id ? 'text-white/80' : ''}
-                    />
-                  )}
-                  <span className={cn(
-                      "text-xs",
-                       message.senderId === currentUser.id
-                      ? 'text-white/80'
-                      : 'text-muted-foreground'
-                  )}>
-                    {format(message.timestamp, 'p', { locale: ptBR })}
-                  </span>
-                  {message.senderId === currentUser.id && (
-                    <div className="flex items-center">
-                      {message.status === 'sending' && (
-                        <Loader2 className="h-3 w-3 text-white/60 animate-spin ml-1" />
-                      )}
-                      {message.status === 'sent' && (
-                        <CheckCheck className="h-3 w-3 text-white/80 ml-1" />
-                      )}
-                      {message.status === 'error' && (
-                        <div className="flex items-center gap-1 ml-1">
-                          <AlertCircle className="h-3 w-3 text-red-300" />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-4 w-4 p-0 text-red-300 hover:text-red-200 hover:bg-red-500/20"
-                            onClick={async () => {
-                              // Retry sending the message
-                              const text = message.text;
-                              setMessages((prev) => prev.filter((m) => m.id !== message.id));
-                              
-                              setIsSending(true);
-                              try {
-                                const response = await fetch('/api/messages/send', {
-                                  method: 'POST',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                  },
-                                  body: JSON.stringify({
-                                    roomId: room.id,
-                                    text,
-                                  }),
-                                });
-
-                                if (!response.ok) {
-                                  const data = await response.json();
-                                  toast({
-                                    title: 'Erro ao reenviar mensagem',
-                                    description: data.error || 'Tente novamente',
-                                    variant: 'destructive',
-                                  });
-                                }
-                              } catch (error) {
-                                toast({
-                                  title: 'Erro ao reenviar mensagem',
-                                  description: 'Ocorreu um erro inesperado',
-                                  variant: 'destructive',
-                                });
-                              } finally {
-                                setIsSending(false);
-                              }
-                            }}
-                            title="Tentar novamente"
-                          >
-                            <RotateCcw className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className={cn(
-                'mt-1',
-                message.senderId === currentUser.id ? 'flex justify-end' : 'flex justify-start'
-              )}>
-                <MessageReactions
-                  messageId={message.id}
-                  currentUserId={currentUser.id}
-                />
-              </div>
-              {!message.threadId && (
-                <MessageThread
-                  parentMessage={message}
-                  currentUser={currentUser}
-                  roomId={room.id}
-                />
-              )}
-            </div>
-            );
-              });
-            })()
+            renderedMessages
           )}
           <div ref={messagesEndRef} />
         </div>
