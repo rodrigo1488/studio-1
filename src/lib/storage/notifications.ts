@@ -48,11 +48,8 @@ export function getNotifications(): NotificationData[] {
 export function addNotification(roomId: string, message: Message): void {
   try {
     const notifications = getNotifications();
-    
-    // Remove old notifications for this room
-    const filtered = notifications.filter(n => n.roomId !== roomId || n.type !== 'message');
-    
-    // Add new notification
+
+    // Add new notification (mantemos histórico; leituras são controladas por `read`)
     const newNotification: NotificationData = {
       type: 'message',
       roomId,
@@ -63,17 +60,22 @@ export function addNotification(roomId: string, message: Message): void {
       timestamp: Date.now(),
       read: false,
     };
-    
-    filtered.push(newNotification);
-    
-    // Keep only last 100 notifications
-    const limited = filtered.slice(-100);
-    
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(limited));
-    updateUnreadCount(roomId);
 
-    // Dispatch event for UI updates (badge no sino, listas, etc.)
+    notifications.push(newNotification);
+
+    // Keep only last 100 notifications
+    const limited = notifications.slice(-100);
+
+    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(limited));
+    
+    // Dispatch event for UI updates (sino, listas, badges, etc.)
     window.dispatchEvent(new CustomEvent('notificationAdded', { detail: newNotification }));
+    // Notificar listeners de contagem de não lidas
+    window.dispatchEvent(
+      new CustomEvent('unreadCountUpdated', {
+        detail: { roomId, count: getUnreadCount(roomId) },
+      })
+    );
   } catch (error) {
     console.error('Error adding notification:', error);
   }
@@ -307,7 +309,7 @@ export function markNotificationAsReadById(id: string, type: NotificationType): 
 export function getUnreadNotificationsCount(): number {
   try {
     const notifications = getNotifications();
-    return notifications.filter(n => !n.read).length;
+    return notifications.filter((n) => !n.read).length;
   } catch (error) {
     console.error('Error getting unread count:', error);
     return 0;
@@ -319,12 +321,10 @@ export function getUnreadNotificationsCount(): number {
  */
 export function getUnreadCount(roomId: string): number {
   try {
-    const stored = localStorage.getItem(UNREAD_COUNTS_KEY);
-    if (!stored) return 0;
-    
-    const counts: UnreadCount[] = JSON.parse(stored);
-    const roomCount = counts.find(c => c.roomId === roomId);
-    return roomCount?.count || 0;
+    const notifications = getNotifications();
+    return notifications.filter(
+      (n) => n.type === 'message' && n.roomId === roomId && !n.read
+    ).length;
   } catch (error) {
     console.error('Error reading unread count:', error);
     return 0;
@@ -336,14 +336,16 @@ export function getUnreadCount(roomId: string): number {
  */
 export function getAllUnreadCounts(): Record<string, number> {
   try {
-    const stored = localStorage.getItem(UNREAD_COUNTS_KEY);
-    if (!stored) return {};
-    
-    const counts: UnreadCount[] = JSON.parse(stored);
-    return counts.reduce((acc, count) => {
-      acc[count.roomId] = count.count;
-      return acc;
-    }, {} as Record<string, number>);
+    const notifications = getNotifications();
+    const counts: Record<string, number> = {};
+
+    notifications.forEach((n) => {
+      if (n.type === 'message' && n.roomId && !n.read) {
+        counts[n.roomId] = (counts[n.roomId] || 0) + 1;
+      }
+    });
+
+    return counts;
   } catch (error) {
     console.error('Error reading unread counts:', error);
     return {};
@@ -355,28 +357,13 @@ export function getAllUnreadCounts(): Record<string, number> {
  */
 function updateUnreadCount(roomId: string): void {
   try {
-    const stored = localStorage.getItem(UNREAD_COUNTS_KEY);
-    const counts: UnreadCount[] = stored ? JSON.parse(stored) : [];
-    
-    const existingIndex = counts.findIndex(c => c.roomId === roomId);
-    const newCount: UnreadCount = {
-      roomId,
-      count: (counts[existingIndex]?.count || 0) + 1,
-      lastMessageTime: Date.now(),
-    };
-    
-    if (existingIndex >= 0) {
-      counts[existingIndex] = newCount;
-    } else {
-      counts.push(newCount);
-    }
-    
-    localStorage.setItem(UNREAD_COUNTS_KEY, JSON.stringify(counts));
-    
-    // Dispatch custom event for UI updates
-    window.dispatchEvent(new CustomEvent('unreadCountUpdated', { 
-      detail: { roomId, count: newCount.count } 
-    }));
+    // Mantido apenas para compatibilidade; contagem agora é derivada de `chat_notifications`
+    const count = getUnreadCount(roomId);
+    window.dispatchEvent(
+      new CustomEvent('unreadCountUpdated', {
+        detail: { roomId, count },
+      })
+    );
   } catch (error) {
     console.error('Error updating unread count:', error);
   }
@@ -387,17 +374,12 @@ function updateUnreadCount(roomId: string): void {
  */
 function clearUnreadCount(roomId: string): void {
   try {
-    const stored = localStorage.getItem(UNREAD_COUNTS_KEY);
-    if (!stored) return;
-    
-    const counts: UnreadCount[] = JSON.parse(stored);
-    const filtered = counts.filter(c => c.roomId !== roomId);
-    localStorage.setItem(UNREAD_COUNTS_KEY, JSON.stringify(filtered));
-    
     // Dispatch custom event for UI updates
-    window.dispatchEvent(new CustomEvent('unreadCountUpdated', { 
-      detail: { roomId, count: 0 } 
-    }));
+    window.dispatchEvent(
+      new CustomEvent('unreadCountUpdated', {
+        detail: { roomId, count: 0 },
+      })
+    );
   } catch (error) {
     console.error('Error clearing unread count:', error);
   }
