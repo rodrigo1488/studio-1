@@ -3,7 +3,16 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { NotificationPopup } from './notification-popup';
 import { NotificationCarousel } from './notification-carousel';
-import { addNotification, getNotifications, markNotificationsAsRead, addPostNotification, addStoryNotification } from '@/lib/storage/notifications';
+import {
+  addNotification,
+  getNotifications,
+  markNotificationsAsRead,
+  addPostNotification,
+  addStoryNotification,
+  addPostLikeNotification,
+  addMentionNotification,
+  type NotificationData,
+} from '@/lib/storage/notifications';
 import type { Message, User } from '@/lib/data';
 import { useRouter } from 'next/navigation';
 import { getCachedUser, getCachedRoom } from '@/lib/storage/room-cache';
@@ -366,16 +375,18 @@ export function NotificationManager() {
 
     // Se não há timestamp ou passou mais de 1 minuto desde o fechamento
     if (!lastClosedTime || now - parseInt(lastClosedTime) > 60000) {
-      // Buscar notificações não lidas desde a última vez que o app foi fechado
-      const allNotifications = getNotifications();
-      const unreadNotifications = allNotifications.filter((n) => !n.read);
+      // Buscar notificações de MENSAGEM não lidas desde a última vez que o app foi fechado
+      const allNotifications: NotificationData[] = getNotifications();
+      const unreadMessageNotifications = allNotifications.filter(
+        (n) => !n.read && n.type === 'message' && n.roomId && n.message
+      );
 
-      if (unreadNotifications.length > 0) {
+      if (unreadMessageNotifications.length > 0) {
         // Buscar informações das salas e remetentes
         Promise.all(
-          unreadNotifications.map(async (notif) => {
-            const room = getCachedRoom(notif.roomId);
-            const sender = getCachedUser(notif.message.senderId);
+          unreadMessageNotifications.map(async (notif) => {
+            const room = getCachedRoom(notif.roomId!);
+            const sender = getCachedUser(notif.message!.senderId);
 
             // Se não temos cache, buscar do servidor
             let roomName = room?.name || 'Sala';
@@ -383,7 +394,7 @@ export function NotificationManager() {
 
             if (!sender) {
               try {
-                const response = await fetch(`/api/users/${notif.message.senderId}`);
+                const response = await fetch(`/api/users/${notif.message!.senderId}`);
                 if (response.ok) {
                   const data = await response.json();
                   senderData = data.user;
@@ -405,9 +416,9 @@ export function NotificationManager() {
               }
             }
 
-            if (senderData) {
+            if (senderData && notif.message) {
               return {
-                roomId: notif.roomId,
+                roomId: notif.roomId!,
                 roomName,
                 sender: senderData,
                 message: notif.message,
@@ -587,6 +598,159 @@ export function NotificationManager() {
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           console.log('[Notifications] ✅ Subscribed to stories');
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId]);
+
+  // Escutar novas curtidas em posts em tempo real
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const channel = supabase
+      .channel('notifications:post_likes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'post_likes',
+        },
+        async (payload) => {
+          const like = payload.new as any;
+
+          // Não notificar se for a própria curtida do usuário
+          if (like.user_id === currentUserId) {
+            return;
+          }
+
+          try {
+            // Buscar dados do post para verificar se o post é do usuário atual
+            const postResponse = await fetch(`/api/feed/${like.post_id}`);
+            if (!postResponse.ok) {
+              return;
+            }
+
+            const postData = await postResponse.json();
+            const post = postData.post;
+
+            if (!post || post.userId !== currentUserId) {
+              // Só notificar o dono do post
+              return;
+            }
+
+            // Buscar dados de quem curtiu
+            let liker = getCachedUser(like.user_id);
+            if (!liker) {
+              try {
+                const userResponse = await fetch(`/api/users/${like.user_id}`);
+                if (userResponse.ok) {
+                  const userData = await userResponse.json();
+                  liker = userData.user;
+                }
+              } catch (error) {
+                console.error('[Notifications] Error fetching like user:', error);
+              }
+            }
+
+            if (!liker) return;
+
+            const title = `${liker.name} curtiu seu post`;
+            const body =
+              post.description ||
+              (post.media && post.media.length > 0
+                ? '📷 Seu post recebeu uma curtida'
+                : 'Seu post recebeu uma curtida');
+
+            addPostLikeNotification(
+              like.id,
+              post.id,
+              liker.id,
+              liker.name,
+              liker.avatarUrl,
+              title,
+              body
+            );
+          } catch (error) {
+            console.error('[Notifications] Error processing post like notification:', error);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Notifications] ✅ Subscribed to post likes');
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId]);
+
+  // Escutar novas menções em posts em tempo real
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const channel = supabase
+      .channel('notifications:post_mentions')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'post_mentions',
+        },
+        async (payload) => {
+          const mention = payload.new as any;
+
+          // Só notificar o usuário mencionado
+          if (mention.user_id !== currentUserId) {
+            return;
+          }
+
+          try {
+            // Buscar dados do post e do autor
+            const postResponse = await fetch(`/api/feed/${mention.post_id}`);
+            if (!postResponse.ok) {
+              return;
+            }
+
+            const postData = await postResponse.json();
+            const post = postData.post;
+
+            if (!post || !post.user) {
+              return;
+            }
+
+            const author = post.user;
+
+            const title = `${author.name} mencionou você em um post`;
+            const body =
+              post.description ||
+              (post.media && post.media.length > 0
+                ? '📷 Você foi mencionado em um post com mídia'
+                : 'Você foi mencionado em um post');
+
+            addMentionNotification(
+              mention.id,
+              post.id,
+              author.id,
+              author.name,
+              author.avatarUrl,
+              title,
+              body
+            );
+          } catch (error) {
+            console.error('[Notifications] Error processing mention notification:', error);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Notifications] ✅ Subscribed to post mentions');
         }
       });
 

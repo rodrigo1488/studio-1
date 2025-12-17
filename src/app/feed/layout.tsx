@@ -29,14 +29,12 @@ export default function FeedLayout({
       <DashboardSidebarProvider>
         <FeedProvider>
           <div className="flex min-h-screen w-full flex-col">
-            <header className="sticky top-0 flex h-16 items-center justify-between gap-2 sm:gap-4 border-b-2 border-primary/30 bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 backdrop-blur-sm px-2 sm:px-4 md:px-6 z-50 shadow-md">
-              <div className="flex items-center shrink-0">
-                <Logo />
-              </div>
-              <div className="flex-1 flex items-center justify-center">
+            <header className="sticky top-0 flex h-16 items-center gap-2 sm:gap-4 border-b-2 border-primary/30 bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 backdrop-blur-sm px-2 sm:px-4 md:px-6 z-50 shadow-md relative">
+              <Logo />
+              <div className="absolute left-1/2 transform -translate-x-1/2">
                 <FeedHeader />
               </div>
-              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+              <div className="ml-auto flex items-center gap-1 sm:gap-2">
                 <AllNotifications />
                 <ContactRequestsNotification />
                 <ThemeToggle />

@@ -3,21 +3,23 @@ import type { Message } from '@/lib/data';
 const NOTIFICATIONS_KEY = 'chat_notifications';
 const UNREAD_COUNTS_KEY = 'chat_unread_counts';
 
-export type NotificationType = 'message' | 'post' | 'story';
+export type NotificationType = 'message' | 'post' | 'story' | 'post_like' | 'mention';
 
 export interface NotificationData {
   type: NotificationType;
-  roomId?: string; // Only for messages
-  message?: Message; // Only for messages
-  postId?: string; // Only for posts
-  storyId?: string; // Only for stories
-  userId: string; // User who created the post/story
+  roomId?: string; // Only for message notifications
+  message?: Message; // Only for message notifications
+  postId?: string; // For post, post_like and mention notifications
+  storyId?: string; // Only for story notifications
+  userId: string; // User who triggered the notification (author, liker, mentioner)
   userName?: string;
   userAvatar?: string;
   title: string;
   body: string;
   timestamp: number;
   read: boolean;
+  likeId?: string; // Only for post_like notifications
+  mentionId?: string; // Only for mention notifications
 }
 
 export interface UnreadCount {
@@ -69,6 +71,9 @@ export function addNotification(roomId: string, message: Message): void {
     
     localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(limited));
     updateUnreadCount(roomId);
+
+    // Dispatch event for UI updates (badge no sino, listas, etc.)
+    window.dispatchEvent(new CustomEvent('notificationAdded', { detail: newNotification }));
   } catch (error) {
     console.error('Error adding notification:', error);
   }
@@ -163,6 +168,100 @@ export function addStoryNotification(
 }
 
 /**
+ * Add a post like notification
+ */
+export function addPostLikeNotification(
+  likeId: string,
+  postId: string,
+  userId: string,
+  userName: string,
+  userAvatar: string | undefined,
+  title: string,
+  body: string
+): void {
+  try {
+    const notifications = getNotifications();
+    
+    // Remove old notifications for this like (idempotência)
+    const filtered = notifications.filter(
+      (n) => n.likeId !== likeId || n.type !== 'post_like'
+    );
+    
+    const newNotification: NotificationData = {
+      type: 'post_like',
+      postId,
+      likeId,
+      userId,
+      userName,
+      userAvatar,
+      title,
+      body,
+      timestamp: Date.now(),
+      read: false,
+    };
+    
+    filtered.push(newNotification);
+    
+    // Keep only last 100 notifications
+    const limited = filtered.slice(-100);
+    
+    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(limited));
+    
+    // Dispatch event for UI updates
+    window.dispatchEvent(new CustomEvent('notificationAdded', { detail: newNotification }));
+  } catch (error) {
+    console.error('Error adding post like notification:', error);
+  }
+}
+
+/**
+ * Add a mention notification
+ */
+export function addMentionNotification(
+  mentionId: string,
+  postId: string,
+  userId: string,
+  userName: string,
+  userAvatar: string | undefined,
+  title: string,
+  body: string
+): void {
+  try {
+    const notifications = getNotifications();
+    
+    // Remove old notifications for this mention (idempotência)
+    const filtered = notifications.filter(
+      (n) => n.mentionId !== mentionId || n.type !== 'mention'
+    );
+    
+    const newNotification: NotificationData = {
+      type: 'mention',
+      postId,
+      mentionId,
+      userId,
+      userName,
+      userAvatar,
+      title,
+      body,
+      timestamp: Date.now(),
+      read: false,
+    };
+    
+    filtered.push(newNotification);
+    
+    // Keep only last 100 notifications
+    const limited = filtered.slice(-100);
+    
+    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(limited));
+    
+    // Dispatch event for UI updates
+    window.dispatchEvent(new CustomEvent('notificationAdded', { detail: newNotification }));
+  } catch (error) {
+    console.error('Error adding mention notification:', error);
+  }
+}
+
+/**
  * Mark notifications as read for a room
  */
 export function markNotificationsAsRead(roomId: string): void {
@@ -184,11 +283,11 @@ export function markNotificationsAsRead(roomId: string): void {
 export function markNotificationAsReadById(id: string, type: NotificationType): void {
   try {
     const notifications = getNotifications();
-    const updated = notifications.map(n => {
+    const updated = notifications.map((n) => {
       if (type === 'message' && n.roomId === id) {
         return { ...n, read: true };
       }
-      if (type === 'post' && n.postId === id) {
+      if ((type === 'post' || type === 'post_like' || type === 'mention') && n.postId === id) {
         return { ...n, read: true };
       }
       if (type === 'story' && n.storyId === id) {

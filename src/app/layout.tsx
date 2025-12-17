@@ -4,7 +4,6 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/providers/theme-provider';
 import { NotificationProvider } from '@/components/notifications/notification-provider';
-import { ServiceWorkerRegister } from '@/components/push-notifications/service-worker-register';
 import { cn } from '@/lib/utils';
 
 const fredoka = Fredoka({ 
@@ -84,7 +83,6 @@ export default function RootLayout({
           </footer>
           <Toaster />
           <NotificationProvider />
-          <ServiceWorkerRegister />
         </ThemeProvider>
       </body>
     </html>

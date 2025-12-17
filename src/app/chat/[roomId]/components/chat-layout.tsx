@@ -52,7 +52,7 @@ import { CallButton } from '@/components/webrtc/call-button';
 import { CameraCapture } from '@/components/media/camera-capture';
 import { AudioPlayer } from '@/components/media/audio-player';
 import { addMessageToCache, saveMessagesToCache } from '@/lib/storage/messages-cache';
-import { addNotification, markNotificationsAsRead } from '@/lib/storage/notifications';
+import { markNotificationsAsRead } from '@/lib/storage/notifications';
 import { getCachedUser, saveUserToCache } from '@/lib/storage/room-cache';
 import { MessageReactions } from '@/components/chat/message-reactions';
 import { MessageReply } from '@/components/chat/message-reply';
@@ -287,30 +287,8 @@ export default function ChatLayout({
         }
         
         // Nova mensagem de outro usuário ou do servidor
-        // Add to cache
+        // Add to cache (notificações e badges são tratadas pelo NotificationManager)
         addMessageToCache(room.id, appMessage);
-        
-        // Only add notification if message is not from current user
-        if (serverSenderId !== currentUser.id) {
-          addNotification(room.id, appMessage);
-          
-          // Disparar evento customizado para notificação em tempo real
-          // Apenas se não estiver na sala atual
-          const currentPath = window.location.pathname;
-          const isInCurrentRoom = currentPath.includes(`/chat/${room.id}`);
-          
-          if (!isInCurrentRoom) {
-            window.dispatchEvent(
-              new CustomEvent('newMessageNotification', {
-                detail: {
-                  roomId: room.id,
-                  message: appMessage,
-                  currentRoomId: currentPath.split('/chat/')[1]?.split('/')[0] || null,
-                },
-              })
-            );
-          }
-        }
         
         // Adicionar mensagem com senderId do servidor e ordenar por timestamp
         const newMessages = [...prev, {
@@ -1512,7 +1490,7 @@ export default function ChatLayout({
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Convidar para o grupo</p>
+                  <p>Ver código da sala</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

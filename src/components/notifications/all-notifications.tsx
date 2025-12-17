@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell, MessageSquare, Image as ImageIcon, Video } from 'lucide-react';
+import { Bell, MessageSquare, Image as ImageIcon, Video, Heart, AtSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -62,16 +62,24 @@ export function AllNotifications() {
   const handleNotificationClick = (notification: NotificationData) => {
     // Mark as read
     markNotificationAsReadById(
-      notification.type === 'message' ? notification.roomId || '' :
-      notification.type === 'post' ? notification.postId || '' :
-      notification.storyId || '',
+      notification.type === 'message'
+        ? notification.roomId || ''
+        : notification.type === 'story'
+        ? notification.storyId || ''
+        : // post, post_like e mention navegam para o mesmo post
+          notification.postId || '',
       notification.type
     );
 
     // Navigate
     if (notification.type === 'message' && notification.roomId) {
       router.push(`/chat/${notification.roomId}`);
-    } else if (notification.type === 'post' && notification.postId) {
+    } else if (
+      (notification.type === 'post' ||
+        notification.type === 'post_like' ||
+        notification.type === 'mention') &&
+      notification.postId
+    ) {
       router.push(`/feed?postId=${notification.postId}`);
     } else if (notification.type === 'story' && notification.storyId) {
       router.push('/feed');
@@ -88,6 +96,10 @@ export function AllNotifications() {
         return <MessageSquare className="h-4 w-4" />;
       case 'post':
         return <ImageIcon className="h-4 w-4" />;
+      case 'post_like':
+        return <Heart className="h-4 w-4" />;
+      case 'mention':
+        return <AtSign className="h-4 w-4" />;
       case 'story':
         return <Video className="h-4 w-4" />;
       default:
