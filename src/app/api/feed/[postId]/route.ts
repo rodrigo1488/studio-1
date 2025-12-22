@@ -1,51 +1,61 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/supabase/middleware';
-import { getPostById } from '@/lib/supabase/feed';
-import { getPostLikeCount, isPostLiked } from '@/lib/supabase/feed-likes';
-import { getPostCommentCount } from '@/lib/supabase/feed-comments';
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { getServerSession } from '@/lib/auth';
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ postId: string }> }
 ) {
   try {
-    const user = await getCurrentUser(request);
-    if (!user) {
+    const session = await getServerSession();
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { postId } = await params;
 
-    const { post, error } = await getPostById(postId);
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+          },
+        },
+        likes: {
+          where: { userId: session.user.id },
+          select: { userId: true },
+        },
+        _count: {
+          select: {
+            likes: true,
+            comments: true,
+          },
+        },
+        media: true,
+      },
+    });
 
-    if (error || !post) {
-      return NextResponse.json({ error: error || 'Post not found' }, { status: 404 });
+    if (!post) {
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
 
-    // Get like count, user like status, and comment count
-    const [likeCount, liked, commentCount] = await Promise.all([
-      getPostLikeCount(postId),
-      isPostLiked(postId, user.id),
-      getPostCommentCount(postId),
-    ]);
-
-    const enrichedPost = {
+    // Format post to match the expected interface on client
+    const formattedPost = {
       ...post,
-      createdAt: post.createdAt instanceof Date ? post.createdAt.toISOString() : post.createdAt,
-      updatedAt: post.updatedAt instanceof Date ? post.updatedAt.toISOString() : post.updatedAt,
-      media: post.media.map((m) => ({
-        ...m,
-        createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : m.createdAt,
-      })),
-      likesCount: likeCount,
-      commentsCount: commentCount,
-      isLiked: liked,
+      isLiked: post.likes.length > 0,
+      likesCount: post._count.likes,
+      commentsCount: post._count.comments,
     };
 
-    return NextResponse.json({ post: enrichedPost });
-  } catch (error: any) {
+    return NextResponse.json({ post: formattedPost });
+  } catch (error) {
     console.error('Error fetching post:', error);
-    return NextResponse.json({ error: error.message || 'Failed to fetch post' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
-
