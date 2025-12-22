@@ -51,7 +51,7 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
     };
 
     window.addEventListener('popstate', handlePopState);
-    
+
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
@@ -76,14 +76,6 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
 
     files.forEach((file) => {
       if (file.type.startsWith('image/')) {
-        if (file.size > 10 * 1024 * 1024) {
-          toast({
-            title: 'Arquivo muito grande',
-            description: `${file.name} é maior que 10MB.`,
-            variant: 'destructive',
-          });
-          return;
-        }
         validFiles.push(file);
         newPreviews.push(URL.createObjectURL(file));
       } else {
@@ -144,7 +136,7 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
       }
 
       const data = await response.json();
-      
+
       // Convert ISO strings back to Date objects
       if (data.post) {
         const postWithDates = {
@@ -216,14 +208,14 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose} modal={true}>
-      <DialogContent 
+      <DialogContent
         className="max-w-3xl max-h-[95vh] h-[100vh] sm:h-auto w-full sm:w-auto m-0 sm:m-auto rounded-none sm:rounded-xl p-0 sm:p-0 overflow-hidden"
         onInteractOutside={(e) => {
           // Allow Popover interactions inside Dialog
           const target = e.target as HTMLElement;
-          const isPopover = target.closest('[data-radix-popover-content]') || 
-                           target.closest('[data-radix-popper-content-wrapper]') ||
-                           target.closest('.mention-selector-content');
+          const isPopover = target.closest('[data-radix-popover-content]') ||
+            target.closest('[data-radix-popper-content-wrapper]') ||
+            target.closest('.mention-selector-content');
           if (isPopover) {
             e.preventDefault();
           }
@@ -231,9 +223,9 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
         onPointerDownOutside={(e) => {
           // Allow Popover interactions inside Dialog
           const target = e.target as HTMLElement;
-          const isPopover = target.closest('[data-radix-popover-content]') || 
-                           target.closest('[data-radix-popper-content-wrapper]') ||
-                           target.closest('.mention-selector-content');
+          const isPopover = target.closest('[data-radix-popover-content]') ||
+            target.closest('[data-radix-popper-content-wrapper]') ||
+            target.closest('.mention-selector-content');
           if (isPopover) {
             e.preventDefault();
           }
@@ -295,7 +287,7 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
                     {isDragging ? 'Solte as imagens aqui' : 'Arraste imagens ou clique para selecionar'}
                   </p>
                   <p className="text-xs sm:text-sm text-muted-foreground">
-                    Suporte para múltiplas imagens (máx. 10MB cada)
+                    Suporte para múltiplas imagens
                   </p>
                 </div>
                 <input
@@ -391,16 +383,16 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
 
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-4 border-t mt-auto">
-              <Button 
-                variant="outline" 
-                onClick={handleClose} 
+              <Button
+                variant="outline"
+                onClick={handleClose}
                 disabled={isSubmitting}
                 className="flex-1 sm:flex-none"
               >
                 Cancelar
               </Button>
-              <Button 
-                onClick={handleSubmit} 
+              <Button
+                onClick={handleSubmit}
                 disabled={isSubmitting || selectedFiles.length === 0}
                 className="flex-1 sm:flex-none"
                 size="lg"
