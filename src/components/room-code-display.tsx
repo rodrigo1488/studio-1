@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Copy, Check, Share2, QrCode } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface RoomCodeDisplayProps {
   code: string;
@@ -29,6 +29,14 @@ export function RoomCodeDisplay({
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [inviteUrl, setInviteUrl] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = `${window.location.origin}/dashboard/join-room?code=${code}`;
+      setInviteUrl(url);
+    }
+  }, [code]);
 
   const handleCopy = async () => {
     try {
@@ -85,6 +93,16 @@ export function RoomCodeDisplay({
         <div className="relative">
           <div className="flex items-center justify-center rounded-2xl border-4 border-primary bg-primary/5 p-8 backdrop-blur-sm">
             <div className="text-center">
+              {/* QR Code */}
+              {inviteUrl && (
+                <div className="mb-6 p-2 bg-white rounded-xl shadow-sm">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(inviteUrl)}`}
+                    alt={`QR Code para entrar na sala ${code}`}
+                    className="w-48 h-48 sm:w-56 sm:h-56 object-contain"
+                  />
+                </div>
+              )}
               <p className="text-sm font-medium text-muted-foreground mb-2">
                 Código da Sala
               </p>
