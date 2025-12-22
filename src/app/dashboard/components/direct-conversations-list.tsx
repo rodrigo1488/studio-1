@@ -133,13 +133,13 @@ export default function DirectConversationsList() {
           <Card
             key={conversation.id}
             className={cn(
-              "p-2 sm:p-3 md:p-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-slide-in-color rounded-lg sm:rounded-xl",
+              "p-2 sm:p-3 md:p-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-slide-in-color rounded-lg sm:rounded-xl h-[88px] sm:h-[104px] flex items-center",
               borderColor,
               bgGradient
             )}
             onClick={() => handleConversationClick(conversation.id)}
           >
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 w-full">
               <Link
                 href={`/profile/${conversation.otherUser.id}`}
                 onClick={(e) => e.stopPropagation()}

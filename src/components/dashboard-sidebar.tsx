@@ -4,6 +4,7 @@ import { useState, createContext, useContext } from 'react';
 import { Button } from '@/components/ui/button';
 import { Users, MessageSquare, UserPlus, Menu, PlusCircle, ArrowRight, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import RoomList from '@/app/dashboard/components/room-list';
 import DirectConversationsList from '@/app/dashboard/components/direct-conversations-list';
 import ContactsList from '@/app/dashboard/components/contacts-list';
@@ -21,18 +22,33 @@ const SidebarContext = createContext<{
   closeMobileSidebar: () => void;
 } | null>(null);
 
+// ... (existing imports, but keep them if they are above. Replace whole SidebarContent if easier or chunk it)
+
 function SidebarContent() {
   const context = useContext(SidebarContext);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   if (!context) return null;
 
   const { activeView, setActiveView, setIsMobileOpen } = context;
+
+  const handleViewChange = (view: SidebarView) => {
+    // Update local state immediately for responsiveness
+    setActiveView(view);
+
+    // Update URL to persist history
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('view', view);
+    router.push(`/dashboard?${params.toString()}`);
+  };
 
   return (
     <div className="flex flex-col h-full">
       {/* Navigation Tabs */}
       <div className="flex border-b-2 border-primary/20 shrink-0 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5">
         <button
-          onClick={() => setActiveView('groups')}
+          onClick={() => handleViewChange('groups')}
           className={cn(
             'flex-1 flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1 sm:px-2 md:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
             activeView === 'groups'
@@ -47,7 +63,7 @@ function SidebarContent() {
           </span>
         </button>
         <button
-          onClick={() => setActiveView('conversations')}
+          onClick={() => handleViewChange('conversations')}
           className={cn(
             'flex-1 flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1 sm:px-2 md:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
             activeView === 'conversations'
@@ -62,7 +78,7 @@ function SidebarContent() {
           </span>
         </button>
         <button
-          onClick={() => setActiveView('contacts')}
+          onClick={() => handleViewChange('contacts')}
           className={cn(
             'flex-1 flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1 sm:px-2 md:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
             activeView === 'contacts'
@@ -77,7 +93,7 @@ function SidebarContent() {
           </span>
         </button>
         <button
-          onClick={() => setActiveView('feed')}
+          onClick={() => handleViewChange('feed')}
           className={cn(
             'flex-1 flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1 sm:px-2 md:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-200 border-b-3 rounded-t-xl',
             activeView === 'feed'

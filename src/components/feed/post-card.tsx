@@ -11,8 +11,8 @@ import { getInitials, cn } from '@/lib/utils';
 import type { Post } from '@/lib/data';
 import Image from 'next/image';
 import Link from 'next/link';
-import { PostModal } from './post-modal';
 import { SharePostDialog } from './share-post-dialog';
+import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,11 +32,11 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [likesCount, setLikesCount] = useState(post.likesCount || 0);
-  const [showModal, setShowModal] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const router = useRouter();
 
   // Ensure createdAt is a Date object
   const createdAt = post.createdAt instanceof Date ? post.createdAt : new Date(post.createdAt);
@@ -46,7 +46,7 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
 
   const handleLike = async () => {
     if (isLiking) return;
-    
+
     setIsLiking(true);
     const previousLiked = isLiked;
     const previousCount = likesCount;
@@ -101,12 +101,16 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
     }
   };
 
+  const navigateToPost = () => {
+    router.push(`/feed/${post.id}`);
+  };
+
   return (
     <>
       <Card className="w-full overflow-hidden border-2 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 animate-slide-in">
         <CardHeader className="pb-1.5 sm:pb-2 md:pb-3 px-2 sm:px-3 md:px-4 lg:px-6 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5">
           <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-            <Link 
+            <Link
               href={`/profile/${post.userId}`}
               className="flex items-center gap-1.5 sm:gap-2 md:gap-3 min-w-0 flex-1 hover:opacity-80 transition-opacity"
             >
@@ -160,7 +164,7 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
                   alt={post.description || 'Post image'}
                   fill
                   className="object-cover cursor-pointer"
-                  onClick={() => setShowModal(true)}
+                  onClick={navigateToPost}
                 />
                 {hasMultipleImages && (
                   <>
@@ -207,8 +211,8 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
                 size="icon"
                 className={cn(
                   'h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 touch-manipulation transition-all duration-200',
-                  isLiked 
-                    ? 'text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950' 
+                  isLiked
+                    ? 'text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950'
                     : 'hover:text-red-500 hover:bg-muted'
                 )}
                 onClick={handleLike}
@@ -221,7 +225,7 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 touch-manipulation hover:text-primary hover:bg-muted transition-all duration-200"
-                onClick={() => setShowModal(true)}
+                onClick={navigateToPost}
                 aria-label="Comentar"
               >
                 <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
@@ -261,7 +265,7 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
             {post.description && (
               <div className="text-[11px] sm:text-xs md:text-sm lg:text-base leading-relaxed space-y-1 break-words">
                 <div>
-                  <Link 
+                  <Link
                     href={`/profile/${post.userId}`}
                     className="font-semibold text-foreground hover:underline"
                   >
@@ -298,17 +302,17 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
               <Button
                 variant="ghost"
                 className="text-muted-foreground p-0 h-auto font-normal text-[10px] sm:text-xs md:text-sm hover:text-primary touch-manipulation"
-                onClick={() => setShowModal(true)}
+                onClick={navigateToPost}
               >
                 Ver {post.commentsCount} comentário{post.commentsCount !== 1 ? 's' : ''}
               </Button>
             )}
-            
+
             {(!post.commentsCount || post.commentsCount === 0) && (
               <Button
                 variant="ghost"
                 className="text-muted-foreground p-0 h-auto font-normal text-[10px] sm:text-xs md:text-sm hover:text-primary touch-manipulation"
-                onClick={() => setShowModal(true)}
+                onClick={navigateToPost}
               >
                 Comentar
               </Button>
@@ -316,17 +320,12 @@ export function PostCard({ post, currentUserId, onLike, onDelete, onEdit }: Post
           </div>
         </CardContent>
       </Card>
-
-      {showModal && (
-        <PostModal
-          post={post}
-          currentUserId={currentUserId}
-          onClose={() => setShowModal(false)}
-          onLike={onLike}
-          onDelete={onDelete}
-          onEdit={onEdit}
-        />
-      )}
+      <SharePostDialog
+        open={showShareDialog}
+        onOpenChange={setShowShareDialog}
+        postUrl={`${window.location.origin}/feed/${post.id}`}
+        postDescription={post.description || 'Confira este post no FamilyChat!'}
+      />
     </>
   );
 }
