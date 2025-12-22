@@ -229,6 +229,13 @@ export default function ContactsList() {
     }
   }, [isDialogOpen]);
 
+  const [contactSearch, setContactSearch] = useState('');
+
+  const filteredContacts = contacts.filter((contact) =>
+    contact.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+    (contact.nickname && contact.nickname.toLowerCase().includes(contactSearch.toLowerCase()))
+  );
+
   if (isLoading) {
     return (
       <div className="space-y-2">
@@ -240,130 +247,144 @@ export default function ContactsList() {
   }
 
   return (
-    <div className="space-y-2">
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="w-full text-xs sm:text-sm">
-            <UserPlus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Adicionar Contato</span>
-            <span className="sm:hidden">Adicionar</span>
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="text-base sm:text-lg">Adicionar Contato</DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm">
-              Digite o nome ou nickname do usuário que deseja adicionar aos seus contatos.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome ou nickname..."
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="text-sm sm:text-base pl-9"
-              />
-              {isSearching && (
-                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
-              )}
-            </div>
+    <div className="space-y-4">
+      <div className="flex flex-col gap-2">
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="w-full text-xs sm:text-sm">
+              <UserPlus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Adicionar Contato</span>
+              <span className="sm:hidden">Adicionar</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="text-base sm:text-lg">Adicionar Contato</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
+                Digite o nome ou nickname do usuário que deseja adicionar aos seus contatos.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome ou nickname..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="text-sm sm:text-base pl-9"
+                />
+                {isSearching && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
+                )}
+              </div>
 
-            <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
-              {searchQuery.trim().length > 0 && searchQuery.trim().length < 2 && (
-                <p className="text-xs sm:text-sm text-center text-muted-foreground py-4">
-                  Digite pelo menos 2 caracteres para buscar
-                </p>
-              )}
+              <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
+                {searchQuery.trim().length > 0 && searchQuery.trim().length < 2 && (
+                  <p className="text-xs sm:text-sm text-center text-muted-foreground py-4">
+                    Digite pelo menos 2 caracteres para buscar
+                  </p>
+                )}
 
-              {searchQuery.trim().length >= 2 && !isSearching && searchResults.length === 0 && (
-                <p className="text-xs sm:text-sm text-center text-muted-foreground py-4">
-                  Nenhum usuário encontrado
-                </p>
-              )}
+                {searchQuery.trim().length >= 2 && !isSearching && searchResults.length === 0 && (
+                  <p className="text-xs sm:text-sm text-center text-muted-foreground py-4">
+                    Nenhum usuário encontrado
+                  </p>
+                )}
 
-              {searchResults.length > 0 && (
-                <div className="space-y-2">
-                  {searchResults.map((user) => {
-                    const status = getRequestStatus(user.id);
-                    return (
-                      <div
-                        key={user.id}
-                        className="flex items-center justify-between p-2 sm:p-3 rounded-xl border-2 border-primary/30 bg-gradient-to-r from-primary/10 to-secondary/10 gap-2 sm:gap-3 shadow-md"
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                          <Link href={`/profile/${user.id}`} className="hover:opacity-80 transition-opacity shrink-0">
-                            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 cursor-pointer">
-                              <AvatarImage src={user.avatarUrl} />
-                              <AvatarFallback className="text-xs sm:text-sm">{getInitials(user.name)}</AvatarFallback>
-                            </Avatar>
-                          </Link>
-                          <div className="min-w-0 flex-1 overflow-hidden">
-                            <Link
-                              href={`/profile/${user.id}`}
-                              className="font-medium truncate text-sm sm:text-base hover:underline block"
-                              title={user.name}
-                            >
-                              {user.name}
+                {searchResults.length > 0 && (
+                  <div className="space-y-2">
+                    {searchResults.map((user) => {
+                      const status = getRequestStatus(user.id);
+                      return (
+                        <div
+                          key={user.id}
+                          className="flex items-center justify-between p-2 sm:p-3 rounded-xl border-2 border-primary/30 bg-gradient-to-r from-primary/10 to-secondary/10 gap-2 sm:gap-3 shadow-md"
+                        >
+                          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                            <Link href={`/profile/${user.id}`} className="hover:opacity-80 transition-opacity shrink-0">
+                              <Avatar className="h-10 w-10 sm:h-12 sm:w-12 cursor-pointer">
+                                <AvatarImage src={user.avatarUrl} />
+                                <AvatarFallback className="text-xs sm:text-sm">{getInitials(user.name)}</AvatarFallback>
+                              </Avatar>
                             </Link>
-                            {user.nickname && (
-                              <p className="text-xs sm:text-sm text-muted-foreground truncate" title={`@${user.nickname}`}>
-                                @{user.nickname}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        {status === 'contact' ? (
-                          <Button
-                            size="sm"
-                            disabled
-                            variant="outline"
-                            className="shrink-0 text-xs px-2 sm:px-3"
-                          >
-                            <CheckCircle className="mr-1 h-3 w-3" />
-                            <span className="hidden sm:inline">Contato</span>
-                          </Button>
-                        ) : status === 'pending' ? (
-                          (() => {
-                            const request = sentRequests.find((r) => r.requestedId === user.id);
-                            return (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => request && handleCancelRequest(request.id)}
-                                className="shrink-0 text-xs px-2 sm:px-3"
+                            <div className="min-w-0 flex-1 overflow-hidden">
+                              <Link
+                                href={`/profile/${user.id}`}
+                                className="font-medium truncate text-sm sm:text-base hover:underline block"
+                                title={user.name}
                               >
-                                <Clock className="mr-1 h-3 w-3" />
-                                <span className="hidden sm:inline">Pendente</span>
-                              </Button>
-                            );
-                          })()
-                        ) : (
-                          <Button
-                            size="sm"
-                            onClick={() => handleAddContact(user.id)}
-                            className="shrink-0 text-xs px-2 sm:px-3"
-                          >
-                            <UserPlus className="mr-1 h-3 w-3" />
-                            <span className="hidden sm:inline">Adicionar</span>
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                                {user.name}
+                              </Link>
+                              {user.nickname && (
+                                <p className="text-xs sm:text-sm text-muted-foreground truncate" title={`@${user.nickname}`}>
+                                  @{user.nickname}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          {status === 'contact' ? (
+                            <Button
+                              size="sm"
+                              disabled
+                              variant="outline"
+                              className="shrink-0 text-xs px-2 sm:px-3"
+                            >
+                              <CheckCircle className="mr-1 h-3 w-3" />
+                              <span className="hidden sm:inline">Contato</span>
+                            </Button>
+                          ) : status === 'pending' ? (
+                            (() => {
+                              const request = sentRequests.find((r) => r.requestedId === user.id);
+                              return (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => request && handleCancelRequest(request.id)}
+                                  className="shrink-0 text-xs px-2 sm:px-3"
+                                >
+                                  <Clock className="mr-1 h-3 w-3" />
+                                  <span className="hidden sm:inline">Pendente</span>
+                                </Button>
+                              );
+                            })()
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handleAddContact(user.id)}
+                              className="shrink-0 text-xs px-2 sm:px-3"
+                            >
+                              <UserPlus className="mr-1 h-3 w-3" />
+                              <span className="hidden sm:inline">Adicionar</span>
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
-              {searchQuery.trim().length === 0 && (
-                <p className="text-xs sm:text-sm text-center text-muted-foreground py-4">
-                  Digite o nome ou nickname para buscar usuários
-                </p>
-              )}
+                {searchQuery.trim().length === 0 && (
+                  <p className="text-xs sm:text-sm text-center text-muted-foreground py-4">
+                    Digite o nome ou nickname para buscar usuários
+                  </p>
+                )}
+              </div>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {contacts.length > 0 && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar meus contatos..."
+              value={contactSearch}
+              onChange={(e) => setContactSearch(e.target.value)}
+              className="pl-9 h-9 text-sm"
+            />
           </div>
-        </DialogContent>
-      </Dialog>
+        )}
+      </div>
 
       {contacts.length === 0 && !isLoading ? (
         <EmptyState
@@ -375,9 +396,14 @@ export default function ContactsList() {
             onClick: () => setIsDialogOpen(true),
           }}
         />
+      ) : filteredContacts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+          <Search className="h-8 w-8 mb-2 opacity-50" />
+          <p className="text-sm">Nenhum contato encontrado para "{contactSearch}"</p>
+        </div>
       ) : (
         <div className="space-y-2 h-full overflow-y-auto">
-          {contacts.map((contact, index) => {
+          {filteredContacts.map((contact, index) => {
             const rainbowColors = [
               'border-[#3B82F6]',
               'border-[#EC4899]',
@@ -440,6 +466,7 @@ export default function ContactsList() {
                           title: 'Erro ao iniciar conversa',
                           description: data.error || 'Não foi possível iniciar a conversa',
                           variant: 'destructive',
+
                         });
                       }
                     } catch (error) {
