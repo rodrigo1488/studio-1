@@ -23,6 +23,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getInitials } from '@/lib/utils';
 
 export default function FeedPage() {
   const { viewMode } = useFeed();
@@ -190,7 +193,7 @@ export default function FeedPage() {
       }
 
       const data = await response.json();
-      
+
       // Update local state
       setPosts((prev) =>
         prev.map((post) => {
@@ -310,11 +313,37 @@ export default function FeedPage() {
       {/* Stories Carousel */}
       {currentUserId && (
         <div className="p-2 sm:p-3 md:p-4 overflow-hidden">
-          <StoriesCarousel 
-            currentUserId={currentUserId} 
+          <StoriesCarousel
+            currentUserId={currentUserId}
             onCreateStory={() => setShowCreateStory(true)}
           />
         </div>
+      )}
+
+      {/* Create Post Input */}
+      {currentUser && (
+        <Card className="mx-2 sm:mx-3 md:mx-4 mb-4 border-0 shadow-sm bg-card">
+          <CardContent className="p-3 sm:p-4 flex gap-3 sm:gap-4 items-center">
+            <Avatar className="h-8 w-8 sm:h-10 sm:w-10 border border-border">
+              <AvatarImage src={currentUser?.avatarUrl} alt={currentUser?.name} />
+              <AvatarFallback>{getInitials(currentUser?.name || '')}</AvatarFallback>
+            </Avatar>
+            <div
+              onClick={() => setShowCreatePost(true)}
+              className="flex-1 bg-muted/50 hover:bg-muted transition-colors rounded-full px-4 py-2 sm:py-2.5 cursor-pointer text-sm sm:text-base text-muted-foreground truncate"
+            >
+              No que você está pensando, {currentUser?.name?.split(' ')[0]}?
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+              onClick={() => setShowCreatePost(true)}
+            >
+              <ImageIcon className="h-5 w-5" />
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* Filters */}
@@ -437,15 +466,15 @@ export default function FeedPage() {
               rows={4}
             />
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setEditingPost(null)}
                 className="w-full sm:w-auto"
               >
                 Cancelar
               </Button>
-              <Button 
-                onClick={handleSaveEdit} 
+              <Button
+                onClick={handleSaveEdit}
                 disabled={isSaving}
                 className="w-full sm:w-auto"
               >
