@@ -142,6 +142,7 @@ export default function ChatLayout({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const hasInitialScrolled = useRef(false);
   const [showRoomDetails, setShowRoomDetails] = useState(false);
   const [replyingTo, setReplyingTo] = useState<(Message & { user?: User }) | null>(null);
   const [forwardingMessage, setForwardingMessage] = useState<(Message & { user?: User }) | null>(null);
@@ -182,31 +183,49 @@ export default function ChatLayout({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roomId: room.id }),
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [messages.length, room.id]);
 
-  // Scroll to bottom when new messages arrive (only if not loading older messages)
+  // Scroll to bottom logic
   useEffect(() => {
-    if (isLoadingMore) return; // Don't scroll when loading older messages
-    
-    // Usar requestAnimationFrame para garantir que o DOM foi atualizado
-    requestAnimationFrame(() => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    });
-  }, [messages.length, isLoadingMore]);
+    const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
 
-  // Scroll to bottom on initial load
-  useEffect(() => {
-    const timer = setTimeout(() => {
+    // 1. Initial Load: Force scroll to bottom once
+    if (!hasInitialScrolled.current && messages.length > 0) {
       if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+        // Use timeout to ensure DOM is ready
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+          hasInitialScrolled.current = true;
+        }, 100);
       }
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
+      return;
+    }
+
+    // 2. New Messages: Smart Scroll
+    if (isLoadingMore || messages.length === 0) return;
+
+    const lastMessage = messages[messages.length - 1];
+    const isOwnMessage = lastMessage?.senderId === currentUser.id;
+
+    if (isOwnMessage) {
+      // Always scroll for own messages
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } else {
+      // For others, only scroll if already near bottom
+      if (viewport) {
+        const isNearBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 100;
+        if (isNearBottom) {
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        }
+      }
+    }
+  }, [messages, isLoadingMore, currentUser.id]);
 
   // Subscribe to realtime messages
   useEffect(() => {
@@ -223,7 +242,7 @@ export default function ChatLayout({
       }
       // Check if we already have this user cached
       let user = getCachedUser(newMessage.sender_id);
-      
+
       // Only fetch if not in cache
       if (!user) {
         try {
@@ -240,20 +259,20 @@ export default function ChatLayout({
           console.error('Error fetching user for new message:', error);
         }
       }
-      
+
       // CRÍTICO: O senderId SEMPRE vem do servidor (newMessage.sender_id)
       // NUNCA confiar no estado local ou em mensagens otimistas
       const appMessage = convertMessageToAppFormat(newMessage, user);
       appMessage.status = 'sent'; // Marcar como enviada quando confirmada pelo servidor
-      
+
       // VALIDAÇÃO: Garantir que o senderId da mensagem do servidor é sempre usado
       // Não importa o que está no estado local, o servidor é a fonte da verdade
       const serverSenderId = newMessage.sender_id;
-      
+
       // Check if message already exists or if it's an optimistic update
       setMessages((prev) => {
         const existingIndex = prev.findIndex((m) => m.id === appMessage.id);
-        
+
         // Se a mensagem já existe (veio do servidor), substituir completamente
         // para garantir que o senderId do servidor seja usado
         if (existingIndex !== -1) {
@@ -270,17 +289,17 @@ export default function ChatLayout({
             timestamp: ensureDate(msg.timestamp)
           })));
         }
-        
+
         // Verificar se é uma mensagem otimista nossa (mesmo texto e remetente)
         // Mas SEMPRE usar o senderId do servidor quando substituir
         const optimisticIndex = prev.findIndex(
-          (m) => 
-            m.status === 'sending' && 
+          (m) =>
+            m.status === 'sending' &&
             m.senderId === currentUser.id &&
             m.text === appMessage.text &&
             Math.abs(m.timestamp.getTime() - appMessage.timestamp.getTime()) < 10000 // Dentro de 10 segundos
         );
-        
+
         if (optimisticIndex !== -1) {
           // Substituir mensagem otimista pela real do servidor
           // IMPORTANTE: Usar o senderId do servidor, não do estado local
@@ -296,11 +315,11 @@ export default function ChatLayout({
             timestamp: ensureDate(msg.timestamp)
           })));
         }
-        
+
         // Nova mensagem de outro usuário ou do servidor
         // Add to cache (notificações e badges são tratadas pelo NotificationManager)
         addMessageToCache(room.id, appMessage);
-        
+
         // Adicionar mensagem com senderId do servidor e ordenar por timestamp
         const newMessages = [...prev, {
           ...appMessage,
@@ -337,7 +356,7 @@ export default function ChatLayout({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isTyping: false }),
-      }).catch(() => {});
+      }).catch(() => { });
     };
   }, [room.id, currentUser.id]);
 
@@ -345,37 +364,23 @@ export default function ChatLayout({
   useEffect(() => {
     // Remove duplicates, normalize timestamps, and sort by timestamp
     const uniqueMessages = initialMessages
-      .filter((msg, index, self) => 
+      .filter((msg, index, self) =>
         index === self.findIndex(m => m.id === msg.id)
       )
       .map(msg => ({
         ...msg,
         timestamp: ensureDate(msg.timestamp)
       }));
-    
+
     // Sort by timestamp (ascending - oldest first)
     const sorted = sortMessagesByTimestamp(uniqueMessages);
-    
+
     setMessages(sorted);
     // Check if there are more messages based on initial load (50 messages per page)
     setHasMoreMessages(sorted.length >= 50);
   }, [initialMessages]);
 
-  // Scroll to bottom when new messages arrive (but not when loading older messages)
-  useEffect(() => {
-    if (scrollAreaRef.current && !isLoadingMore) {
-      const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
-      if (viewport) {
-        // Only auto-scroll if we're near the bottom (within 100px)
-        const isNearBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 100;
-        if (isNearBottom) {
-          setTimeout(() => {
-            viewport.scrollTop = viewport.scrollHeight;
-          }, 100);
-        }
-      }
-    }
-  }, [messages, isLoadingMore]);
+
 
   const loadMoreMessages = useCallback(async () => {
     if (isLoadingMore || !hasMoreMessages || messages.length === 0) return;
@@ -385,8 +390,8 @@ export default function ChatLayout({
       // Get the oldest message timestamp
       const oldestMessage = messages[0];
       // Ensure timestamp is a Date object
-      const beforeDate = oldestMessage.timestamp instanceof Date 
-        ? oldestMessage.timestamp 
+      const beforeDate = oldestMessage.timestamp instanceof Date
+        ? oldestMessage.timestamp
         : new Date(oldestMessage.timestamp);
 
       // Fetch older messages
@@ -396,7 +401,7 @@ export default function ChatLayout({
 
       if (response.ok) {
         const data = await response.json();
-        
+
         if (data.messages.length === 0) {
           setHasMoreMessages(false);
           setIsLoadingMore(false);
@@ -405,7 +410,7 @@ export default function ChatLayout({
 
         // Get unique sender IDs for new messages
         const senderIds = [...new Set(data.messages.map((msg: Message) => msg.senderId))];
-        
+
         // Fetch users in batch
         let usersMap: Record<string, User> = {};
         if (senderIds.length > 0) {
@@ -440,26 +445,26 @@ export default function ChatLayout({
         // Prepend new messages (they are older), removing duplicates
         setMessages((prev) => {
           // Remove duplicates from prev first
-          const uniquePrev = prev.filter((msg, index, self) => 
+          const uniquePrev = prev.filter((msg, index, self) =>
             index === self.findIndex(m => m.id === msg.id)
           );
-          
+
           // Merge and remove duplicates
           const merged = [...newMessages, ...uniquePrev];
-          const uniqueMerged = merged.filter((msg, index, self) => 
+          const uniqueMerged = merged.filter((msg, index, self) =>
             index === self.findIndex(m => m.id === msg.id)
           );
-          
+
           // Ordenar por timestamp (mais antigas primeiro)
           const normalized = uniqueMerged.map(msg => ({
             ...msg,
             timestamp: ensureDate(msg.timestamp)
           }));
           const sorted = sortMessagesByTimestamp(normalized);
-          
+
           // Update cache with merged messages
           saveMessagesToCache(room.id, sorted);
-          
+
           return sorted;
         });
         setHasMoreMessages(data.hasMore);
@@ -519,7 +524,7 @@ export default function ChatLayout({
         credentials: 'include',
         cache: 'no-store',
       });
-      
+
       if (!authCheck.ok) {
         toast({
           title: 'Sessão expirada',
@@ -566,10 +571,10 @@ export default function ChatLayout({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isTyping: false }),
-    }).catch(() => {});
+    }).catch(() => { });
 
     const text = messageText.trim();
-    
+
     // Validate replyTo - skip if it's a temporary message
     let validReplyTo = replyingTo;
     if (replyingTo && replyingTo.id.startsWith('temp-')) {
@@ -581,7 +586,7 @@ export default function ChatLayout({
       setReplyingTo(null);
       validReplyTo = null;
     }
-    
+
     // Criar mensagem otimista ANTES de qualquer coisa
     const tempId = `temp-${Date.now()}-${Math.random()}`;
     const optimisticMessage: Message & { user?: User } = {
@@ -599,7 +604,7 @@ export default function ChatLayout({
     // 1. Limpar input IMEDIATAMENTE para feedback visual instantâneo
     setMessageText('');
     setReplyingTo(null);
-    
+
     // 2. Adicionar mensagem ao estado IMEDIATAMENTE (antes de qualquer requisição)
     setMessages((prev) => {
       const newMessages = [...prev, {
@@ -611,7 +616,7 @@ export default function ChatLayout({
         timestamp: ensureDate(msg.timestamp)
       })));
     });
-    
+
     // 3. Fazer scroll para a nova mensagem imediatamente
     requestAnimationFrame(() => {
       if (messagesEndRef.current) {
@@ -640,7 +645,7 @@ export default function ChatLayout({
 
         if (!response.ok) {
           const data = await response.json();
-          
+
           // Atualizar status da mensagem otimista para erro
           setMessages((prev) => {
             const updated = prev.map((msg) =>
@@ -670,18 +675,18 @@ export default function ChatLayout({
             setMessages((prev) => {
               const updated = prev.map((msg) =>
                 msg.id === tempId
-                  ? { 
-                      ...msg, 
-                      id: data.message.id,
-                      senderId: data.message.senderId, // SEMPRE usar o senderId do servidor
-                      status: 'sent' as const,
-                      timestamp: ensureDate(data.message.timestamp || msg.timestamp),
-                      replyToId: data.message.replyToId || msg.replyToId,
-                      replyTo: data.message.replyTo ? {
-                        ...data.message.replyTo,
-                        timestamp: ensureDate(data.message.replyTo.timestamp),
-                      } : msg.replyTo,
-                    }
+                  ? {
+                    ...msg,
+                    id: data.message.id,
+                    senderId: data.message.senderId, // SEMPRE usar o senderId do servidor
+                    status: 'sent' as const,
+                    timestamp: ensureDate(data.message.timestamp || msg.timestamp),
+                    replyToId: data.message.replyToId || msg.replyToId,
+                    replyTo: data.message.replyTo ? {
+                      ...data.message.replyTo,
+                      timestamp: ensureDate(data.message.replyTo.timestamp),
+                    } : msg.replyTo,
+                  }
                   : msg
               );
               const normalized = updated.map(msg => ({
@@ -694,7 +699,7 @@ export default function ChatLayout({
               }));
               return sortMessagesByTimestamp(normalized);
             });
-            
+
             // Adicionar ao cache após sucesso
             addMessageToCache(room.id, {
               ...data.message,
@@ -788,7 +793,7 @@ export default function ChatLayout({
         timestamp: ensureDate(msg.timestamp)
       })));
     });
-    
+
     // 2. Fazer scroll para a nova mensagem imediatamente
     requestAnimationFrame(() => {
       if (messagesEndRef.current) {
@@ -805,97 +810,97 @@ export default function ChatLayout({
     // 5. Enviar para o servidor em segundo plano
     setTimeout(async () => {
       try {
-      // Generate a temporary message ID for the upload path
-      const tempMessageId = crypto.randomUUID();
+        // Generate a temporary message ID for the upload path
+        const tempMessageId = crypto.randomUUID();
 
-      // Upload media via API route
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('roomId', room.id);
-      formData.append('messageId', tempMessageId);
+        // Upload media via API route
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('roomId', room.id);
+        formData.append('messageId', tempMessageId);
 
-      const uploadResponse = await fetch('/api/media/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json().catch(() => ({ error: 'Erro desconhecido' }));
-        throw new Error(errorData.error || 'Erro ao fazer upload da mídia');
-      }
-
-      const uploadData = await uploadResponse.json().catch(() => null);
-      if (!uploadData || !uploadData.url) {
-        throw new Error('Resposta inválida do servidor');
-      }
-
-      const { url } = uploadData;
-
-      // Send message with media
-      const response = await fetch('/api/messages/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          roomId: room.id,
-          text,
-          mediaUrl: url,
-          mediaType,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        
-        // Atualizar status da mensagem otimista para erro
-        setMessages((prev) => {
-          const updated = prev.map((msg) =>
-            msg.id === tempId
-              ? { ...msg, status: 'error' as const }
-              : msg
-          );
-          return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        const uploadResponse = await fetch('/api/media/upload', {
+          method: 'POST',
+          body: formData,
         });
 
-        toast({
-          title: 'Erro ao enviar mídia',
-          description: data.error || 'Tente novamente',
-          variant: 'destructive',
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json().catch(() => ({ error: 'Erro desconhecido' }));
+          throw new Error(errorData.error || 'Erro ao fazer upload da mídia');
+        }
+
+        const uploadData = await uploadResponse.json().catch(() => null);
+        if (!uploadData || !uploadData.url) {
+          throw new Error('Resposta inválida do servidor');
+        }
+
+        const { url } = uploadData;
+
+        // Send message with media
+        const response = await fetch('/api/messages/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            roomId: room.id,
+            text,
+            mediaUrl: url,
+            mediaType,
+          }),
         });
-      } else {
-        const data = await response.json();
-        if (data.message?.id) {
-          // Atualizar mensagem otimista com ID real e URL do servidor
+
+        if (!response.ok) {
+          const data = await response.json();
+
+          // Atualizar status da mensagem otimista para erro
           setMessages((prev) => {
             const updated = prev.map((msg) =>
               msg.id === tempId
-                ? { ...msg, id: data.message.id, mediaUrl: url, status: 'sent' as const }
+                ? { ...msg, status: 'error' as const }
                 : msg
             );
-            const normalized = updated.map(msg => ({
-              ...msg,
-              timestamp: ensureDate(msg.timestamp)
-            }));
-            return sortMessagesByTimestamp(normalized);
+            return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
           });
-        }
-      }
-    } catch (error: any) {
-      // Atualizar status da mensagem otimista para erro
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === tempId
-            ? { ...msg, status: 'error' as const }
-            : msg
-        )
-      );
 
-      toast({
-        title: 'Erro ao enviar mídia',
-        description: error.message || 'Ocorreu um erro inesperado',
-        variant: 'destructive',
-      });
+          toast({
+            title: 'Erro ao enviar mídia',
+            description: data.error || 'Tente novamente',
+            variant: 'destructive',
+          });
+        } else {
+          const data = await response.json();
+          if (data.message?.id) {
+            // Atualizar mensagem otimista com ID real e URL do servidor
+            setMessages((prev) => {
+              const updated = prev.map((msg) =>
+                msg.id === tempId
+                  ? { ...msg, id: data.message.id, mediaUrl: url, status: 'sent' as const }
+                  : msg
+              );
+              const normalized = updated.map(msg => ({
+                ...msg,
+                timestamp: ensureDate(msg.timestamp)
+              }));
+              return sortMessagesByTimestamp(normalized);
+            });
+          }
+        }
+      } catch (error: any) {
+        // Atualizar status da mensagem otimista para erro
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempId
+              ? { ...msg, status: 'error' as const }
+              : msg
+          )
+        );
+
+        toast({
+          title: 'Erro ao enviar mídia',
+          description: error.message || 'Ocorreu um erro inesperado',
+          variant: 'destructive',
+        });
       } finally {
         setIsSending(false);
       }
@@ -963,7 +968,7 @@ export default function ChatLayout({
 
         if (!response.ok) {
           const data = await response.json();
-          
+
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === tempId
@@ -983,19 +988,19 @@ export default function ChatLayout({
             setMessages((prev) => {
               const updated = prev.map((msg) =>
                 msg.id === tempId
-                  ? { 
-                      ...msg, 
-                      id: data.message.id,
-                      senderId: data.message.senderId,
-                      status: 'sent' as const,
-                    }
+                  ? {
+                    ...msg,
+                    id: data.message.id,
+                    senderId: data.message.senderId,
+                    status: 'sent' as const,
+                  }
                   : msg
               );
               const normalized = updated.map(msg => ({
-              ...msg,
-              timestamp: ensureDate(msg.timestamp)
-            }));
-            return sortMessagesByTimestamp(normalized);
+                ...msg,
+                timestamp: ensureDate(msg.timestamp)
+              }));
+              return sortMessagesByTimestamp(normalized);
             });
           }
         }
@@ -1047,7 +1052,7 @@ export default function ChatLayout({
         timestamp: ensureDate(msg.timestamp)
       })));
     });
-    
+
     // 2. Fazer scroll para a nova mensagem imediatamente
     requestAnimationFrame(() => {
       if (messagesEndRef.current) {
@@ -1064,93 +1069,93 @@ export default function ChatLayout({
     // 5. Enviar para o servidor em segundo plano
     setTimeout(async () => {
       try {
-      const tempMessageId = crypto.randomUUID();
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('roomId', room.id);
-      formData.append('messageId', tempMessageId);
+        const tempMessageId = crypto.randomUUID();
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('roomId', room.id);
+        formData.append('messageId', tempMessageId);
 
-      const uploadResponse = await fetch('/api/media/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json().catch(() => ({ error: 'Erro desconhecido' }));
-        throw new Error(errorData.error || 'Erro ao fazer upload da foto');
-      }
-
-      const uploadData = await uploadResponse.json().catch(() => null);
-      if (!uploadData || !uploadData.url) {
-        throw new Error('Resposta inválida do servidor');
-      }
-
-      const { url } = uploadData;
-
-      const response = await fetch('/api/messages/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          roomId: room.id,
-          text,
-          mediaUrl: url,
-          mediaType: 'image',
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        
-        // Atualizar status da mensagem otimista para erro
-        setMessages((prev) => {
-          const updated = prev.map((msg) =>
-            msg.id === tempId
-              ? { ...msg, status: 'error' as const }
-              : msg
-          );
-          return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        const uploadResponse = await fetch('/api/media/upload', {
+          method: 'POST',
+          body: formData,
         });
 
-        toast({
-          title: 'Erro ao enviar foto',
-          description: data.error || 'Tente novamente',
-          variant: 'destructive',
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json().catch(() => ({ error: 'Erro desconhecido' }));
+          throw new Error(errorData.error || 'Erro ao fazer upload da foto');
+        }
+
+        const uploadData = await uploadResponse.json().catch(() => null);
+        if (!uploadData || !uploadData.url) {
+          throw new Error('Resposta inválida do servidor');
+        }
+
+        const { url } = uploadData;
+
+        const response = await fetch('/api/messages/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            roomId: room.id,
+            text,
+            mediaUrl: url,
+            mediaType: 'image',
+          }),
         });
-      } else {
-        const data = await response.json();
-        if (data.message?.id) {
-          // Atualizar mensagem otimista com ID real e URL do servidor
+
+        if (!response.ok) {
+          const data = await response.json();
+
+          // Atualizar status da mensagem otimista para erro
           setMessages((prev) => {
             const updated = prev.map((msg) =>
               msg.id === tempId
-                ? { ...msg, id: data.message.id, mediaUrl: url, status: 'sent' as const }
+                ? { ...msg, status: 'error' as const }
                 : msg
             );
-            const normalized = updated.map(msg => ({
-              ...msg,
-              timestamp: ensureDate(msg.timestamp)
-            }));
-            return sortMessagesByTimestamp(normalized);
+            return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
           });
-        }
-      }
-    } catch (error: any) {
-      // Atualizar status da mensagem otimista para erro
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === tempId
-            ? { ...msg, status: 'error' as const }
-            : msg
-        )
-      );
 
-      toast({
-        title: 'Erro ao enviar foto',
-        description: error.message || 'Ocorreu um erro inesperado',
-        variant: 'destructive',
-      });
+          toast({
+            title: 'Erro ao enviar foto',
+            description: data.error || 'Tente novamente',
+            variant: 'destructive',
+          });
+        } else {
+          const data = await response.json();
+          if (data.message?.id) {
+            // Atualizar mensagem otimista com ID real e URL do servidor
+            setMessages((prev) => {
+              const updated = prev.map((msg) =>
+                msg.id === tempId
+                  ? { ...msg, id: data.message.id, mediaUrl: url, status: 'sent' as const }
+                  : msg
+              );
+              const normalized = updated.map(msg => ({
+                ...msg,
+                timestamp: ensureDate(msg.timestamp)
+              }));
+              return sortMessagesByTimestamp(normalized);
+            });
+          }
+        }
+      } catch (error: any) {
+        // Atualizar status da mensagem otimista para erro
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempId
+              ? { ...msg, status: 'error' as const }
+              : msg
+          )
+        );
+
+        toast({
+          title: 'Erro ao enviar foto',
+          description: error.message || 'Ocorreu um erro inesperado',
+          variant: 'destructive',
+        });
       } finally {
         setIsSending(false);
       }
@@ -1201,7 +1206,7 @@ export default function ChatLayout({
 
       mediaRecorderRef.current.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        
+
         // Stop all tracks
         if (streamRef.current) {
           streamRef.current.getTracks().forEach((track) => track.stop());
@@ -1251,15 +1256,15 @@ export default function ChatLayout({
     const currentTime = recordingTime;
     const shouldCancel = shouldCancelRecording;
     setShouldCancelRecording(false);
-    
+
     const audioBlob = await stopAudioRecording();
-    
+
     // Cancel if user dragged away or recording was too short
     if (shouldCancel || !audioBlob || currentTime < 0.5) {
       cancelAudioRecording();
       return;
     }
-    
+
     // Send the audio
     await sendAudioMessage(audioBlob);
   };
@@ -1292,7 +1297,7 @@ export default function ChatLayout({
         timestamp: ensureDate(msg.timestamp)
       })));
     });
-    
+
     // 2. Fazer scroll para a nova mensagem imediatamente
     requestAnimationFrame(() => {
       if (messagesEndRef.current) {
@@ -1306,98 +1311,98 @@ export default function ChatLayout({
     // 4. Enviar para o servidor em segundo plano
     setTimeout(async () => {
       try {
-      // Convert blob to File
-      const audioFile = new File([audioBlob], `audio-${Date.now()}.webm`, {
-        type: 'audio/webm',
-      });
-
-      const tempMessageId = crypto.randomUUID();
-      const formData = new FormData();
-      formData.append('file', audioFile);
-      formData.append('roomId', room.id);
-      formData.append('messageId', tempMessageId);
-
-      const uploadResponse = await fetch('/api/media/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json().catch(() => ({ error: 'Erro desconhecido' }));
-        throw new Error(errorData.error || 'Erro ao fazer upload do áudio');
-      }
-
-      const uploadData = await uploadResponse.json().catch(() => null);
-      if (!uploadData || !uploadData.url) {
-        throw new Error('Resposta inválida do servidor');
-      }
-
-      const { url } = uploadData;
-
-      const response = await fetch('/api/messages/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          roomId: room.id,
-          text: '',
-          mediaUrl: url,
-          mediaType: 'audio',
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        
-        // Atualizar status da mensagem otimista para erro
-        setMessages((prev) => {
-          const updated = prev.map((msg) =>
-            msg.id === tempId
-              ? { ...msg, status: 'error' as const }
-              : msg
-          );
-          return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        // Convert blob to File
+        const audioFile = new File([audioBlob], `audio-${Date.now()}.webm`, {
+          type: 'audio/webm',
         });
 
-        toast({
-          title: 'Erro ao enviar áudio',
-          description: data.error || 'Tente novamente',
-          variant: 'destructive',
+        const tempMessageId = crypto.randomUUID();
+        const formData = new FormData();
+        formData.append('file', audioFile);
+        formData.append('roomId', room.id);
+        formData.append('messageId', tempMessageId);
+
+        const uploadResponse = await fetch('/api/media/upload', {
+          method: 'POST',
+          body: formData,
         });
-      } else {
-        const data = await response.json();
-        if (data.message?.id) {
-          // Atualizar mensagem otimista com ID real e URL do servidor
+
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json().catch(() => ({ error: 'Erro desconhecido' }));
+          throw new Error(errorData.error || 'Erro ao fazer upload do áudio');
+        }
+
+        const uploadData = await uploadResponse.json().catch(() => null);
+        if (!uploadData || !uploadData.url) {
+          throw new Error('Resposta inválida do servidor');
+        }
+
+        const { url } = uploadData;
+
+        const response = await fetch('/api/messages/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            roomId: room.id,
+            text: '',
+            mediaUrl: url,
+            mediaType: 'audio',
+          }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+
+          // Atualizar status da mensagem otimista para erro
           setMessages((prev) => {
             const updated = prev.map((msg) =>
               msg.id === tempId
-                ? { ...msg, id: data.message.id, mediaUrl: url, status: 'sent' as const }
+                ? { ...msg, status: 'error' as const }
                 : msg
             );
-            const normalized = updated.map(msg => ({
-              ...msg,
-              timestamp: ensureDate(msg.timestamp)
-            }));
-            return sortMessagesByTimestamp(normalized);
+            return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
           });
-        }
-      }
-    } catch (error: any) {
-      // Atualizar status da mensagem otimista para erro
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === tempId
-            ? { ...msg, status: 'error' as const }
-            : msg
-        )
-      );
 
-      toast({
-        title: 'Erro ao enviar áudio',
-        description: error.message || 'Ocorreu um erro inesperado',
-        variant: 'destructive',
-      });
+          toast({
+            title: 'Erro ao enviar áudio',
+            description: data.error || 'Tente novamente',
+            variant: 'destructive',
+          });
+        } else {
+          const data = await response.json();
+          if (data.message?.id) {
+            // Atualizar mensagem otimista com ID real e URL do servidor
+            setMessages((prev) => {
+              const updated = prev.map((msg) =>
+                msg.id === tempId
+                  ? { ...msg, id: data.message.id, mediaUrl: url, status: 'sent' as const }
+                  : msg
+              );
+              const normalized = updated.map(msg => ({
+                ...msg,
+                timestamp: ensureDate(msg.timestamp)
+              }));
+              return sortMessagesByTimestamp(normalized);
+            });
+          }
+        }
+      } catch (error: any) {
+        // Atualizar status da mensagem otimista para erro
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempId
+              ? { ...msg, status: 'error' as const }
+              : msg
+          )
+        );
+
+        toast({
+          title: 'Erro ao enviar áudio',
+          description: error.message || 'Ocorreu um erro inesperado',
+          variant: 'destructive',
+        });
       } finally {
         setIsSending(false);
       }
@@ -1417,7 +1422,7 @@ export default function ChatLayout({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isTyping: false }),
-      }).catch(() => {});
+      }).catch(() => { });
     };
   }, [room.id]);
 
@@ -1774,7 +1779,7 @@ export default function ChatLayout({
             )}
             <div className="flex flex-col min-w-0 flex-1">
               {otherUser ? (
-                <Link 
+                <Link
                   href={`/profile/${otherUser.id}`}
                   className="font-semibold text-xs sm:text-sm md:text-base truncate hover:underline"
                   title={otherUser.name}
@@ -1796,8 +1801,8 @@ export default function ChatLayout({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="icon"
                   onClick={() => setShowSearch(!showSearch)}
                   className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 touch-manipulation"
@@ -1837,8 +1842,8 @@ export default function ChatLayout({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="icon"
                     onClick={() => setShowRoomDetails(true)}
                     className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 touch-manipulation"
@@ -1901,11 +1906,11 @@ export default function ChatLayout({
 
       {/* Input Area - Fixed at bottom */}
       <footer className="fixed bottom-0 left-0 right-0 border-t-2 border-primary/30 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 shadow-md z-20 bg-background">
-            {isRecordingAudio && (
+        {isRecordingAudio && (
           <div className={cn(
             "px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 border-b flex items-center justify-between transition-colors",
-            shouldCancelRecording 
-              ? "bg-destructive/20" 
+            shouldCancelRecording
+              ? "bg-destructive/20"
               : "bg-destructive/10"
           )}>
             <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
@@ -1916,8 +1921,8 @@ export default function ChatLayout({
             </div>
             <span className={cn(
               "text-[10px] sm:text-xs md:text-sm font-medium truncate ml-2",
-              shouldCancelRecording 
-                ? "text-destructive" 
+              shouldCancelRecording
+                ? "text-destructive"
                 : "text-muted-foreground"
             )}>
               {shouldCancelRecording ? 'Solte para cancelar' : 'Solte para enviar'}
@@ -2032,7 +2037,7 @@ export default function ChatLayout({
                       if (isRecordingAudio && micButtonRef.current) {
                         const touch = e.touches[0];
                         const rect = micButtonRef.current.getBoundingClientRect();
-                        const isOutside = 
+                        const isOutside =
                           touch.clientX < rect.left ||
                           touch.clientX > rect.right ||
                           touch.clientY < rect.top ||
@@ -2101,12 +2106,12 @@ export default function ChatLayout({
               value={messageText}
               onChange={(e) => {
                 setMessageText(e.target.value);
-                
+
                 // Clear previous timeout
                 if (typingTimeoutRef.current) {
                   clearTimeout(typingTimeoutRef.current);
                 }
-                
+
                 // Update typing indicator with debounce (500ms)
                 typingTimeoutRef.current = setTimeout(() => {
                   if (e.target.value.trim().length > 0) {
@@ -2114,13 +2119,13 @@ export default function ChatLayout({
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ isTyping: true }),
-                    }).catch(() => {});
+                    }).catch(() => { });
                   } else {
                     fetch(`/api/typing/${room.id}`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ isTyping: false }),
-                    }).catch(() => {});
+                    }).catch(() => { });
                   }
                 }, 500);
               }}
@@ -2134,13 +2139,13 @@ export default function ChatLayout({
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ isTyping: false }),
-                }).catch(() => {});
+                }).catch(() => { });
               }}
               disabled={isSending || isRecordingAudio}
               className="w-full text-xs sm:text-sm md:text-base min-h-[36px] sm:min-h-[40px] md:min-h-[44px]"
             />
           </div>
-          
+
           {messageText.trim() && !isRecordingAudio ? (
             <Button type="submit" size="icon" disabled={isSending} className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 touch-manipulation flex-shrink-0">
               {isSending ? (

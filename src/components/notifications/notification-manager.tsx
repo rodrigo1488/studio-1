@@ -98,7 +98,7 @@ export function NotificationManager() {
     const cleanupChannels = async () => {
       const channelsToRemove = [...channelsRef.current];
       channelsRef.current = [];
-      
+
       for (const channel of channelsToRemove) {
         try {
           await supabase.removeChannel(channel);
@@ -111,12 +111,12 @@ export function NotificationManager() {
     // Função para criar subscription com retry
     const createSubscription = async (roomId: string, retries = 3): Promise<void> => {
       const channelName = `notifications:${roomId}`;
-      
+
       // Verificar se já existe um canal ativo para esta sala
       const existingChannelIndex = channelsRef.current.findIndex(
         (ch) => ch.topic === channelName
       );
-      
+
       if (existingChannelIndex !== -1) {
         const existingChannel = channelsRef.current[existingChannelIndex];
         // Verificar se o canal está realmente ativo antes de remover
@@ -126,7 +126,7 @@ export function NotificationManager() {
             console.log(`[Notifications] Channel already exists and is active (${channelState}) for room ${roomId}, skipping creation`);
             return; // Canal já existe e está ativo, não precisa criar novamente
           }
-          
+
           // Remover apenas se o canal estiver em estado de erro ou fechado
           console.log(`[Notifications] Removing existing channel in state ${channelState} for room ${roomId}`);
           await supabase.removeChannel(existingChannel);
@@ -147,10 +147,10 @@ export function NotificationManager() {
 
       try {
         console.log(`[Notifications] Creating channel for room: ${roomId} (${channelName})`);
-        
+
         // Usar UUID formatado corretamente no filtro
         const filter = `room_id=eq.${roomId}`;
-        
+
         const channel = supabase
           .channel(channelName, {
             config: {
@@ -167,180 +167,180 @@ export function NotificationManager() {
               filter: filter,
             },
             async (payload) => {
-            const newMessage = payload.new as any;
-            console.log(`[Notifications] New message received for room ${roomId}:`, {
-              messageId: newMessage.id,
-              senderId: newMessage.sender_id,
-              currentUserId,
-              roomId: newMessage.room_id
-            });
-            
-            // Verificar se a mensagem não é do próprio usuário
-            if (newMessage.sender_id === currentUserId) {
-              console.log(`[Notifications] Ignoring own message from ${currentUserId}`);
-              return;
-            }
+              const newMessage = payload.new as any;
+              console.log(`[Notifications] New message received for room ${roomId}:`, {
+                messageId: newMessage.id,
+                senderId: newMessage.sender_id,
+                currentUserId,
+                roomId: newMessage.room_id
+              });
 
-            // Verificar se estamos na sala atual (comparação exata)
-            const currentPath = window.location.pathname;
-            const isInCurrentRoom = currentPath === `/chat/${roomId}`;
-            if (isInCurrentRoom) {
-              console.log(`[Notifications] User is in current room ${roomId}, skipping notification`);
-              return; // Não mostrar notificação se estiver na sala
-            }
-
-            // Buscar informações do remetente
-            let senderData: User | null = getCachedUser(newMessage.sender_id);
-            if (!senderData) {
-              try {
-                const response = await fetch(`/api/users/${newMessage.sender_id}`);
-                if (response.ok) {
-                  const data = await response.json();
-                  senderData = data.user;
-                }
-              } catch (error) {
-                console.error('Error fetching sender:', error);
+              // Verificar se a mensagem não é do próprio usuário
+              if (newMessage.sender_id === currentUserId) {
+                console.log(`[Notifications] Ignoring own message from ${currentUserId}`);
+                return;
               }
-            }
 
-            // Buscar informações da sala ou conversa direta
-            let roomName = 'Sala';
-            const room = getCachedRoom(roomId);
-            if (room) {
-              roomName = room.name;
-              console.log(`[Notifications] Room found in cache: ${roomName}`);
-            } else {
-              // Verificar se é uma conversa direta (tenta buscar o outro usuário primeiro)
-              try {
-                console.log(`[Notifications] Room not in cache, checking if DM: ${roomId}`);
-                const otherUserResponse = await fetch(`/api/direct-conversations/${roomId}/other-user`);
-                if (otherUserResponse.ok) {
-                  const otherUserData = await otherUserResponse.json();
-                  if (otherUserData.user) {
-                    roomName = otherUserData.user.name || 'Conversa';
-                    console.log(`[Notifications] DM found, other user: ${roomName}`);
-                  }
-                } else {
-                  // Se não for conversa direta, tentar buscar como sala de grupo
-                  console.log(`[Notifications] Not a DM, checking as group room: ${roomId}`);
-                  const response = await fetch(`/api/rooms/${roomId}`);
+              // Verificar se estamos na sala atual (comparação exata)
+              const currentPath = window.location.pathname;
+              const isInCurrentRoom = currentPath === `/chat/${roomId}`;
+              if (isInCurrentRoom) {
+                console.log(`[Notifications] User is in current room ${roomId}, skipping notification`);
+                return; // Não mostrar notificação se estiver na sala
+              }
+
+              // Buscar informações do remetente
+              let senderData: User | null = getCachedUser(newMessage.sender_id);
+              if (!senderData) {
+                try {
+                  const response = await fetch(`/api/users/${newMessage.sender_id}`);
                   if (response.ok) {
                     const data = await response.json();
-                    roomName = data.room?.name || 'Sala';
-                    console.log(`[Notifications] Group room found: ${roomName}`);
-                  } else {
-                    console.warn(`[Notifications] Room not found: ${roomId}`);
-                    // Fallback: usar nome do remetente se disponível
-                    if (senderData) {
-                      roomName = senderData.name;
-                    }
+                    senderData = data.user;
                   }
-                }
-              } catch (error) {
-                console.error(`[Notifications] Error fetching room/conversation info for ${roomId}:`, error);
-                // Fallback: usar nome do remetente se disponível
-                if (senderData) {
-                  roomName = senderData.name;
+                } catch (error) {
+                  console.error('Error fetching sender:', error);
                 }
               }
+
+              // Buscar informações da sala ou conversa direta
+              let roomName = 'Sala';
+              const room = getCachedRoom(roomId);
+              if (room) {
+                roomName = room.name;
+                console.log(`[Notifications] Room found in cache: ${roomName}`);
+              } else {
+                // Verificar se é uma conversa direta (tenta buscar o outro usuário primeiro)
+                try {
+                  console.log(`[Notifications] Room not in cache, checking if DM: ${roomId}`);
+                  const otherUserResponse = await fetch(`/api/direct-conversations/${roomId}/other-user`);
+                  if (otherUserResponse.ok) {
+                    const otherUserData = await otherUserResponse.json();
+                    if (otherUserData.user) {
+                      roomName = otherUserData.user.name || 'Conversa';
+                      console.log(`[Notifications] DM found, other user: ${roomName}`);
+                    }
+                  } else {
+                    // Se não for conversa direta, tentar buscar como sala de grupo
+                    console.log(`[Notifications] Not a DM, checking as group room: ${roomId}`);
+                    const response = await fetch(`/api/rooms/${roomId}`);
+                    if (response.ok) {
+                      const data = await response.json();
+                      roomName = data.room?.name || 'Sala';
+                      console.log(`[Notifications] Group room found: ${roomName}`);
+                    } else {
+                      console.warn(`[Notifications] Room not found: ${roomId}`);
+                      // Fallback: usar nome do remetente se disponível
+                      if (senderData) {
+                        roomName = senderData.name;
+                      }
+                    }
+                  }
+                } catch (error) {
+                  console.error(`[Notifications] Error fetching room/conversation info for ${roomId}:`, error);
+                  // Fallback: usar nome do remetente se disponível
+                  if (senderData) {
+                    roomName = senderData.name;
+                  }
+                }
+              }
+
+              // Validar dados antes de criar notificação
+              if (!senderData) {
+                console.warn(`[Notifications] Sender data not available for message from ${newMessage.sender_id}`);
+                return;
+              }
+
+              try {
+                // Converter mensagem para formato do app
+                const appMessage = convertMessageToAppFormat(newMessage, senderData);
+
+                // Adicionar ao storage
+                addNotification(roomId, appMessage, senderData);
+
+                // Criar notificação
+                const notification: NotificationItem = {
+                  roomId,
+                  roomName,
+                  sender: senderData,
+                  message: appMessage,
+                  timestamp: Date.now(),
+                };
+
+                console.log(`[Notifications] Showing notification for room ${roomId} (${roomName}) from ${senderData.name}`);
+
+                // Mostrar popup
+                setActiveNotification(notification);
+              } catch (error) {
+                console.error(`[Notifications] Error processing notification for room ${roomId}:`, error);
+              }
             }
+          )
+          .subscribe((status, err) => {
+            if (status === 'SUBSCRIBED') {
+              console.log(`[Notifications] ✅ Successfully subscribed to room: ${roomId}`);
+              if (channel && !channelsRef.current.includes(channel)) {
+                channelsRef.current.push(channel);
+              }
+            } else if (status === 'CHANNEL_ERROR') {
+              // Verificar se o erro é realmente crítico ou apenas um estado transitório
+              const errorMessage = err?.message || String(err || '');
 
-            // Validar dados antes de criar notificação
-            if (!senderData) {
-              console.warn(`[Notifications] Sender data not available for message from ${newMessage.sender_id}`);
-              return;
-            }
+              // Ignorar erros de conexão transitórios que serão resolvidos automaticamente
+              if (errorMessage.includes('connection') || errorMessage.includes('timeout')) {
+                console.warn(`[Notifications] ⚠️ Transient connection error for room ${roomId}, will retry:`, errorMessage);
+              } else {
+                console.error(`[Notifications] ❌ Error subscribing to room ${roomId}:`, status, errorMessage);
+              }
 
-            try {
-              // Converter mensagem para formato do app
-              const appMessage = convertMessageToAppFormat(newMessage, senderData);
+              // Tentar novamente se houver tentativas restantes
+              if (retries > 0) {
+                const delay = Math.min(2000 * (4 - retries), 5000); // Backoff exponencial até 5s
+                console.log(`[Notifications] Retrying subscription for room ${roomId}... (${retries} retries left, delay: ${delay}ms)`);
+                setTimeout(() => {
+                  createSubscription(roomId, retries - 1);
+                }, delay);
+              } else {
+                console.warn(`[Notifications] Failed to subscribe to room ${roomId} after all retries. This may be a temporary issue.`);
+              }
+            } else if (status === 'TIMED_OUT') {
+              console.warn(`[Notifications] ⚠️ Timeout subscribing to room ${roomId}, retrying...`);
 
-              // Adicionar ao storage
-              addNotification(roomId, appMessage);
+              // Tentar novamente se houver tentativas restantes
+              if (retries > 0) {
+                const delay = Math.min(2000 * (4 - retries), 5000);
+                setTimeout(() => {
+                  createSubscription(roomId, retries - 1);
+                }, delay);
+              } else {
+                console.warn(`[Notifications] Timeout for room ${roomId} after all retries`);
+              }
+            } else if (status === 'CLOSED') {
+              // CLOSED pode ser um estado transitório normal - tentar recriar a subscription
+              console.warn(`[Notifications] ⚠️ Channel closed for room ${roomId}, attempting to reconnect...`);
 
-              // Criar notificação
-              const notification: NotificationItem = {
-                roomId,
-                roomName,
-                sender: senderData,
-                message: appMessage,
-                timestamp: Date.now(),
-              };
-
-              console.log(`[Notifications] Showing notification for room ${roomId} (${roomName}) from ${senderData.name}`);
-              
-              // Mostrar popup
-              setActiveNotification(notification);
-            } catch (error) {
-              console.error(`[Notifications] Error processing notification for room ${roomId}:`, error);
-            }
-          }
-        )
-        .subscribe((status, err) => {
-          if (status === 'SUBSCRIBED') {
-            console.log(`[Notifications] ✅ Successfully subscribed to room: ${roomId}`);
-            if (channel && !channelsRef.current.includes(channel)) {
-              channelsRef.current.push(channel);
-            }
-          } else if (status === 'CHANNEL_ERROR') {
-            // Verificar se o erro é realmente crítico ou apenas um estado transitório
-            const errorMessage = err?.message || String(err || '');
-            
-            // Ignorar erros de conexão transitórios que serão resolvidos automaticamente
-            if (errorMessage.includes('connection') || errorMessage.includes('timeout')) {
-              console.warn(`[Notifications] ⚠️ Transient connection error for room ${roomId}, will retry:`, errorMessage);
+              // Tentar novamente se houver tentativas restantes
+              if (retries > 0) {
+                const delay = Math.min(2000 * (4 - retries), 5000);
+                setTimeout(() => {
+                  createSubscription(roomId, retries - 1);
+                }, delay);
+              } else {
+                console.warn(`[Notifications] Channel for room ${roomId} closed after all retries - will retry on next message`);
+              }
             } else {
-              console.error(`[Notifications] ❌ Error subscribing to room ${roomId}:`, status, errorMessage);
+              // Outros status como 'JOINING', 'LEAVING' são normais e não precisam de ação
+              if (status !== 'JOINING' && status !== 'LEAVING') {
+                console.warn(`[Notifications] ⚠️ Channel status for room ${roomId}: ${status}`, err);
+              }
             }
-            
-            // Tentar novamente se houver tentativas restantes
-            if (retries > 0) {
-              const delay = Math.min(2000 * (4 - retries), 5000); // Backoff exponencial até 5s
-              console.log(`[Notifications] Retrying subscription for room ${roomId}... (${retries} retries left, delay: ${delay}ms)`);
-              setTimeout(() => {
-                createSubscription(roomId, retries - 1);
-              }, delay);
-            } else {
-              console.warn(`[Notifications] Failed to subscribe to room ${roomId} after all retries. This may be a temporary issue.`);
-            }
-          } else if (status === 'TIMED_OUT') {
-            console.warn(`[Notifications] ⚠️ Timeout subscribing to room ${roomId}, retrying...`);
-            
-            // Tentar novamente se houver tentativas restantes
-            if (retries > 0) {
-              const delay = Math.min(2000 * (4 - retries), 5000);
-              setTimeout(() => {
-                createSubscription(roomId, retries - 1);
-              }, delay);
-            } else {
-              console.warn(`[Notifications] Timeout for room ${roomId} after all retries`);
-            }
-          } else if (status === 'CLOSED') {
-            // CLOSED pode ser um estado transitório normal - tentar recriar a subscription
-            console.warn(`[Notifications] ⚠️ Channel closed for room ${roomId}, attempting to reconnect...`);
-            
-            // Tentar novamente se houver tentativas restantes
-            if (retries > 0) {
-              const delay = Math.min(2000 * (4 - retries), 5000);
-              setTimeout(() => {
-                createSubscription(roomId, retries - 1);
-              }, delay);
-            } else {
-              console.warn(`[Notifications] Channel for room ${roomId} closed after all retries - will retry on next message`);
-            }
-          } else {
-            // Outros status como 'JOINING', 'LEAVING' são normais e não precisam de ação
-            if (status !== 'JOINING' && status !== 'LEAVING') {
-              console.warn(`[Notifications] ⚠️ Channel status for room ${roomId}: ${status}`, err);
-            }
-          }
-        });
+          });
 
         // Aguardar um pouco antes de criar o próximo canal para evitar sobrecarga
         await new Promise((resolve) => setTimeout(resolve, 100));
       } catch (error) {
         console.error(`[Notifications] Error creating channel for room ${roomId}:`, error);
-        
+
         // Tentar novamente se houver tentativas restantes
         if (retries > 0) {
           console.log(`[Notifications] Retrying channel creation for room ${roomId}... (${retries} retries left)`);
@@ -472,7 +472,7 @@ export function NotificationManager() {
         },
         async (payload) => {
           const newPost = payload.new as any;
-          
+
           // Não notificar se for o próprio post do usuário
           if (newPost.user_id === currentUserId) {
             return;
@@ -547,7 +547,7 @@ export function NotificationManager() {
         },
         async (payload) => {
           const newStory = payload.new as any;
-          
+
           // Não notificar se for a própria story do usuário
           if (newStory.user_id === currentUserId) {
             return;
@@ -868,7 +868,7 @@ export function NotificationManager() {
     const handleServiceWorkerMessage = (event: MessageEvent) => {
       if (event.data && event.data.type === 'PLAY_NOTIFICATION_SOUND') {
         const soundUrl = event.data.soundUrl || '/notification-sound.mp3';
-        
+
         // Play sound
         try {
           const audio = new Audio(soundUrl);

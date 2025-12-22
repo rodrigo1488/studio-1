@@ -1,4 +1,4 @@
-import type { Message } from '@/lib/data';
+import type { Message, User } from '@/lib/data';
 
 const NOTIFICATIONS_KEY = 'chat_notifications';
 const UNREAD_COUNTS_KEY = 'chat_unread_counts';
@@ -45,17 +45,19 @@ export function getNotifications(): NotificationData[] {
 /**
  * Add a notification (message)
  */
-export function addNotification(roomId: string, message: Message): void {
+export function addNotification(roomId: string, message: Message, sender?: User): void {
   try {
     const notifications = getNotifications();
 
-    // Add new notification (mantemos histórico; leituras são controladas por `read`)
+    // Add new notification (keep history; reads are tracked by `read`)
     const newNotification: NotificationData = {
       type: 'message',
       roomId,
       message,
       userId: message.senderId,
-      title: 'Nova mensagem',
+      userName: sender?.name || 'Usuário',
+      userAvatar: sender?.avatarUrl,
+      title: sender?.name || 'Nova mensagem',
       body: message.text || (message.mediaType ? '📷 Mídia' : 'Nova mensagem'),
       timestamp: Date.now(),
       read: false,
@@ -67,10 +69,10 @@ export function addNotification(roomId: string, message: Message): void {
     const limited = notifications.slice(-100);
 
     localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(limited));
-    
-    // Dispatch event for UI updates (sino, listas, badges, etc.)
+
+    // Dispatch event for UI updates (bell, lists, badges, etc.)
     window.dispatchEvent(new CustomEvent('notificationAdded', { detail: newNotification }));
-    // Notificar listeners de contagem de não lidas
+    // Notify listeners of unread count
     window.dispatchEvent(
       new CustomEvent('unreadCountUpdated', {
         detail: { roomId, count: getUnreadCount(roomId) },
@@ -94,10 +96,10 @@ export function addPostNotification(
 ): void {
   try {
     const notifications = getNotifications();
-    
+
     // Remove old notifications for this post
     const filtered = notifications.filter(n => n.postId !== postId || n.type !== 'post');
-    
+
     // Add new notification
     const newNotification: NotificationData = {
       type: 'post',
@@ -110,14 +112,14 @@ export function addPostNotification(
       timestamp: Date.now(),
       read: false,
     };
-    
+
     filtered.push(newNotification);
-    
+
     // Keep only last 100 notifications
     const limited = filtered.slice(-100);
-    
+
     localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(limited));
-    
+
     // Dispatch event for UI updates
     window.dispatchEvent(new CustomEvent('notificationAdded', { detail: newNotification }));
   } catch (error) {
@@ -138,10 +140,10 @@ export function addStoryNotification(
 ): void {
   try {
     const notifications = getNotifications();
-    
+
     // Remove old notifications for this story
     const filtered = notifications.filter(n => n.storyId !== storyId || n.type !== 'story');
-    
+
     // Add new notification
     const newNotification: NotificationData = {
       type: 'story',
@@ -154,14 +156,14 @@ export function addStoryNotification(
       timestamp: Date.now(),
       read: false,
     };
-    
+
     filtered.push(newNotification);
-    
+
     // Keep only last 100 notifications
     const limited = filtered.slice(-100);
-    
+
     localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(limited));
-    
+
     // Dispatch event for UI updates
     window.dispatchEvent(new CustomEvent('notificationAdded', { detail: newNotification }));
   } catch (error) {
@@ -183,12 +185,12 @@ export function addPostLikeNotification(
 ): void {
   try {
     const notifications = getNotifications();
-    
+
     // Remove old notifications for this like (idempotência)
     const filtered = notifications.filter(
       (n) => n.likeId !== likeId || n.type !== 'post_like'
     );
-    
+
     const newNotification: NotificationData = {
       type: 'post_like',
       postId,
@@ -201,14 +203,14 @@ export function addPostLikeNotification(
       timestamp: Date.now(),
       read: false,
     };
-    
+
     filtered.push(newNotification);
-    
+
     // Keep only last 100 notifications
     const limited = filtered.slice(-100);
-    
+
     localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(limited));
-    
+
     // Dispatch event for UI updates
     window.dispatchEvent(new CustomEvent('notificationAdded', { detail: newNotification }));
   } catch (error) {
@@ -230,12 +232,12 @@ export function addMentionNotification(
 ): void {
   try {
     const notifications = getNotifications();
-    
+
     // Remove old notifications for this mention (idempotência)
     const filtered = notifications.filter(
       (n) => n.mentionId !== mentionId || n.type !== 'mention'
     );
-    
+
     const newNotification: NotificationData = {
       type: 'mention',
       postId,
@@ -248,14 +250,14 @@ export function addMentionNotification(
       timestamp: Date.now(),
       read: false,
     };
-    
+
     filtered.push(newNotification);
-    
+
     // Keep only last 100 notifications
     const limited = filtered.slice(-100);
-    
+
     localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(limited));
-    
+
     // Dispatch event for UI updates
     window.dispatchEvent(new CustomEvent('notificationAdded', { detail: newNotification }));
   } catch (error) {
@@ -269,7 +271,7 @@ export function addMentionNotification(
 export function markNotificationsAsRead(roomId: string): void {
   try {
     const notifications = getNotifications();
-    const updated = notifications.map(n => 
+    const updated = notifications.map(n =>
       n.roomId === roomId ? { ...n, read: true } : n
     );
     localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(updated));

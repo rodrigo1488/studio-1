@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation';
 import type { Room, Message, User } from '@/lib/data';
 import { getCachedMessages, saveMessagesToCache } from '@/lib/storage/messages-cache';
 import { markNotificationsAsRead } from '@/lib/storage/notifications';
-import { 
-  getCachedRoom, 
-  saveRoomToCache, 
-  getCachedCurrentUser, 
+import {
+  getCachedRoom,
+  saveRoomToCache,
+  getCachedCurrentUser,
   saveCurrentUserToCache,
   getCachedUser,
   saveUsersToCache
@@ -32,7 +32,7 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
           credentials: 'include',
           cache: 'no-store', // Não usar cache do navegador
         });
-        
+
         if (!userResponse.ok) {
           // Se não autenticado, limpar cache e redirecionar
           const { clearAllCache } = await import('@/lib/storage/clear-all-cache');
@@ -40,10 +40,10 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
           router.push('/login');
           return;
         }
-        
+
         const userData = await userResponse.json();
         const currentUserData = userData.user;
-        
+
         // Validar que temos um usuário válido
         if (!currentUserData || !currentUserData.id) {
           console.error('[Chat] Invalid user data from server');
@@ -52,7 +52,7 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
           router.push('/login');
           return;
         }
-        
+
         // Atualizar cache com o usuário correto
         saveCurrentUserToCache(currentUserData);
         setCurrentUser(currentUserData);
@@ -80,16 +80,16 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
         const messagesResponse = await fetch(`/api/messages/room/${roomId}?limit=50`);
         if (messagesResponse.ok) {
           const messagesData = await messagesResponse.json();
-          
+
           // Ensure messages have proper Date objects for timestamps
           const normalizedMessages = (messagesData.messages as Message[]).map((msg: Message) => ({
             ...msg,
             timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp as string | number),
           }));
-          
+
           // Get unique sender IDs for new messages
           const senderIds = [...new Set(normalizedMessages.map((msg: Message) => msg.senderId).filter(Boolean))] as string[];
-          
+
           // Try cache first
           let usersMap: Record<string, User> = {};
           senderIds.forEach((id: string) => {
@@ -98,7 +98,7 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
               usersMap[id] = cachedUser;
             }
           });
-          
+
           // Only fetch missing users
           const missingUserIds = senderIds.filter((id: string) => !usersMap[id]);
           if (missingUserIds.length > 0) {
@@ -119,7 +119,7 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
               console.error('Error fetching users in batch:', error);
             }
           }
-          
+
           // Map messages with users, remove duplicates, and sort by timestamp
           const messagesWithUsers = normalizedMessages
             .map((msg: Message) => ({
@@ -127,7 +127,7 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
               senderId: msg.senderId, // SEMPRE usar o senderId do servidor
               user: usersMap[msg.senderId],
             }))
-            .filter((msg, index, self) => 
+            .filter((msg, index, self) =>
               index === self.findIndex(m => m.id === msg.id)
             )
             .sort((a, b) => {
@@ -135,10 +135,10 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
               const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
               return timeA - timeB;
             });
-          
+
           // Save to cache (already sorted)
           saveMessagesToCache(roomId, messagesWithUsers);
-          
+
           setMessages(messagesWithUsers);
         } else {
           // If server fails, try to use cache as fallback
@@ -146,7 +146,7 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
           if (cachedData && cachedData.messages.length > 0) {
             // Get unique sender IDs from cache
             const senderIds = [...new Set(cachedData.messages.map((msg: Message) => msg.senderId).filter(Boolean))];
-            
+
             // Try to get users from cache first
             let usersMap: Record<string, User> = {};
             senderIds.forEach((id: string) => {
@@ -155,7 +155,7 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
                 usersMap[id] = cachedUser;
               }
             });
-            
+
             // Map cached messages with users and ensure proper Date objects
             // IMPORTANTE: Usar apenas o currentUserData do servidor, não do cache
             const cachedWithUsers = cachedData.messages
@@ -172,7 +172,7 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
                 const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
                 return timeA - timeB;
               });
-            
+
             setMessages(cachedWithUsers);
           }
         }
@@ -199,7 +199,7 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
 
   return (
     <div className="flex h-[calc(100vh-4rem-3rem)] flex-col">
-      <ChatLayout room={room} messages={messages} currentUser={currentUser} />
+      <ChatLayout key={room.id} room={room} messages={messages} currentUser={currentUser} />
     </div>
   );
 }

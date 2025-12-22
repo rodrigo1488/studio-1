@@ -111,27 +111,76 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
     setIsSubmitting(true);
 
     try {
-      const formData = new FormData();
-      if (description.trim()) {
-        formData.append('description', description.trim());
+      // 1. Upload files first
+      const uploadedMedia: Array<{ url: string; type: 'image' | 'video'; orderIndex: number }> = [];
+
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+
+        // Get signed upload URL
+        const uploadUrlResponse = await fetch('/api/feed/upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            fileType: file.type,
+          }),
+        });
+
+        if (!uploadUrlResponse.ok) {
+          throw new Error(`Failed to get upload URL for ${file.name}`);
+        }
+
+        const { signedUrl, publicUrl } = await uploadUrlResponse.json();
+
+        // Upload file to signed URL
+        const uploadResponse = await fetch(signedUrl, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type,
+          },
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error(`Failed to upload ${file.name}`);
+        }
+
+        uploadedMedia.push({
+          url: publicUrl,
+          type: 'image', // We only support images for now in this UI
+          orderIndex: i,
+        });
       }
-      if (selectedUsers.length > 0) {
-        formData.append('mentionedUserIds', JSON.stringify(selectedUsers.map((u) => u.id)));
-      }
-      selectedFiles.forEach((file) => {
-        formData.append('files', file);
-      });
+
+      // 2. Create post with media URLs
+      const payload = {
+        description: description.trim(),
+        mentionedUserIds: selectedUsers.map(u => u.id),
+        media: uploadedMedia,
+      };
 
       const response = await fetch('/api/feed/create', {
         method: 'POST',
-        body: formData,
-        // Don't set Content-Type header, browser will set it with boundary for FormData
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        const errorMessage = data.error || 'Erro ao criar post';
-        const errorDetails = data.details ? `\n\nDetalhes: ${data.details}` : '';
+        // Safe error parsing to avoid crashing on non-JSON response (like 403 Forbidden text)
+        let errorMessage = 'Erro ao criar post';
+        let errorDetails = '';
+        try {
+          const data = await response.json();
+          errorMessage = data.error || errorMessage;
+          errorDetails = data.details ? `\n\nDetalhes: ${data.details}` : '';
+        } catch (e) {
+          // If JSON parse fails, read text
+          const text = await response.text();
+          if (text) errorMessage = `Erro do servidor: ${text.slice(0, 100)}`;
+        }
         throw new Error(errorMessage + errorDetails);
       }
 
@@ -164,6 +213,7 @@ export function CreatePost({ open, onClose, onPostCreated }: CreatePostProps) {
       onPostCreated();
       onClose();
     } catch (error: any) {
+      console.error('Submit error:', error);
       toast({
         title: 'Erro ao criar post',
         description: error.message || 'Ocorreu um erro ao criar o post.',
