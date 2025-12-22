@@ -43,9 +43,9 @@ async function sendWithRetry(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      // TTL curto e urgência alta para entrega rápida
+      // TTL de 24 horas e urgência alta para garantir entrega mesmo se offline
       const options: webpush.RequestOptions = {
-        TTL: 60, // segundos
+        TTL: 86400, // 24 horas (86400 segundos)
         urgency: 'high',
       };
 
@@ -96,7 +96,7 @@ export async function sendPushNotification(
     let vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
     let vapidEmail = process.env.VAPID_EMAIL || 'mailto:admin@familychat.com';
-    
+
     // Ensure VAPID email is in correct format (mailto:email@domain.com)
     if (vapidEmail && !vapidEmail.startsWith('mailto:')) {
       vapidEmail = `mailto:${vapidEmail}`;
@@ -110,14 +110,14 @@ export async function sendPushNotification(
     // VAPID keys should be URL-safe Base64 without padding
     // Remove any whitespace and normalize format
     let normalizedPublicKey = vapidPublicKey.trim();
-    
+
     // If key has standard Base64 characters (+ and /), convert to URL-safe
     if (normalizedPublicKey.includes('+') || normalizedPublicKey.includes('/')) {
       normalizedPublicKey = normalizedPublicKey
         .replace(/\+/g, '-') // Replace + with -
         .replace(/\//g, '_'); // Replace / with _
     }
-    
+
     // Remove padding (=) if present
     normalizedPublicKey = normalizedPublicKey.replace(/=/g, '');
 
@@ -128,9 +128,9 @@ export async function sendPushNotification(
     } catch (error: any) {
       console.error('[Push] Error setting VAPID details:', error.message);
       console.error('[Push] Public key (first 20 chars):', normalizedPublicKey.substring(0, 20));
-      return { 
-        success: false, 
-        error: `Invalid VAPID keys: ${error.message}. Please regenerate keys using: node GERAR_VAPID_KEYS.js` 
+      return {
+        success: false,
+        error: `Invalid VAPID keys: ${error.message}. Please regenerate keys using: node GERAR_VAPID_KEYS.js`
       };
     }
 
@@ -262,16 +262,16 @@ export async function sendPushNotification(
     const failures = results.filter((r) => r.status === 'rejected');
     if (failures.length > 0) {
       console.error('[Push] Some push notifications failed:', failures.length);
-      
+
       // Remove invalid subscriptions
       const endpointsToRemove: string[] = [];
-      
+
       for (const failure of failures) {
         if (failure.status === 'rejected') {
           const error = failure.reason as any;
           const statusCode = error.statusCode || error.status;
           const endpoint = error.endpoint;
-          
+
           // Remove subscriptions that are:
           // - 410: Gone (expired)
           // - 404: Not found
@@ -284,14 +284,14 @@ export async function sendPushNotification(
           }
         }
       }
-      
+
       // Remove all invalid subscriptions in batch
       if (endpointsToRemove.length > 0) {
         const { error: deleteError } = await supabaseAdmin
           .from('push_subscriptions')
           .delete()
           .in('endpoint', endpointsToRemove);
-        
+
         if (deleteError) {
           console.error('[Push] Error removing invalid subscriptions:', deleteError);
         } else {
@@ -310,12 +310,12 @@ export async function sendPushNotification(
         }
         return false;
       });
-      
+
       if (allNoSubscriptions) {
         // This is expected - user hasn't enabled notifications
         return { success: false, error: 'No subscriptions found for user' };
       }
-      
+
       return { success: false, error: 'All push notifications failed' };
     }
 
