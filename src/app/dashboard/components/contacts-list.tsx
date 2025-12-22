@@ -300,7 +300,7 @@ export default function ContactsList() {
                             </Avatar>
                           </Link>
                           <div className="min-w-0 flex-1 overflow-hidden">
-                            <Link 
+                            <Link
                               href={`/profile/${user.id}`}
                               className="font-medium truncate text-sm sm:text-base hover:underline block"
                               title={user.name}
@@ -378,84 +378,84 @@ export default function ContactsList() {
       ) : (
         <div className="space-y-2 h-full overflow-y-auto">
           {contacts.map((contact, index) => {
-          const rainbowColors = [
-            'border-[#3B82F6]',
-            'border-[#EC4899]',
-            'border-[#10B981]',
-            'border-[#F59E0B]',
-            'border-[#8B5CF6]',
-            'border-[#EF4444]',
-          ];
-          const borderColor = rainbowColors[index % rainbowColors.length];
-          
-          return (
-          <div
-            key={contact.id}
-            className={cn(
-              "flex items-center gap-1.5 sm:gap-2 md:gap-3 p-1.5 sm:p-2 md:p-3 rounded-lg sm:rounded-xl border-2 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5",
-              borderColor,
-              "bg-gradient-to-r from-white to-primary/5"
-            )}
-          >
-            <Link href={`/profile/${contact.id}`} className="hover:opacity-80 transition-opacity shrink-0">
-              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 cursor-pointer">
-                <AvatarImage src={contact.avatarUrl} />
-                <AvatarFallback className="text-xs sm:text-sm">{getInitials(contact.name)}</AvatarFallback>
-              </Avatar>
-            </Link>
-            <div className="flex-1 min-w-0 overflow-hidden">
-              <Link 
-                href={`/profile/${contact.id}`}
-                className="font-medium truncate text-xs sm:text-sm md:text-base hover:underline block"
-                title={contact.name}
-              >
-                {contact.name}
-              </Link>
-              {contact.nickname && (
-                <p className="text-[10px] sm:text-xs text-muted-foreground truncate" title={`@${contact.nickname}`}>
-                  @{contact.nickname}
-                </p>
-              )}
-            </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 p-0"
-              onClick={async () => {
-                try {
-                  const response = await fetch('/api/direct-conversations/create', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ otherUserId: contact.id }),
-                  });
+            const rainbowColors = [
+              'border-[#3B82F6]',
+              'border-[#EC4899]',
+              'border-[#10B981]',
+              'border-[#F59E0B]',
+              'border-[#8B5CF6]',
+              'border-[#EF4444]',
+            ];
+            const borderColor = rainbowColors[index % rainbowColors.length];
 
-                  if (response.ok) {
-                    const data = await response.json();
-                    router.push(`/chat/${data.conversationId}`);
-                  } else {
-                    const data = await response.json();
-                    toast({
-                      title: 'Erro ao iniciar conversa',
-                      description: data.error || 'Não foi possível iniciar a conversa',
-                      variant: 'destructive',
-                    });
-                  }
-                } catch (error) {
-                  toast({
-                    title: 'Erro ao iniciar conversa',
-                    description: 'Ocorreu um erro inesperado',
-                    variant: 'destructive',
-                  });
-                }
-              }}
-            >
-              <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
-            </Button>
-          </div>
-          );
-        })}
+            return (
+              <div
+                key={contact.id}
+                className={cn(
+                  "flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5",
+                  borderColor,
+                  "bg-gradient-to-r from-background via-secondary/5 to-primary/5 hover:from-secondary/10"
+                )}
+              >
+                <Link href={`/profile/${contact.id}`} className="hover:opacity-80 transition-opacity shrink-0">
+                  <Avatar className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 cursor-pointer">
+                    <AvatarImage src={contact.avatarUrl} />
+                    <AvatarFallback className="text-xs sm:text-sm">{getInitials(contact.name)}</AvatarFallback>
+                  </Avatar>
+                </Link>
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <Link
+                    href={`/profile/${contact.id}`}
+                    className="font-medium truncate text-xs sm:text-sm md:text-base hover:underline block"
+                    title={contact.name}
+                  >
+                    {contact.name}
+                  </Link>
+                  {contact.nickname && (
+                    <p className="text-[10px] sm:text-xs text-muted-foreground truncate" title={`@${contact.nickname}`}>
+                      @{contact.nickname}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 p-0"
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/direct-conversations/create', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ otherUserId: contact.id }),
+                      });
+
+                      if (response.ok) {
+                        const data = await response.json();
+                        router.push(`/chat/${data.conversationId}`);
+                      } else {
+                        const data = await response.json();
+                        toast({
+                          title: 'Erro ao iniciar conversa',
+                          description: data.error || 'Não foi possível iniciar a conversa',
+                          variant: 'destructive',
+                        });
+                      }
+                    } catch (error) {
+                      toast({
+                        title: 'Erro ao iniciar conversa',
+                        description: 'Ocorreu um erro inesperado',
+                        variant: 'destructive',
+                      });
+                    }
+                  }}
+                >
+                  <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
+                </Button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
