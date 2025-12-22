@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -12,22 +13,30 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function JoinRoomPage() {
+function JoinRoomContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [code, setCode] = useState('');
+
+  useEffect(() => {
+    const codeParam = searchParams.get('code');
+    if (codeParam) {
+      setCode(codeParam);
+    }
+  }, [searchParams]);
 
   const handleJoinRoom = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const code = formData.get('room-code') as string;
+    const roomCode = formData.get('room-code') as string;
 
     try {
       const response = await fetch('/api/rooms/join', {
@@ -35,7 +44,7 @@ export default function JoinRoomPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ code: code.toUpperCase() }),
+        body: JSON.stringify({ code: roomCode.toUpperCase() }),
       });
 
       const data = await response.json();
@@ -69,7 +78,7 @@ export default function JoinRoomPage() {
 
   return (
     <div className="container mx-auto max-w-lg">
-       <Button variant="ghost" asChild className="mb-4">
+      <Button variant="ghost" asChild className="mb-4">
         <Link href="/dashboard">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar
@@ -93,6 +102,8 @@ export default function JoinRoomPage() {
                 placeholder="Ex: A4B2C"
                 required
                 disabled={isLoading}
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
                 className="uppercase tracking-widest text-center text-lg h-12"
               />
             </div>
@@ -106,5 +117,17 @@ export default function JoinRoomPage() {
         </form>
       </Card>
     </div>
+  );
+}
+
+export default function JoinRoomPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <JoinRoomContent />
+    </Suspense>
   );
 }
