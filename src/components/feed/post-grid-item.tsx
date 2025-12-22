@@ -4,8 +4,8 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import type { Post } from '@/lib/data';
-import { PostModal } from './post-modal';
 import { Heart, MessageCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface PostGridItemProps {
   post: Post;
@@ -16,8 +16,8 @@ interface PostGridItemProps {
 }
 
 export function PostGridItem({ post, currentUserId, onLike, onDelete, onEdit }: PostGridItemProps) {
-  const [showModal, setShowModal] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const router = useRouter();
 
   const firstImage = post.media[0];
   const hasMultipleImages = post.media.length > 1;
@@ -30,7 +30,7 @@ export function PostGridItem({ post, currentUserId, onLike, onDelete, onEdit }: 
         className="relative aspect-square w-full cursor-pointer group overflow-hidden rounded-md sm:rounded-lg"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        onClick={() => setShowModal(true)}
+        onClick={() => router.push(`/feed/${post.id}`)}
         onTouchStart={() => setIsHovered(true)}
         onTouchEnd={() => setIsHovered(false)}
       >
@@ -40,7 +40,7 @@ export function PostGridItem({ post, currentUserId, onLike, onDelete, onEdit }: 
           fill
           className="object-cover transition-transform duration-300 group-hover:scale-110"
         />
-        
+
         {/* Overlay on hover - apenas desktop */}
         <div
           className={cn(
@@ -77,17 +77,6 @@ export function PostGridItem({ post, currentUserId, onLike, onDelete, onEdit }: 
           </div>
         )}
       </div>
-
-      {showModal && (
-        <PostModal
-          post={post}
-          currentUserId={currentUserId}
-          onClose={() => setShowModal(false)}
-          onLike={onLike}
-          onDelete={onDelete}
-          onEdit={onEdit}
-        />
-      )}
     </>
   );
 }
