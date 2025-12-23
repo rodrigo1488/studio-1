@@ -1,139 +1,79 @@
-/**
- * Cliente de sinalização WebSocket
- */
-
-import type { SignalingMessage } from './types';
+import { SignalingMessage } from './types';
 
 export class SignalingClient {
-  private socket: WebSocket | null = null;
-  private url: string;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 1000;
-  private isManualClose = false;
+    private ws: WebSocket | null = null;
+    private url: string;
+    private userId: string;
+    private roomId: string;
+    private onMessage: (msg: SignalingMessage) => void;
+    private onConnect?: () => void;
+    private onDisconnect?: () => void;
 
-  constructor(url: string) {
-    this.url = url;
-  }
-
-  /**
-   * Conecta ao servidor de sinalização
-   */
-  connect(userId: string, roomId: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        const wsUrl = `${this.url}?userId=${userId}&roomId=${roomId}`;
-        this.socket = new WebSocket(wsUrl);
-        this.isManualClose = false;
-
-        this.socket.onopen = () => {
-          console.log('WebSocket connected');
-          this.reconnectAttempts = 0;
-          resolve();
-        };
-
-        this.socket.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          const errorMessage = 'Não foi possível conectar ao servidor de sinalização. Verifique se o servidor WebSocket está rodando.';
-          this.onError?.(new Error(errorMessage) as any);
-          if (this.reconnectAttempts === 0) {
-            reject(new Error(errorMessage));
-          }
-        };
-
-        this.socket.onclose = () => {
-          console.log('WebSocket closed');
-          if (!this.isManualClose && this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.reconnect();
-          }
-        };
-
-        this.socket.onmessage = (event) => {
-          try {
-            const message: SignalingMessage = JSON.parse(event.data);
-            this.onMessage?.(message);
-          } catch (error) {
-            console.error('Error parsing message:', error);
-          }
-        };
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
-
-  /**
-   * Tenta reconectar
-   */
-  private reconnect(): void {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('Max reconnection attempts reached');
-      this.onError?.(new Event('max-reconnect-attempts'));
-      return;
+    constructor(
+        url: string,
+        userId: string,
+        roomId: string,
+        onMessage: (msg: SignalingMessage) => void,
+        onConnect?: () => void,
+        onDisconnect?: () => void
+    ) {
+        this.url = url;
+        this.userId = userId;
+        this.roomId = roomId;
+        this.onMessage = onMessage;
+        this.onConnect = onConnect;
+        this.onDisconnect = onDisconnect;
     }
 
-    this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+    connect() {
+        if (this.ws?.readyState === WebSocket.OPEN) return;
 
-    console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})...`);
+        // Conecta passando userId e roomId na query string, conforme server.ts espera
+        const fullUrl = `${this.url}?userId=${this.userId}&roomId=${this.roomId}`;
 
-    setTimeout(() => {
-      if (!this.isManualClose) {
-        // Reconexão será feita pelo componente que gerencia o estado
-        this.onReconnect?.();
-      }
-    }, delay);
-  }
+        try {
+            this.ws = new WebSocket(fullUrl);
 
-  /**
-   * Reseta contador de tentativas de reconexão
-   */
-  resetReconnectAttempts(): void {
-    this.reconnectAttempts = 0;
-  }
+            this.ws.onopen = () => {
+                console.log('Signaling connected');
+                this.onConnect?.();
+            };
 
-  /**
-   * Envia mensagem de sinalização
-   */
-  send(message: SignalingMessage): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket not connected');
-      return;
+            this.ws.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    this.onMessage(message);
+                } catch (error) {
+                    console.error('Error parsing signaling message:', error);
+                }
+            };
+
+            this.ws.onclose = () => {
+                console.log('Signaling disconnected');
+                this.onDisconnect?.();
+                this.ws = null;
+            };
+
+            this.ws.onerror = (error) => {
+                console.error('Signaling error:', error);
+            };
+        } catch (error) {
+            console.error('Failed to create WebSocket:', error);
+        }
     }
 
-    message.timestamp = Date.now();
-    this.socket.send(JSON.stringify(message));
-  }
-
-  /**
-   * Desconecta do servidor
-   */
-  disconnect(): void {
-    this.isManualClose = true;
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
+    send(message: SignalingMessage) {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(message));
+        } else {
+            console.warn('Cannot send message, socket not open');
+        }
     }
-  }
 
-  /**
-   * Verifica se está conectado
-   */
-  isConnected(): boolean {
-    return this.socket !== null && this.socket.readyState === WebSocket.OPEN;
-  }
-
-  /**
-   * Retorna o estado da conexão
-   */
-  getReadyState(): number {
-    return this.socket?.readyState ?? WebSocket.CLOSED;
-  }
-
-  // Callbacks
-  onMessage?: (message: SignalingMessage) => void;
-  onReconnect?: () => void;
-  onError?: (error: Event) => void;
-  onClose?: () => void;
+    disconnect() {
+        if (this.ws) {
+            this.ws.close();
+            this.ws = null;
+        }
+    }
 }
-

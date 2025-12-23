@@ -1,67 +1,46 @@
 'use client';
 
 import { useCall } from '@/contexts/call-context';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Phone, PhoneOff } from 'lucide-react';
-import { CallUI } from './call-ui';
 
 export function CallNotification() {
-  const { incomingCall, status, acceptCall, rejectCall, currentCall } = useCall();
+    const { incomingCall, acceptCall, rejectCall } = useCall();
 
-  const handleAccept = async () => {
-    if (!incomingCall) return;
-    try {
-      await acceptCall(incomingCall.callType);
-    } catch (error) {
-      console.error('Error accepting call:', error);
-    }
-  };
+    if (!incomingCall) return null;
 
-  const handleReject = () => {
-    rejectCall();
-  };
-
-  // Mostra notificação de chamada recebida
-  if (status === 'ringing' && incomingCall) {
     return (
-      <Dialog open={true} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Chamada recebida</DialogTitle>
-            <DialogDescription>
-              {incomingCall.fromName} está chamando você ({incomingCall.callType === 'video' ? 'vídeo' : 'áudio'})
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-4 justify-center mt-4">
-            <Button
-              onClick={handleAccept}
-              className="bg-green-600 hover:bg-green-700"
-              size="lg"
-            >
-              <Phone className="h-5 w-5 mr-2" />
-              Atender
-            </Button>
-            <Button
-              onClick={handleReject}
-              variant="destructive"
-              size="lg"
-            >
-              <PhoneOff className="h-5 w-5 mr-2" />
-              Recusar
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        <div className="fixed top-4 right-4 z-[100] w-80 animate-in slide-in-from-top-2">
+            <Card className="p-4 shadow-xl border-primary/20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
+                            <Phone className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                            <p className="font-semibold">{incomingCall.fromName}</p>
+                            <p className="text-sm text-muted-foreground">Chamada de {incomingCall.callType}</p>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <Button
+                            className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+                            onClick={() => acceptCall(incomingCall.callType)}
+                        >
+                            Atender
+                        </Button>
+                        <Button
+                            className="flex-1"
+                            variant="destructive"
+                            onClick={rejectCall}
+                        >
+                            Recusar
+                        </Button>
+                    </div>
+                </div>
+            </Card>
+        </div>
     );
-  }
-
-  return null;
 }
-

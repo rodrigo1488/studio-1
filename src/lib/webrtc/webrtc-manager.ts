@@ -1,407 +1,284 @@
-/**
- * Gerenciador principal de WebRTC
- * Orquestra peer connection, mídia e sinalização
- */
-
-import { WebRTCPeer } from './peer';
-import { MediaManager } from './media';
 import { SignalingClient } from './signaling';
-import type { CallType, CallStatus, SignalingMessage } from './types';
+import { getMediaStream, stopMediaStream } from './media';
+import { CallStatus, CallType, SignalingMessage, WebRTCManagerCallbacks } from './types';
 
-export interface CallCallbacks {
-  onStatusChange?: (status: CallStatus) => void;
-  onRemoteStream?: (stream: MediaStream) => void;
-  onError?: (error: Error) => void;
-  onCallRequest?: (from: string, callType: CallType) => void;
-}
+const RTC_CONFIG: RTCConfiguration = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+    ],
+};
 
 export class WebRTCManager {
-  private peer: WebRTCPeer;
-  private media: MediaManager;
-  private signaling: SignalingClient;
-  private status: CallStatus = 'idle';
-  private callType: CallType | null = null;
-  private currentCall: { roomId: string; from: string; to: string } | null = null;
-  private callbacks: CallCallbacks = {};
+    private signaling: SignalingClient | null = null;
+    private peerConnection: RTCPeerConnection | null = null;
+    private localStream: MediaStream | null = null;
+    private remoteStream: MediaStream | null = null;
+    private callbacks: WebRTCManagerCallbacks = {
+        onStatusChange: () => { },
+        onRemoteStream: () => { },
+        onCallRequest: () => { },
+        onError: () => { },
+    };
 
-  constructor(signalingServerUrl: string) {
-    this.peer = new WebRTCPeer();
-    this.media = new MediaManager();
-    this.signaling = new SignalingClient(signalingServerUrl);
+    private signalingUrl: string;
+    private currentRoomId: string | null = null;
+    private currentUserId: string | null = null;
+    private remoteUserId: string | null = null;
 
-    this.setupPeerCallbacks();
-    this.setupSignalingCallbacks();
-  }
+    constructor(signalingUrl: string) {
+        this.signalingUrl = signalingUrl;
+    }
 
-  /**
-   * Configura callbacks do peer
-   */
-  private setupPeerCallbacks(): void {
-    this.peer.onIceCandidate = (candidate) => {
-      if (this.currentCall) {
-        this.signaling.send({
-          type: 'ice-candidate',
-          from: this.currentCall.from,
-          to: this.currentCall.to,
-          roomId: this.currentCall.roomId,
-          data: candidate.toJSON(),
+    setCallbacks(callbacks: Partial<WebRTCManagerCallbacks>) {
+        this.callbacks = { ...this.callbacks, ...callbacks };
+    }
+
+    // Inicializa conexão com servidor de sinalização para receber chamadas
+    // Mas no modelo atual do server.ts, precisamos do roomId na conexão.
+    // O app passa roomId dinamicamente.
+    // Vamos assumir que o 'connect' real acontece ao entrar numa sala ou iniciar chamada.
+
+    // Para fins do CallContext, ele iniciava com `new WebRTCManager(url)`.
+    // E esperava receber chamadas. Mas sem estar conectado num socket (precisa de roomId), como recebe?
+    // O server.ts original exigia roomId na conexão.
+    // Se o usuário não está em uma "sala de chat" específica, ele não pode receber chamadas com esse backend simples
+    // a menos que usemos um "global-user-room" ou similar.
+    // Vamos assumir que a conexão é estabelecida sob demanda ou usa o ID do usuário como sala para sinalização global?
+    // User Analysis: O sistema de chat tem `roomId`. O `CallContext` é global?
+    // `CallContext` tenta conectar ao montar.
+    // Se não temos roomId global, vamos adiar a conexão ou usar um truque.
+    // VAMOS USAR O PROPRIO USER ID COMO ROOM ID INICIAL PARA SINALIZAÇÃO PESSOAL?
+    // Ou assumir que só funciona dentro de chat rooms.
+    // Dado que `startCall` recebe `roomId`, parece que a chamada é vinculada a uma sala.
+
+    // SOLUÇÃO: O Manager mantém a conexão. Se for usada apenas dentro de salas, OK.
+    // Mas o CallContext é global.
+    // Vamos implementar methods de setup.
+
+    getLocalStream() {
+        return this.localStream;
+    }
+
+    isMuted() {
+        return this.localStream?.getAudioTracks()[0]?.enabled === false;
+    }
+
+    isVideoEnabled() {
+        return this.localStream?.getVideoTracks()[0]?.enabled === true;
+    }
+
+    toggleMute() {
+        if (this.localStream) {
+            const track = this.localStream.getAudioTracks()[0];
+            if (track) {
+                track.enabled = !track.enabled;
+                return !track.enabled; // retorna se está mutado
+            }
+        }
+        return true;
+    }
+
+    toggleVideo() {
+        if (this.localStream) {
+            const track = this.localStream.getVideoTracks()[0];
+            if (track) {
+                track.enabled = !track.enabled;
+                return track.enabled;
+            }
+        }
+        return false;
+    }
+
+    // Inicia uma chamada
+    async startCall(roomId: string, fromId: string, toId: string, type: CallType) {
+        this.currentRoomId = roomId;
+        this.currentUserId = fromId;
+        this.remoteUserId = toId;
+
+        try {
+            await this.setupSignaling(roomId, fromId);
+
+            this.localStream = await getMediaStream(type === 'video', true);
+            this.createPeerConnection();
+
+            this.localStream.getTracks().forEach(track => {
+                this.peerConnection?.addTrack(track, this.localStream!);
+            });
+
+            const offer = await this.peerConnection!.createOffer();
+            await this.peerConnection!.setLocalDescription(offer);
+
+            this.signaling!.send({
+                type: 'call-request',
+                from: fromId,
+                to: toId,
+                roomId: roomId,
+                callType: type,
+                payload: offer
+            });
+
+            this.callbacks.onStatusChange('calling');
+        } catch (error: any) {
+            this.callbacks.onError(error);
+            this.cleanup();
+        }
+    }
+
+    async acceptCall(type: CallType) {
+        if (!this.currentRoomId || !this.peerConnection) return;
+
+        try {
+            this.localStream = await getMediaStream(type === 'video', true);
+            this.localStream.getTracks().forEach(track => {
+                this.peerConnection?.addTrack(track, this.localStream!);
+            });
+
+            const answer = await this.peerConnection!.createAnswer();
+            await this.peerConnection!.setLocalDescription(answer);
+
+            this.signaling!.send({
+                type: 'call-accepted',
+                to: this.remoteUserId!,
+                roomId: this.currentRoomId,
+                payload: answer
+            });
+
+            this.callbacks.onStatusChange('connected');
+        } catch (error: any) {
+            this.callbacks.onError(error);
+        }
+    }
+
+    rejectCall() {
+        if (this.signaling && this.remoteUserId) {
+            this.signaling.send({
+                type: 'call-rejected',
+                to: this.remoteUserId,
+                roomId: this.currentRoomId!
+            });
+        }
+        this.cleanup();
+    }
+
+    endCall() {
+        if (this.signaling && this.remoteUserId) {
+            this.signaling.send({
+                type: 'end-call',
+                to: this.remoteUserId,
+                roomId: this.currentRoomId!
+            });
+        }
+        this.cleanup();
+    }
+
+    disconnect() {
+        this.cleanup();
+    }
+
+    private setupSignaling(roomId: string, userId: string): Promise<void> {
+        return new Promise((resolve) => {
+            if (this.signaling) {
+                this.signaling.disconnect();
+            }
+
+            this.signaling = new SignalingClient(
+                this.signalingUrl,
+                userId,
+                roomId,
+                (msg) => this.handleSignalingMessage(msg),
+                () => resolve()
+            );
+            this.signaling.connect();
         });
-      }
-    };
-
-    this.peer.onRemoteStream = (stream) => {
-      this.callbacks.onRemoteStream?.(stream);
-    };
-
-    this.peer.onConnectionStateChange = (state) => {
-      if (state === 'failed' || state === 'disconnected' || state === 'closed') {
-        this.endCall();
-      }
-    };
-
-    this.peer.onIceConnectionStateChange = (state) => {
-      if (state === 'failed' || state === 'disconnected') {
-        this.endCall();
-      }
-    };
-  }
-
-  /**
-   * Configura callbacks de sinalização
-   */
-  private setupSignalingCallbacks(): void {
-    this.signaling.onMessage = async (message) => {
-      await this.handleSignalingMessage(message);
-    };
-
-    this.signaling.onReconnect = () => {
-      // Reconexão será tratada pelo componente
-      console.log('Signaling reconnected');
-    };
-  }
-
-  /**
-   * Processa mensagens de sinalização
-   */
-  private async handleSignalingMessage(message: SignalingMessage): Promise<void> {
-    try {
-      switch (message.type) {
-        case 'call-request':
-          // Atualiza currentCall com roomId da mensagem
-          if (!this.currentCall) {
-            this.currentCall = {
-              roomId: message.roomId,
-              from: message.from,
-              to: message.to,
-            };
-          }
-          this.handleCallRequest(message);
-          break;
-
-        case 'call-accept':
-          await this.handleCallAccept(message);
-          break;
-
-        case 'call-reject':
-          this.handleCallReject();
-          break;
-
-        case 'call-end':
-          this.handleCallEnd();
-          break;
-
-        case 'offer':
-          await this.handleOffer(message);
-          break;
-
-        case 'answer':
-          await this.handleAnswer(message);
-          break;
-
-        case 'ice-candidate':
-          await this.handleIceCandidate(message);
-          break;
-      }
-    } catch (error) {
-      console.error('Error handling signaling message:', error);
-      this.callbacks.onError?.(error as Error);
-    }
-  }
-
-  /**
-   * Inicia uma chamada
-   */
-  async startCall(roomId: string, from: string, to: string, callType: CallType): Promise<void> {
-    if (this.status !== 'idle') {
-      throw new Error('Já existe uma chamada em andamento');
     }
 
-    try {
-      // Conecta ao servidor de sinalização
-      await this.signaling.connect(from, roomId);
+    private createPeerConnection() {
+        this.peerConnection = new RTCPeerConnection(RTC_CONFIG);
 
-      // Obtém mídia local
-      const localStream = await this.media.getUserMedia(callType);
+        this.peerConnection.onicecandidate = (event) => {
+            if (event.candidate && this.signaling && this.remoteUserId) {
+                this.signaling.send({
+                    type: 'candidate',
+                    to: this.remoteUserId,
+                    roomId: this.currentRoomId!,
+                    payload: event.candidate
+                });
+            }
+        };
 
-      // Cria peer connection
-      const pc = this.peer.createPeerConnection();
-      this.peer.addLocalStream(localStream);
+        this.peerConnection.ontrack = (event) => {
+            this.remoteStream = event.streams[0];
+            this.callbacks.onRemoteStream(this.remoteStream);
+        };
 
-      // Cria oferta
-      const offer = await this.peer.createOffer();
-
-      // Atualiza estado
-      this.status = 'calling';
-      this.callType = callType;
-      this.currentCall = { roomId, from, to };
-      this.callbacks.onStatusChange?.(this.status);
-
-      // Envia solicitação de chamada
-      this.signaling.send({
-        type: 'call-request',
-        from,
-        to,
-        roomId,
-        callType,
-      });
-
-      // Envia oferta
-      this.signaling.send({
-        type: 'offer',
-        from,
-        to,
-        roomId,
-        data: offer,
-      });
-    } catch (error) {
-      this.cleanup();
-      throw error;
-    }
-  }
-
-  /**
-   * Aceita uma chamada
-   */
-  async acceptCall(callType: CallType): Promise<void> {
-    if (this.status !== 'ringing' || !this.currentCall) {
-      throw new Error('Nenhuma chamada para aceitar');
+        this.peerConnection.onconnectionstatechange = () => {
+            if (this.peerConnection?.connectionState === 'disconnected') {
+                this.cleanup();
+            }
+        };
     }
 
-    try {
-      // Obtém mídia local
-      const localStream = await this.media.getUserMedia(callType);
+    private async handleSignalingMessage(msg: SignalingMessage) {
+        switch (msg.type) {
+            case 'call-request':
+                // Recebi convite de chamada
+                this.currentRoomId = msg.roomId!;
+                this.remoteUserId = msg.from!;
+                // Preciso setupar PC para receber oferta?
+                // Se eu receber call-request, devo notificar a UI para tocar.
+                // A oferta (SDP) vem no payload?
+                this.callbacks.onCallRequest(msg.from!, msg.callType!, msg.roomId);
 
-      // Cria peer connection
-      const pc = this.peer.createPeerConnection();
-      this.peer.addLocalStream(localStream);
+                // Se vier payload (offer) já configuramos?
+                if (msg.payload) {
+                    await this.setupPeerForIncoming(msg.payload);
+                }
+                break;
 
-      // Envia aceitação
-      this.signaling.send({
-        type: 'call-accept',
-        from: this.currentCall.to,
-        to: this.currentCall.from,
-        roomId: this.currentCall.roomId,
-        callType,
-      });
+            case 'call-accepted':
+                if (this.peerConnection) {
+                    await this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg.payload));
+                    this.callbacks.onStatusChange('connected');
+                }
+                break;
 
-      this.status = 'connected';
-      this.callType = callType;
-      this.callbacks.onStatusChange?.(this.status);
-    } catch (error) {
-      this.cleanup();
-      throw error;
-    }
-  }
+            case 'call-rejected':
+                this.callbacks.onStatusChange('idle');
+                this.cleanup();
+                break;
 
-  /**
-   * Recusa uma chamada
-   */
-  rejectCall(): void {
-    if (this.status !== 'ringing' || !this.currentCall) {
-      return;
-    }
+            case 'candidate':
+                if (this.peerConnection && msg.payload) {
+                    await this.peerConnection.addIceCandidate(new RTCIceCandidate(msg.payload));
+                }
+                break;
 
-    this.signaling.send({
-      type: 'call-reject',
-      from: this.currentCall.to,
-      to: this.currentCall.from,
-      roomId: this.currentCall.roomId,
-    });
-
-    this.cleanup();
-  }
-
-  /**
-   * Encerra uma chamada
-   */
-  endCall(): void {
-    if (this.status === 'idle' || this.status === 'ended') {
-      return;
+            case 'end-call':
+                this.cleanup();
+                break;
+        }
     }
 
-    if (this.currentCall) {
-      this.signaling.send({
-        type: 'call-end',
-        from: this.currentCall.from,
-        to: this.currentCall.to,
-        roomId: this.currentCall.roomId,
-      });
+    private async setupPeerForIncoming(offer: any) {
+        this.createPeerConnection();
+        await this.peerConnection!.setRemoteDescription(new RTCSessionDescription(offer));
     }
 
-    this.cleanup();
-  }
+    private cleanup() {
+        if (this.localStream) {
+            stopMediaStream(this.localStream);
+            this.localStream = null;
+        }
+        if (this.peerConnection) {
+            this.peerConnection.close();
+            this.peerConnection = null;
+        }
+        /* Não desconectar signaling imediatamente se quiser receber novas chamadas? 
+           Depende da lógica. Por enquanto, se 'endCall', resetamos tudo. */
 
-  /**
-   * Alterna mute/unmute
-   */
-  toggleMute(): boolean {
-    return this.media.toggleMute();
-  }
-
-  /**
-   * Alterna vídeo on/off
-   */
-  toggleVideo(): boolean {
-    return this.media.toggleVideo();
-  }
-
-  /**
-   * Handlers de mensagens de sinalização
-   */
-  private handleCallRequest(message: SignalingMessage): void {
-    if (this.status !== 'idle') {
-      // Já existe uma chamada, recusa automaticamente
-      this.signaling.send({
-        type: 'call-reject',
-        from: message.to,
-        to: message.from,
-        roomId: message.roomId,
-      });
-      return;
+        this.callbacks.onStatusChange('ended');
+        // Pequeno delay para resetar p/ idle
+        setTimeout(() => this.callbacks.onStatusChange('idle'), 100);
     }
-
-    this.status = 'ringing';
-    this.callType = message.callType || 'audio';
-    this.currentCall = {
-      roomId: message.roomId,
-      from: message.from,
-      to: message.to,
-    };
-
-    this.callbacks.onStatusChange?.(this.status);
-    this.callbacks.onCallRequest?.(message.from, this.callType, message.roomId);
-  }
-
-  private async handleCallAccept(message: SignalingMessage): Promise<void> {
-    if (this.status === 'calling') {
-      this.status = 'connected';
-      this.callbacks.onStatusChange?.(this.status);
-    }
-  }
-
-  private handleCallReject(): void {
-    this.cleanup();
-    this.callbacks.onStatusChange?.('ended');
-  }
-
-  private handleCallEnd(): void {
-    this.cleanup();
-    this.callbacks.onStatusChange?.('ended');
-  }
-
-  private async handleOffer(message: SignalingMessage): Promise<void> {
-    if (!this.currentCall) {
-      // Se não temos uma chamada ativa, criamos uma para receber
-      this.currentCall = {
-        roomId: message.roomId,
-        from: message.from,
-        to: message.to,
-      };
-    }
-
-    // Obtém mídia local se ainda não tiver
-    if (!this.media.getLocalStream()) {
-      const callType = this.callType || 'audio';
-      const localStream = await this.media.getUserMedia(callType);
-      const pc = this.peer.createPeerConnection();
-      this.peer.addLocalStream(localStream);
-    }
-
-    // Define oferta remota e cria resposta
-    await this.peer.setRemoteOffer(message.data);
-    const answer = await this.peer.createAnswer();
-
-    // Envia resposta
-    this.signaling.send({
-      type: 'answer',
-      from: this.currentCall.to,
-      to: this.currentCall.from,
-      roomId: this.currentCall.roomId,
-      data: answer,
-    });
-
-    this.status = 'connected';
-    this.callbacks.onStatusChange?.(this.status);
-  }
-
-  private async handleAnswer(message: SignalingMessage): Promise<void> {
-    await this.peer.setRemoteAnswer(message.data);
-    this.status = 'connected';
-    this.callbacks.onStatusChange?.(this.status);
-  }
-
-  private async handleIceCandidate(message: SignalingMessage): Promise<void> {
-    await this.peer.addIceCandidate(message.data);
-  }
-
-  /**
-   * Limpa recursos
-   */
-  private cleanup(): void {
-    this.peer.close();
-    this.media.stopLocalStream();
-    this.status = 'idle';
-    this.callType = null;
-    this.currentCall = null;
-    this.callbacks.onStatusChange?.('idle');
-  }
-
-  /**
-   * Desconecta completamente
-   */
-  disconnect(): void {
-    this.cleanup();
-    this.signaling.disconnect();
-  }
-
-  /**
-   * Define callbacks
-   */
-  setCallbacks(callbacks: CallCallbacks): void {
-    this.callbacks = { ...this.callbacks, ...callbacks };
-  }
-
-  /**
-   * Getters
-   */
-  getStatus(): CallStatus {
-    return this.status;
-  }
-
-  getCallType(): CallType | null {
-    return this.callType;
-  }
-
-  getLocalStream(): MediaStream | null {
-    return this.media.getLocalStream();
-  }
-
-  isMuted(): boolean {
-    return this.media.isMuted();
-  }
-
-  isVideoEnabled(): boolean {
-    return this.media.isVideoEnabled();
-  }
 }
-

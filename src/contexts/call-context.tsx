@@ -72,7 +72,7 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
           if (response.ok) {
             const data = await response.json();
             const fromName = data.user?.name || 'Usuário desconhecido';
-            
+
             // O roomId será definido quando receber a mensagem completa via handleSignalingMessage
             // Por enquanto, vamos buscar salas do usuário para encontrar a sala em comum
             // Mas isso é complexo, então vamos usar um estado temporário e atualizar depois
@@ -100,14 +100,14 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
       onError: (error) => {
         console.error('WebRTC error:', error);
         const errorMessage = error.message || 'Erro na conexão WebRTC';
-        
+
         // Se for erro de conexão WebSocket, mostra mensagem amigável
         if (errorMessage.includes('servidor de sinalização') || errorMessage.includes('WebSocket') || errorMessage.includes('connection')) {
           // Não tenta reconectar automaticamente se o servidor não está rodando
           setStatus('idle');
           setCurrentCall(null);
           setIncomingCall(null);
-          
+
           // Mostra toast de erro (se disponível)
           if (typeof window !== 'undefined') {
             alert('Servidor WebSocket não está rodando. Por favor, inicie o servidor com: npm run ws:server');

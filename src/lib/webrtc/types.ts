@@ -1,39 +1,18 @@
-/**
- * Tipos e interfaces para WebRTC
- */
-
 export type CallType = 'audio' | 'video';
-
-export type CallStatus = 'idle' | 'calling' | 'ringing' | 'connected' | 'ended' | 'rejected';
+export type CallStatus = 'idle' | 'calling' | 'ringing' | 'connected' | 'ended';
 
 export interface SignalingMessage {
-  type: 'offer' | 'answer' | 'ice-candidate' | 'call-request' | 'call-accept' | 'call-reject' | 'call-end';
-  from: string; // userId
-  to: string; // userId
-  roomId: string;
-  callType?: CallType;
-  data?: any; // offer, answer, ice candidate, etc.
-  timestamp?: number;
+    type: 'offer' | 'answer' | 'candidate' | 'call-request' | 'call-accepted' | 'call-rejected' | 'end-call';
+    payload?: any;
+    from?: string;
+    to?: string;
+    roomId?: string;
+    callType?: CallType;
 }
 
-export interface CallState {
-  status: CallStatus;
-  callType: CallType | null;
-  localStream: MediaStream | null;
-  remoteStream: MediaStream | null;
-  peerConnection: RTCPeerConnection | null;
-  signalingSocket: WebSocket | null;
-  isMuted: boolean;
-  isVideoEnabled: boolean;
-  currentCall: {
-    roomId: string;
-    from: string;
-    to: string;
-  } | null;
+export interface WebRTCManagerCallbacks {
+    onStatusChange: (status: CallStatus) => void;
+    onRemoteStream: (stream: MediaStream) => void;
+    onCallRequest: (from: string, type: CallType, roomId?: string) => void;
+    onError: (error: Error) => void;
 }
-
-export interface WebRTCConfig {
-  iceServers: RTCIceServer[];
-  signalingServerUrl: string;
-}
-
