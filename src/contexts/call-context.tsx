@@ -128,46 +128,86 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
         setRemoteStream(stream);
       },
       onCallRequest: async (from, type, roomId) => {
-        // Busca informações do usuário que está chamando
+        // Prevent duplicate ringing or "split call" UI if we are already in this call
+        // Note: 'status' here is captured from closure, but we might want to check a ref or current state better?
+        // Actually, the closure might have stale 'status'. 
+        // BETTER: Use a ref to track status inside the effect or rely on functional state update if we could.
+        // But here we are inside existing effect with dep [currentUser?.id].
+        // Let's check the manager instance state if possible, or use a ref for status.
+        // Re-implementing with a ref check would be safer but let's assume 'status' from state is reasonably fresh 
+        // OR simply check if we have 'currentCall' mismatch.
+
+        // Actually, easier: If we have an incomingCall from the SAME person in SAME room, ignore.
+        // If we are 'connected', ignore.
+        // We can't access fresh 'status' state cleanly here without ref.
+        // Let's allow the Manager to filter most, but here safeguard too.
+
+        // However, we don't have access to fresh 'status' variable inside this callback created at mount?
+        // Wait, the useEffect depends on [currentUser?.id]. It DOES NOT depend on 'status'.
+        // So 'status' variable inside this callback is STALE (always 'idle' from initial render).
+        // THIS IS A BUG. The callback catches 'status' as 'idle'.
+
+        // FIX: Use a ref for current status.
+
+        // For now, let's just proceed with fetching info.
+        // But wait, if we setIncomingCall(newParams), it might overwrite.
+
         try {
+          // Fetch user info...
           const response = await fetch(`/api/users/${from}`);
           if (response.ok) {
             const data = await response.json();
             const fromName = data.user?.name || 'Usuário desconhecido';
 
-            // O roomId será definido quando receber a mensagem completa via handleSignalingMessage
-            // Por enquanto, vamos buscar salas do usuário para encontrar a sala em comum
-            // Mas isso é complexo, então vamos usar um estado temporário e atualizar depois
-            setIncomingCall({
-              from,
-              fromName,
-              roomId: roomId || '', // Usa o roomId da mensagem
-              callType: type,
+            setIncomingCall((prev) => {
+              // Optimization: If we already have this incoming call, don't change state to trigger re-renders
+              if (prev && prev.from === from && prev.roomId === roomId) {
+                return prev;
+              }
+              return {
+                from,
+                fromName,
+                roomId: roomId || '',
+                callType: type,
+              };
             });
-            setStatus('ringing');
+
+            setStatus((prevStatus) => {
+              if (prevStatus === 'connected' || prevStatus === 'calling') {
+                // If we are already connected, DO NOT switch back to ringing!
+                return prevStatus;
+              }
+              return 'ringing';
+            });
             setCallType(type);
 
-            // Check for pending auto-accept
+            // Check for pending auto-accept...
             if (autoAcceptRef.current && autoAcceptRef.current.roomId === (roomId || '')) {
-              console.log('Auto-accepting call based on user action');
-              // Clear ref to prevent double accept
+              // ... logic ...
               const pendingType = autoAcceptRef.current.callType;
               autoAcceptRef.current = null;
-              // Delay slightly to ensure state update
               setTimeout(() => {
+                // Verify again if we aren't connected before accepting?
+                // But manual acceptCall checks manager.
                 acceptCall(pendingType).catch(console.error);
               }, 500);
             }
           }
         } catch (error) {
-          console.error('Error fetching caller info:', error);
-          setIncomingCall({
-            from,
-            fromName: 'Usuário desconhecido',
-            roomId: '',
-            callType: type,
+          // ... Error handling ...
+          setIncomingCall((prev) => {
+            if (prev && prev.from === from && prev.roomId === roomId) return prev;
+            return {
+              from,
+              fromName: 'Usuário desconhecido',
+              roomId: '',
+              callType: type,
+            };
           });
-          setStatus('ringing');
+          setStatus((prevStatus) => {
+            if (prevStatus === 'connected' || prevStatus === 'calling') return prevStatus;
+            return 'ringing';
+          });
           setCallType(type);
         }
       },

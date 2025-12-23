@@ -301,12 +301,33 @@ export class WebRTCManager {
         console.log('[WebRTC] Received signaling message:', msg.type);
         switch (msg.type) {
             case 'call-request':
+                // Idempotency Check: If we differ from the incoming request only by ID but match context, 
+                // OR if we are already connected to this user/room, IGNORE.
+                if (this.currentRoomId === msg.roomId && this.remoteUserId === msg.from && this.peerConnection && this.peerConnection.connectionState === 'connected') {
+                    console.log('[WebRTC] Ignoring call-request: Already connected to this session.');
+                    return;
+                }
+                // If we are already negotiating (have local description or remote description), be careful.
+                // For now, if we are 'ringing' (waiting for user), we might receive duplicates (pulse).
+                // The Manager doesn't track 'ringing' explicitly in a "state" property exposed here easily outside callbacks.
+                // But we can check if we already have a remote description set?
+
+                // However, "Pulse" sends the SAME offer. We should accept re-setRemoteDescription for exact same offer? 
+                // Or just ignore if we already set it.
+                if (this.peerConnection && this.peerConnection.remoteDescription && msg.payload && msg.payload.sdp === this.peerConnection.remoteDescription.sdp) {
+                    console.log('[WebRTC] Ignoring duplicate call-request (Pulse).');
+                    return;
+                }
+
+
                 console.log('[WebRTC] Incoming call request from', msg.from);
                 this.currentRoomId = msg.roomId!;
                 this.remoteUserId = msg.from!;
                 this.callbacks.onCallRequest(msg.from!, msg.callType!, msg.roomId);
 
                 if (msg.payload) {
+                    // Logic to avoid resetting peer connection if it's just a pulse of the same offer?
+                    // But maybe we haven't created it yet.
                     console.log('[WebRTC] Processing offer SDP');
                     await this.setupPeerForIncoming(msg.payload);
                 }
@@ -314,6 +335,12 @@ export class WebRTCManager {
 
             case 'call-accepted':
                 console.log('[WebRTC] Call accepted by remote');
+                // STOP PULSE IMMEDIATELY
+                if ((this as any)._pulseInterval) {
+                    clearInterval((this as any)._pulseInterval);
+                    (this as any)._pulseInterval = null;
+                }
+
                 if (this.peerConnection) {
                     await this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg.payload));
                     this.callbacks.onStatusChange('connected');
@@ -329,7 +356,11 @@ export class WebRTCManager {
             case 'candidate':
                 // console.log('[WebRTC] Received ICE candidate'); // Verbose
                 if (this.peerConnection && msg.payload) {
-                    await this.peerConnection.addIceCandidate(new RTCIceCandidate(msg.payload));
+                    try {
+                        await this.peerConnection.addIceCandidate(new RTCIceCandidate(msg.payload));
+                    } catch (e) {
+                        console.warn('Error adding ICE candidate:', e);
+                    }
                 }
                 break;
 
@@ -339,20 +370,20 @@ export class WebRTCManager {
                 break;
 
             case 'user-joined':
-                // @ts-ignore - Assuming message type extension
+                // ... (Existing logic)
+                // @ts-ignore
                 const joinedUserId = msg.userId;
                 console.log('[WebRTC] User joined:', joinedUserId);
-                // If we are calling this user and they just joined, re-send the offer!
-                // This handles the case where they were offline effectively.
                 if (this.remoteUserId === joinedUserId && (this.callbacks as any).status === 'calling') {
                     console.log('[WebRTC] Remote user joined, re-sending offer...');
+                    // Logic kept same
                     if (this.peerConnection && this.peerConnection.localDescription) {
                         this.signaling!.send({
                             type: 'call-request',
                             from: this.currentUserId!,
                             to: joinedUserId,
                             roomId: this.currentRoomId!,
-                            callType: 'video', // We should track current call type in Manager state ideally
+                            callType: 'video',
                             payload: this.peerConnection.localDescription
                         });
                     }
@@ -362,6 +393,20 @@ export class WebRTCManager {
     }
 
     private async setupPeerForIncoming(offer: any) {
+        // If we already have a PeerConnection and are in 'stable' or 'have-remote-offer' state, maybe reuse?
+        // But simplest is to handle fresh.
+        // If we already created it (due to previous pulse), destroying it might be choppy but safe.
+        // BETTER: Check if we naturally already have this offer.
+
+        if (this.peerConnection) {
+            // Check if SDP matches to avoid Teardown/Setup loop
+            if (this.peerConnection.remoteDescription && this.peerConnection.remoteDescription.sdp === offer.sdp) {
+                return; // Already setup
+            }
+            // Else, cleanup old
+            this.peerConnection.close();
+        }
+
         this.createPeerConnection();
         await this.peerConnection!.setRemoteDescription(new RTCSessionDescription(offer));
     }
