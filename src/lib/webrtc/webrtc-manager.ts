@@ -97,7 +97,7 @@ export class WebRTCManager {
     }
 
     // Inicia uma chamada
-    async startCall(roomId: string, fromId: string, toId: string, type: CallType, callerName?: string) {
+    async startCall(roomId: string, fromId: string, toId: string, type: CallType, callerName?: string, callerAvatar?: string) {
         console.log(`[WebRTC] Starting call in room ${roomId} from ${fromId} to ${toId}`);
         this.currentRoomId = roomId;
         this.currentUserId = fromId;
@@ -142,6 +142,7 @@ export class WebRTCManager {
                     roomId,
                     callerId: fromId,
                     callerName: callerName || 'Chamada',
+                    callerAvatar: callerAvatar,
                     callType: type,
                     recipientId: toId
                 })

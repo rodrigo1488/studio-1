@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
     try {
-        const { roomId, callerId, callerName, callType, recipientId } = await req.json();
+        const { roomId, callerId, callerName, callerAvatar, callType, recipientId } = await req.json();
 
         if (!roomId || !callerId || !recipientId) {
             return NextResponse.json(
@@ -17,14 +17,16 @@ export async function POST(req: NextRequest) {
         // For speed, assuming the callerId matches the session or trusting the client for now
         // In production, we should verify the session user matches callerId
 
-        const title = '📞 Chamada Entrando';
-        const body = `${callerName || 'Alguém'} está te ligando para uma chamada de ${callType === 'video' ? 'vídeo' : 'áudio'}.`;
+        const name = callerName || 'Alguém';
+        const title = `📞 ${name} está ligando`;
+        const body = `Chamada de ${callType === 'video' ? 'vídeo' : 'áudio'} entrando...`;
 
         const data = {
             type: 'call',
             roomId,
             callerId,
-            callerName,
+            callerName: name,
+            senderAvatar: callerAvatar, // Pass avatar for icon
             callType,
             url: `/chat/${roomId}?call=true`, // Deep link to open call directly? Or just chat
         };

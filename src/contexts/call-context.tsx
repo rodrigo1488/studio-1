@@ -42,6 +42,7 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const managerRef = useRef<WebRTCManager | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const autoAcceptRef = useRef<{ roomId: string; callType: CallType } | null>(null);
 
   // Sound effect handler
   useEffect(() => {
@@ -67,6 +68,8 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
       }
     };
   }, [incomingCall, status]);
+
+
 
 
 
@@ -115,6 +118,18 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
             });
             setStatus('ringing');
             setCallType(type);
+
+            // Check for pending auto-accept
+            if (autoAcceptRef.current && autoAcceptRef.current.roomId === (roomId || '')) {
+              console.log('Auto-accepting call based on user action');
+              // Clear ref to prevent double accept
+              const pendingType = autoAcceptRef.current.callType;
+              autoAcceptRef.current = null;
+              // Delay slightly to ensure state update
+              setTimeout(() => {
+                acceptCall(pendingType).catch(console.error);
+              }, 500);
+            }
           }
         } catch (error) {
           console.error('Error fetching caller info:', error);
@@ -187,7 +202,14 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
       // Wait, 'currentUser' is available in CallProvider scope.
       // Let's use it.
       // @ts-ignore - Assuming we updated WebRTCManager signature
-      await managerRef.current.startCall(roomId, from, to, callType, currentUser?.name || 'Algum usuário');
+      await managerRef.current.startCall(
+        roomId,
+        from,
+        to,
+        callType,
+        currentUser?.name || 'Algum usuário',
+        currentUser?.image || '' // Pass avatar
+      );
     } catch (error) {
       console.error('Error starting call:', error);
       setStatus('idle');
@@ -280,13 +302,11 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
       const params = new URLSearchParams(window.location.search);
       if (params.get('action') === 'answer') {
         console.log('Auto-answering call from URL param');
-        // We set a flag or just wait for the call-request to arrive (triggered by user-joined event)
-        // Once incomingCall is set, we can accept it.
-        // But we don't have incomingCall yet.
-        // Let's rely on the useEffect below handling 'incomingCall' changes to auto-accept if a flag is set?
-        // Or easier: we trust the user will click "Answer". 
-        // BUT the user asked for "Answer directly".
-        // So we should probably set a temporary "autoAnswer" ref.
+        const pathParts = window.location.pathname.split('/');
+        const possibleRoomId = pathParts[pathParts.length - 1];
+        if (possibleRoomId) {
+          autoAcceptRef.current = { roomId: possibleRoomId, callType: 'video' };
+        }
       }
     }
   }, []);
@@ -297,16 +317,34 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
       const handler = (event: MessageEvent) => {
         if (event.data && event.data.type === 'ACTION_ANSWER_CALL') {
           console.log('User clicked Answer on notification', event.data);
-          // If we have an incoming call in state, accept it.
+          const { roomId, callType } = event.data;
+
           if (incomingCall) {
-            acceptCall(event.data.callType || 'video');
-          } else {
-            console.log('Received Answer Action but no incoming call in state yet.');
+            // Already have the call request, just accept
+            acceptCall(callType || 'video');
+          } else if (roomId) {
+            // We are not connected to this room or haven't received the request yet.
+            console.log('Joining room to receive call...', roomId);
+            joinRoom(roomId);
+            // Set flag to auto-accept when the request arrives
+            autoAcceptRef.current = { roomId, callType: callType || 'video' };
           }
         }
       };
       navigator.serviceWorker.addEventListener('message', handler);
       return () => navigator.serviceWorker.removeEventListener('message', handler);
+    }
+  }, [incomingCall, acceptCall, joinRoom]);
+
+  // Handle auto-accept when incoming call arrives
+  useEffect(() => {
+    if (incomingCall && autoAcceptRef.current) {
+      if (incomingCall.roomId === autoAcceptRef.current.roomId) {
+        console.log('Auto-accepting call (Effect triggered)');
+        const type = autoAcceptRef.current.callType;
+        autoAcceptRef.current = null;
+        acceptCall(type).catch(console.error);
+      }
     }
   }, [incomingCall, acceptCall]);
 

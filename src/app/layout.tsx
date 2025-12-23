@@ -5,10 +5,11 @@ import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/providers/theme-provider';
 import { NotificationProvider } from '@/components/notifications/notification-provider';
 import { NotificationPermissionDialog } from '@/components/notifications/notification-permission-dialog';
+import { CallProviderWrapper } from '@/components/webrtc/call-provider-wrapper';
 import { cn } from '@/lib/utils';
 
-const fredoka = Fredoka({ 
-  subsets: ['latin'], 
+const fredoka = Fredoka({
+  subsets: ['latin'],
   variable: '--font-sans',
   weight: ['300', '400', '500', '600', '700'],
 });
@@ -74,14 +75,16 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <div className="flex-1">
-            {children}
-          </div>
-          <footer className="w-full py-3 px-4 text-center text-xs sm:text-sm text-muted-foreground border-t border-primary/20 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5">
-            <p className="font-medium">
-              Feito com ❤️ de <span className="text-primary font-semibold">Rodrigo Gomes</span> para <span className="text-secondary font-semibold">Laura Vitoria</span>
-            </p>
-          </footer>
+          <CallProviderWrapper>
+            <div className="flex-1">
+              {children}
+            </div>
+            <footer className="w-full py-3 px-4 text-center text-xs sm:text-sm text-muted-foreground border-t border-primary/20 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5">
+              <p className="font-medium">
+                Feito com ❤️ de <span className="text-primary font-semibold">Rodrigo Gomes</span> para <span className="text-secondary font-semibold">Laura Vitoria</span>
+              </p>
+            </footer>
+          </CallProviderWrapper>
           <Toaster />
           <NotificationProvider />
           <NotificationPermissionDialog />
