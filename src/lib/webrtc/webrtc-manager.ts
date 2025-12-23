@@ -150,12 +150,9 @@ export class WebRTCManager {
 
             this.callbacks.onStatusChange('calling');
 
-            // Pulse call request every 3 seconds to ensure delivery if user reconnects
+            // Pulse call request every 1 second to ensure delivery if user reconnects
             const pulseInterval = setInterval(() => {
-                if ((this.callbacks as any).status !== 'calling') { // We need access to current status
-                    clearInterval(pulseInterval);
-                    return;
-                }
+                // We rely on cleanup() to clear this interval when the call ends/fails.
 
                 // Also check if peerConnection is still stable?
                 // Just resend
