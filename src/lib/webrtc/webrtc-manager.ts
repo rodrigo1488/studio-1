@@ -97,7 +97,7 @@ export class WebRTCManager {
     }
 
     // Inicia uma chamada
-    async startCall(roomId: string, fromId: string, toId: string, type: CallType) {
+    async startCall(roomId: string, fromId: string, toId: string, type: CallType, callerName?: string) {
         console.log(`[WebRTC] Starting call in room ${roomId} from ${fromId} to ${toId}`);
         this.currentRoomId = roomId;
         this.currentUserId = fromId;
@@ -132,6 +132,20 @@ export class WebRTCManager {
                 callType: type,
                 payload: offer
             });
+
+            // Send Push Notification
+            console.log('[WebRTC] Triggering Push Notification...');
+            fetch('/api/calls/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    roomId,
+                    callerId: fromId,
+                    callerName: callerName || 'Chamada',
+                    callType: type,
+                    recipientId: toId
+                })
+            }).catch(err => console.error('[WebRTC] Failed to trigger push:', err));
 
             this.callbacks.onStatusChange('calling');
         } catch (error: any) {
@@ -174,6 +188,58 @@ export class WebRTCManager {
 
     // ... (rest of methods)
 
+    rejectCall() {
+        if (this.signaling && this.remoteUserId) {
+            this.signaling.send({
+                type: 'call-rejected',
+                to: this.remoteUserId,
+                roomId: this.currentRoomId!
+            });
+        }
+        this.cleanup();
+    }
+
+    endCall() {
+        if (this.signaling && this.remoteUserId) {
+            this.signaling.send({
+                type: 'end-call',
+                to: this.remoteUserId,
+                roomId: this.currentRoomId!
+            });
+        }
+        this.cleanup();
+    }
+
+    disconnect() {
+        this.cleanup();
+    }
+
+    private createPeerConnection() {
+        this.peerConnection = new RTCPeerConnection(RTC_CONFIG);
+
+        this.peerConnection.onicecandidate = (event) => {
+            if (event.candidate && this.signaling && this.remoteUserId) {
+                this.signaling.send({
+                    type: 'candidate',
+                    to: this.remoteUserId,
+                    roomId: this.currentRoomId!,
+                    payload: event.candidate
+                });
+            }
+        };
+
+        this.peerConnection.ontrack = (event) => {
+            this.remoteStream = event.streams[0];
+            this.callbacks.onRemoteStream(this.remoteStream);
+        };
+
+        this.peerConnection.onconnectionstatechange = () => {
+            if (this.peerConnection?.connectionState === 'disconnected') {
+                this.cleanup();
+            }
+        };
+    }
+
     private async handleSignalingMessage(msg: SignalingMessage) {
         console.log('[WebRTC] Received signaling message:', msg.type);
         switch (msg.type) {
@@ -197,7 +263,6 @@ export class WebRTCManager {
                 }
                 break;
 
-            // ... (other cases with logs)
             case 'call-rejected':
                 console.log('[WebRTC] Call rejected');
                 this.callbacks.onStatusChange('idle');

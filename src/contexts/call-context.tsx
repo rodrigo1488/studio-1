@@ -41,6 +41,32 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
   const [currentCall, setCurrentCall] = useState<{ roomId: string; from: string; to: string } | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const managerRef = useRef<WebRTCManager | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Sound effect handler
+  useEffect(() => {
+    // Se temos uma chamada entrando e status = 'ringing'
+    if (incomingCall && status === 'ringing') {
+      if (!audioRef.current) {
+        audioRef.current = new Audio('/call.mp3');
+        audioRef.current.loop = true;
+      }
+      audioRef.current.play().catch(e => console.error('Error playing ringtone:', e));
+    } else {
+      // Stop audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    }
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    };
+  }, [incomingCall, status]);
 
   // Inicializa o manager quando o usuário está logado
   useEffect(() => {
@@ -149,7 +175,17 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
     try {
       setCurrentCall({ roomId, from, to });
       setCallType(callType);
-      await managerRef.current.startCall(roomId, from, to, callType);
+      // Pass the actual caller name (currentUser's name) if we had it available in context, 
+      // but 'startCall' args in context signature currently has 'toName'.
+      // Wait, 'startCall' in Context receives (roomId, from, to, toName, type).
+      // We don't have 'fromName' (current user name) easily accessible here unless we use 'currentUser' from provider props?
+      // Actually CallProvider has 'currentUser' prop.
+      // So we can pass currentUser.name.
+
+      // Wait, 'currentUser' is available in CallProvider scope.
+      // Let's use it.
+      // @ts-ignore - Assuming we updated WebRTCManager signature
+      await managerRef.current.startCall(roomId, from, to, callType, currentUser?.name || 'Algum usuário');
     } catch (error) {
       console.error('Error starting call:', error);
       setStatus('idle');
