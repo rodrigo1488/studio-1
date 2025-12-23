@@ -68,31 +68,7 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
     };
   }, [incomingCall, status]);
 
-  // Listen for Service Worker messages (e.g. Action Buttons)
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      const handler = (event: MessageEvent) => {
-        if (event.data && event.data.type === 'ACTION_ANSWER_CALL') {
-          console.log('User clicked Answer on notification', event.data);
-          // We need to trigger acceptCall, but we might not have the offer yet if we just opened.
-          // If the socket is connecting, we should wait.
-          // For now, let's just set a flag or try to join.
-          // joinRoom should happen automatically by ChatLayout.
 
-          // If we have an incoming call in state, accept it.
-          if (incomingCall) {
-            acceptCall('video'); // Default to video or read from event.data
-          } else {
-            // If we don't have incoming call yet, we might missed the signal.
-            // We rely on the caller re-sending it or the server queuing it.
-            console.log('Received Answer Action but no incoming call in state yet.');
-          }
-        }
-      };
-      navigator.serviceWorker.addEventListener('message', handler);
-      return () => navigator.serviceWorker.removeEventListener('message', handler);
-    }
-  }, [incomingCall, acceptCall]);
 
   // Inicializa o manager quando o usuário está logado
   useEffect(() => {
