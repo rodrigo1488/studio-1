@@ -25,8 +25,12 @@ export class SignalingClient {
         this.onDisconnect = onDisconnect;
     }
 
+    get isConnected(): boolean {
+        return this.ws?.readyState === WebSocket.OPEN;
+    }
+
     connect() {
-        if (this.ws?.readyState === WebSocket.OPEN) return;
+        if (this.isConnected) return;
 
         // Conecta passando userId e roomId na query string, conforme server.ts espera
         const fullUrl = `${this.url}?userId=${this.userId}&roomId=${this.roomId}`;

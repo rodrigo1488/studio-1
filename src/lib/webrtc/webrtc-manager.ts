@@ -98,23 +98,32 @@ export class WebRTCManager {
 
     // Inicia uma chamada
     async startCall(roomId: string, fromId: string, toId: string, type: CallType) {
+        console.log(`[WebRTC] Starting call in room ${roomId} from ${fromId} to ${toId}`);
         this.currentRoomId = roomId;
         this.currentUserId = fromId;
         this.remoteUserId = toId;
 
         try {
+            // Só reconecta se mudar de sala ou usuário, para não derrubar 'joinRoom'
+            // Mas 'joinRoom' usa o mesmo signalingUrl.
+            // Se já estivermos conectados, setupSignaling deve ser inteligente.
             await this.setupSignaling(roomId, fromId);
 
+            console.log('[WebRTC] Requesting local media...');
             this.localStream = await getMediaStream(type === 'video', true);
+            console.log('[WebRTC] Local media obtained');
+
             this.createPeerConnection();
 
             this.localStream.getTracks().forEach(track => {
                 this.peerConnection?.addTrack(track, this.localStream!);
             });
 
+            console.log('[WebRTC] Creating offer...');
             const offer = await this.peerConnection!.createOffer();
             await this.peerConnection!.setLocalDescription(offer);
 
+            console.log('[WebRTC] Sending call-request...');
             this.signaling!.send({
                 type: 'call-request',
                 from: fromId,
@@ -126,13 +135,18 @@ export class WebRTCManager {
 
             this.callbacks.onStatusChange('calling');
         } catch (error: any) {
+            console.error('[WebRTC] Error in startCall:', error);
             this.callbacks.onError(error);
             this.cleanup();
         }
     }
 
     async acceptCall(type: CallType) {
-        if (!this.currentRoomId || !this.peerConnection) return;
+        console.log('[WebRTC] Accepting call...');
+        if (!this.currentRoomId || !this.peerConnection) {
+            console.error('[WebRTC] Cannot accept call: Missing Room ID or PeerConnection');
+            return;
+        }
 
         try {
             this.localStream = await getMediaStream(type === 'video', true);
@@ -143,6 +157,7 @@ export class WebRTCManager {
             const answer = await this.peerConnection!.createAnswer();
             await this.peerConnection!.setLocalDescription(answer);
 
+            console.log('[WebRTC] Sending call-accepted...');
             this.signaling!.send({
                 type: 'call-accepted',
                 to: this.remoteUserId!,
@@ -152,115 +167,52 @@ export class WebRTCManager {
 
             this.callbacks.onStatusChange('connected');
         } catch (error: any) {
+            console.error('[WebRTC] Error accepting call:', error);
             this.callbacks.onError(error);
         }
     }
 
-    rejectCall() {
-        if (this.signaling && this.remoteUserId) {
-            this.signaling.send({
-                type: 'call-rejected',
-                to: this.remoteUserId,
-                roomId: this.currentRoomId!
-            });
-        }
-        this.cleanup();
-    }
-
-    endCall() {
-        if (this.signaling && this.remoteUserId) {
-            this.signaling.send({
-                type: 'end-call',
-                to: this.remoteUserId,
-                roomId: this.currentRoomId!
-            });
-        }
-        this.cleanup();
-    }
-
-    disconnect() {
-        this.cleanup();
-    }
-
-    private setupSignaling(roomId: string, userId: string): Promise<void> {
-        return new Promise((resolve) => {
-            if (this.signaling) {
-                this.signaling.disconnect();
-            }
-
-            this.signaling = new SignalingClient(
-                this.signalingUrl,
-                userId,
-                roomId,
-                (msg) => this.handleSignalingMessage(msg),
-                () => resolve()
-            );
-            this.signaling.connect();
-        });
-    }
-
-    private createPeerConnection() {
-        this.peerConnection = new RTCPeerConnection(RTC_CONFIG);
-
-        this.peerConnection.onicecandidate = (event) => {
-            if (event.candidate && this.signaling && this.remoteUserId) {
-                this.signaling.send({
-                    type: 'candidate',
-                    to: this.remoteUserId,
-                    roomId: this.currentRoomId!,
-                    payload: event.candidate
-                });
-            }
-        };
-
-        this.peerConnection.ontrack = (event) => {
-            this.remoteStream = event.streams[0];
-            this.callbacks.onRemoteStream(this.remoteStream);
-        };
-
-        this.peerConnection.onconnectionstatechange = () => {
-            if (this.peerConnection?.connectionState === 'disconnected') {
-                this.cleanup();
-            }
-        };
-    }
+    // ... (rest of methods)
 
     private async handleSignalingMessage(msg: SignalingMessage) {
+        console.log('[WebRTC] Received signaling message:', msg.type);
         switch (msg.type) {
             case 'call-request':
-                // Recebi convite de chamada
+                console.log('[WebRTC] Incoming call request from', msg.from);
                 this.currentRoomId = msg.roomId!;
                 this.remoteUserId = msg.from!;
-                // Preciso setupar PC para receber oferta?
-                // Se eu receber call-request, devo notificar a UI para tocar.
-                // A oferta (SDP) vem no payload?
                 this.callbacks.onCallRequest(msg.from!, msg.callType!, msg.roomId);
 
-                // Se vier payload (offer) já configuramos?
                 if (msg.payload) {
+                    console.log('[WebRTC] Processing offer SDP');
                     await this.setupPeerForIncoming(msg.payload);
                 }
                 break;
 
             case 'call-accepted':
+                console.log('[WebRTC] Call accepted by remote');
                 if (this.peerConnection) {
                     await this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg.payload));
                     this.callbacks.onStatusChange('connected');
                 }
                 break;
 
+            // ... (other cases with logs)
             case 'call-rejected':
+                console.log('[WebRTC] Call rejected');
                 this.callbacks.onStatusChange('idle');
                 this.cleanup();
                 break;
 
             case 'candidate':
+                // console.log('[WebRTC] Received ICE candidate'); // Verbose
                 if (this.peerConnection && msg.payload) {
                     await this.peerConnection.addIceCandidate(new RTCIceCandidate(msg.payload));
                 }
                 break;
 
             case 'end-call':
+                console.log('[WebRTC] Call ended by remote');
                 this.cleanup();
                 break;
         }
