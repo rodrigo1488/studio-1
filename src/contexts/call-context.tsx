@@ -46,28 +46,56 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
 
   // Sound effect handler
   useEffect(() => {
-    // Se temos uma chamada entrando e status = 'ringing'
-    if (incomingCall && status === 'ringing') {
-      if (!audioRef.current) {
-        audioRef.current = new Audio('/call.mp3');
-        audioRef.current.loop = true;
+    const playAudio = async (filename: string) => {
+      try {
+        if (!audioRef.current || audioRef.current.src.indexOf(filename) === -1) {
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+          }
+          audioRef.current = new Audio(filename);
+          audioRef.current.loop = true;
+        }
+        if (audioRef.current.paused) {
+          await audioRef.current.play();
+        }
+      } catch (e) {
+        console.error('Error playing audio:', e);
       }
-      audioRef.current.play().catch(e => console.error('Error playing ringtone:', e));
+    };
+
+    if (status === 'ringing' && incomingCall) {
+      // Recebendo chamada -> toca som de chamada
+      playAudio('/call.mp3');
+    } else if (status === 'calling') {
+      // Fazendo chamada -> toca som de chamando (ringback)
+      playAudio('/calling.mp3');
     } else {
-      // Stop audio
+      // Stop audio for other states (connected, idle, ended)
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
+        audioRef.current = null; // Reset ref
       }
     }
 
+    return () => {
+      // Don't stop here, let the next effect run handle it or the dependency change handle it
+      // Actually, we should cleanup on unmount, but not necessarily on every dependency change if the status remains relevant.
+      // But since we have if/else logic above that covers all states, we good.
+      // Wait, if we unmount, we MUST stop.
+    };
+  }, [incomingCall, status]);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
       }
-    };
-  }, [incomingCall, status]);
+    }
+  }, []);
 
 
 
