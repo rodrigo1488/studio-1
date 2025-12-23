@@ -214,6 +214,37 @@ export class WebRTCManager {
         this.cleanup();
     }
 
+    private setupSignaling(roomId: string, userId: string): Promise<void> {
+        return new Promise((resolve) => {
+            // Se já estamos conectados com os mesmos dados, não reconecta
+            if (this.signaling &&
+                this.currentRoomId === roomId &&
+                this.currentUserId === userId &&
+                this.signaling.isConnected) {
+                console.log('[WebRTC] Signaling already connected to', roomId);
+                resolve();
+                return;
+            }
+
+            if (this.signaling) {
+                console.log('[WebRTC] Reconnecting signaling...');
+                this.signaling.disconnect();
+            }
+
+            this.signaling = new SignalingClient(
+                this.signalingUrl,
+                userId,
+                roomId,
+                (msg) => this.handleSignalingMessage(msg),
+                () => {
+                    console.log('[WebRTC] Signaling connected callback');
+                    resolve();
+                }
+            );
+            this.signaling.connect();
+        });
+    }
+
     private createPeerConnection() {
         this.peerConnection = new RTCPeerConnection(RTC_CONFIG);
 
