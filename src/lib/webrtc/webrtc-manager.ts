@@ -168,7 +168,7 @@ export class WebRTCManager {
                     callType: type,
                     payload: offer
                 });
-            }, 3000);
+            }, 1000);
 
             // Clear interval if status changes (hook into onStatusChange or callbacks)
             // Ideally we need to store this interval ID in the class to clear it, 
