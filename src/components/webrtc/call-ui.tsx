@@ -7,7 +7,7 @@ import { Mic, MicOff, Video, VideoOff, PhoneOff } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
 export function CallUI() {
-    const { currentCall, status, endCall, toggleMute, toggleVideo, isMuted, isVideoEnabled, getLocalStream } = useCall();
+    const { currentCall, status, endCall, toggleMute, toggleVideo, isMuted, isVideoEnabled, getLocalStream, remoteStream } = useCall();
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -20,12 +20,11 @@ export function CallUI() {
         }
     }, [status, getLocalStream]);
 
-    // Remote stream handling logic would be here via context or event listener
-    // Since we simplified, we might be missing the "remote stream" in context value directly
-    // The context has `manager` but no `remoteStream` state exposed directly in the interface visible in step 565?
-    // Checking 565: CallContextType DOES NOT have remoteStream.
-    // It has `manager`.
-    // The `CallUI` needs to attach listeners or we need to expose remoteStream in signal.
+    useEffect(() => {
+        if (status === 'connected' && remoteStream && remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = remoteStream;
+        }
+    }, [status, remoteStream]);
 
     if (status === 'idle' || !currentCall) return null;
 
