@@ -29,7 +29,12 @@ export async function POST(req: NextRequest) {
             url: `/chat/${roomId}?call=true`, // Deep link to open call directly? Or just chat
         };
 
-        const result = await sendPushNotification(recipientId, title, body, data);
+        const actions = [
+            { action: 'answer', title: 'Atender' },
+            { action: 'decline', title: 'Recusar' }
+        ];
+
+        const result = await sendPushNotification(recipientId, title, body, data, actions);
 
         if (!result.success) {
             console.warn(`[CallNotify] Failed to send push to ${recipientId}:`, result.error);

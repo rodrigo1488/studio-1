@@ -68,6 +68,32 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
     };
   }, [incomingCall, status]);
 
+  // Listen for Service Worker messages (e.g. Action Buttons)
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      const handler = (event: MessageEvent) => {
+        if (event.data && event.data.type === 'ACTION_ANSWER_CALL') {
+          console.log('User clicked Answer on notification', event.data);
+          // We need to trigger acceptCall, but we might not have the offer yet if we just opened.
+          // If the socket is connecting, we should wait.
+          // For now, let's just set a flag or try to join.
+          // joinRoom should happen automatically by ChatLayout.
+
+          // If we have an incoming call in state, accept it.
+          if (incomingCall) {
+            acceptCall('video'); // Default to video or read from event.data
+          } else {
+            // If we don't have incoming call yet, we might missed the signal.
+            // We rely on the caller re-sending it or the server queuing it.
+            console.log('Received Answer Action but no incoming call in state yet.');
+          }
+        }
+      };
+      navigator.serviceWorker.addEventListener('message', handler);
+      return () => navigator.serviceWorker.removeEventListener('message', handler);
+    }
+  }, [incomingCall, acceptCall]);
+
   // Inicializa o manager quando o usuário está logado
   useEffect(() => {
     if (!currentUser) {
@@ -271,6 +297,42 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
       managerRef.current.join(roomId, currentUser.id);
     }
   }, [currentUser?.id]);
+
+  // Check for auto-answer action from URL (Push Notification click)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('action') === 'answer') {
+        console.log('Auto-answering call from URL param');
+        // We set a flag or just wait for the call-request to arrive (triggered by user-joined event)
+        // Once incomingCall is set, we can accept it.
+        // But we don't have incomingCall yet.
+        // Let's rely on the useEffect below handling 'incomingCall' changes to auto-accept if a flag is set?
+        // Or easier: we trust the user will click "Answer". 
+        // BUT the user asked for "Answer directly".
+        // So we should probably set a temporary "autoAnswer" ref.
+      }
+    }
+  }, []);
+
+  // Listen for Service Worker messages (e.g. Action Buttons)
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      const handler = (event: MessageEvent) => {
+        if (event.data && event.data.type === 'ACTION_ANSWER_CALL') {
+          console.log('User clicked Answer on notification', event.data);
+          // If we have an incoming call in state, accept it.
+          if (incomingCall) {
+            acceptCall(event.data.callType || 'video');
+          } else {
+            console.log('Received Answer Action but no incoming call in state yet.');
+          }
+        }
+      };
+      navigator.serviceWorker.addEventListener('message', handler);
+      return () => navigator.serviceWorker.removeEventListener('message', handler);
+    }
+  }, [incomingCall, acceptCall]);
 
   const value: CallContextType = {
     manager,

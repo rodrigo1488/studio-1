@@ -90,7 +90,7 @@ async function enforceCacheSizeLimit(cacheName) {
   try {
     const cache = await caches.open(cacheName);
     const keys = await cache.keys();
-    
+
     if (keys.length === 0) return;
 
     // Get all responses with their sizes and dates
@@ -98,10 +98,10 @@ async function enforceCacheSizeLimit(cacheName) {
       keys.map(async (request) => {
         const response = await cache.match(request);
         if (!response) return null;
-        
+
         const blob = await response.blob();
         const cachedDate = response.headers.get('sw-cached-date') || '0';
-        
+
         return {
           request,
           size: blob.size,
@@ -113,13 +113,13 @@ async function enforceCacheSizeLimit(cacheName) {
     // Filter out nulls and calculate total size
     const validEntries = entries.filter((e) => e !== null);
     const totalSize = validEntries.reduce((sum, e) => sum + e.size, 0);
-    
+
     const maxSize = cacheName === IMAGE_CACHE ? MAX_IMAGE_CACHE_SIZE : MAX_API_CACHE_SIZE;
-    
+
     if (totalSize > maxSize) {
       // Sort by date (oldest first)
       validEntries.sort((a, b) => a.date - b.date);
-      
+
       // Remove oldest entries until under limit
       let currentSize = totalSize;
       for (const entry of validEntries) {
@@ -185,39 +185,39 @@ self.addEventListener('fetch', (event) => {
 async function networkFirstStrategy(request, cacheName) {
   try {
     const response = await fetch(request);
-    
+
     // Cache successful responses
     if (response.ok) {
       const cache = await caches.open(cacheName);
       const responseToCache = response.clone();
-      
+
       // Add cache date header
       const headers = new Headers(responseToCache.headers);
       headers.set('sw-cached-date', Date.now().toString());
-      
+
       const cachedResponse = new Response(responseToCache.body, {
         status: responseToCache.status,
         statusText: responseToCache.statusText,
         headers: headers,
       });
-      
+
       cache.put(request, cachedResponse).catch((error) => {
         console.warn('[Service Worker] Error caching response:', error);
       });
     }
-    
+
     return response;
   } catch (error) {
     console.log('[Service Worker] Network failed, trying cache:', request.url);
-    
+
     // Try cache
     const cache = await caches.open(cacheName);
     const cachedResponse = await cache.match(request);
-    
+
     if (cachedResponse) {
       return cachedResponse;
     }
-    
+
     // If both fail, return offline response for navigation requests
     if (request.mode === 'navigate') {
       return new Response(
@@ -260,7 +260,7 @@ async function networkFirstStrategy(request, cacheName) {
         }
       );
     }
-    
+
     throw error;
   }
 }
@@ -269,32 +269,32 @@ async function networkFirstStrategy(request, cacheName) {
 async function cacheFirstStrategy(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cachedResponse = await cache.match(request);
-  
+
   if (cachedResponse) {
     return cachedResponse;
   }
-  
+
   try {
     const response = await fetch(request);
-    
+
     if (response.ok) {
       const responseToCache = response.clone();
-      
+
       // Add cache date header
       const headers = new Headers(responseToCache.headers);
       headers.set('sw-cached-date', Date.now().toString());
-      
+
       const cachedResponse = new Response(responseToCache.body, {
         status: responseToCache.status,
         statusText: responseToCache.statusText,
         headers: headers,
       });
-      
+
       cache.put(request, cachedResponse).catch((error) => {
         console.warn('[Service Worker] Error caching response:', error);
       });
     }
-    
+
     return response;
   } catch (error) {
     console.warn('[Service Worker] Fetch failed:', error);
@@ -331,7 +331,7 @@ self.addEventListener('push', (event) => {
         sound: data.sound || NOTIFICATION_SOUND,
         data: data.data || {},
       };
-      
+
       if (data.data?.timestamp) {
         notificationData.data.timestamp = data.data.timestamp;
       }
@@ -389,7 +389,19 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   const notificationData = event.notification.data || {};
-  const urlToOpen = notificationData.url || '/';
+  let urlToOpen = notificationData.url || '/';
+
+  if (event.action === 'answer') {
+    // Add query param to auto-answer
+    if (urlToOpen.includes('?')) {
+      urlToOpen += '&action=answer';
+    } else {
+      urlToOpen += '?action=answer';
+    }
+  } else if (event.action === 'decline') {
+    // Ideally we would send a signal to server to decline, but for now we just close
+    return;
+  }
 
   event.waitUntil(
     clients
@@ -398,9 +410,17 @@ self.addEventListener('notificationclick', (event) => {
         includeUncontrolled: true,
       })
       .then((clientList) => {
+        // Check if there's already a tab open with this URL
         for (let i = 0; i < clientList.length; i++) {
           const client = clientList[i];
           if (client.url === urlToOpen && 'focus' in client) {
+            // If it's already open, just focus it
+            // We might also want to postMessage to trigger the answer logic if the URL params aren't enough (SPA)
+            client.postMessage({
+              type: 'ACTION_ANSWER_CALL',
+              roomId: notificationData.roomId,
+              callType: notificationData.callType
+            });
             return client.focus();
           }
         }
@@ -414,7 +434,7 @@ self.addEventListener('notificationclick', (event) => {
 // Background Sync for offline actions
 self.addEventListener('sync', (event) => {
   console.log('[Service Worker] Background sync:', event.tag);
-  
+
   if (event.tag === 'sync-messages') {
     event.waitUntil(syncMessages());
   } else if (event.tag === 'sync-posts') {

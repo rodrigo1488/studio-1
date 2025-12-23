@@ -311,6 +311,27 @@ export class WebRTCManager {
                 console.log('[WebRTC] Call ended by remote');
                 this.cleanup();
                 break;
+
+            case 'user-joined':
+                // @ts-ignore - Assuming message type extension
+                const joinedUserId = msg.userId;
+                console.log('[WebRTC] User joined:', joinedUserId);
+                // If we are calling this user and they just joined, re-send the offer!
+                // This handles the case where they were offline effectively.
+                if (this.remoteUserId === joinedUserId && (this.callbacks as any).status === 'calling') {
+                    console.log('[WebRTC] Remote user joined, re-sending offer...');
+                    if (this.peerConnection && this.peerConnection.localDescription) {
+                        this.signaling!.send({
+                            type: 'call-request',
+                            from: this.currentUserId!,
+                            to: joinedUserId,
+                            roomId: this.currentRoomId!,
+                            callType: 'video', // We should track current call type in Manager state ideally
+                            payload: this.peerConnection.localDescription
+                        });
+                    }
+                }
+                break;
         }
     }
 

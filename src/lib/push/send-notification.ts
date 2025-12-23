@@ -85,7 +85,8 @@ export async function sendPushNotification(
   userId: string,
   title: string,
   body: string,
-  data?: Record<string, any>
+  data?: Record<string, any>,
+  actions?: { action: string; title: string }[]
 ): Promise<{ success: boolean; error: string | null }> {
   try {
     if (!supabaseAdmin) {
@@ -239,12 +240,12 @@ export async function sendPushNotification(
           }
 
           // Add actions for better UX (if supported by browser)
-          notificationPayload.actions = [
-            {
-              action: 'open',
-              title: 'Abrir conversa',
-            },
-          ];
+          if (actions && actions.length > 0) {
+            notificationPayload.actions = actions;
+          } else {
+            // Default action if none provided but we might not want this for all notifs
+            notificationPayload.actions = [{ action: 'open', title: 'Abrir' }];
+          }
 
           const payload = JSON.stringify(notificationPayload);
 
