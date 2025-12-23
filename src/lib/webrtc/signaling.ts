@@ -35,7 +35,8 @@ export class SignalingClient {
             this.ws = new WebSocket(fullUrl);
 
             this.ws.onopen = () => {
-                console.log('Signaling connected');
+                console.log('✅ Connected to Signaling Server at:', this.url);
+                console.log('📡 Joined room:', this.roomId, 'as user:', this.userId);
                 this.onConnect?.();
             };
 
