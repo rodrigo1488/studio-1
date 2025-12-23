@@ -1857,7 +1857,11 @@ export default function ChatLayout({
               </Tooltip>
             </TooltipProvider>
           )}
-          <CallButton room={room} currentUser={currentUser} />
+          <CallButton
+            room={room}
+            currentUser={currentUser}
+            otherUser={otherUser}
+          />
         </div>
       </header>
 

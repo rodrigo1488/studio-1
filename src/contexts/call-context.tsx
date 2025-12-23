@@ -27,6 +27,7 @@ interface CallContextType {
   isMuted: () => boolean;
   isVideoEnabled: () => boolean;
   getLocalStream: () => MediaStream | null;
+  remoteStream: MediaStream | null; // Add remoteStream
 }
 
 const CallContext = createContext<CallContextType | null>(null);
@@ -37,6 +38,7 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
   const [callType, setCallType] = useState<CallType | null>(null);
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
   const [currentCall, setCurrentCall] = useState<{ roomId: string; from: string; to: string } | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const managerRef = useRef<WebRTCManager | null>(null);
 
   // Inicializa o manager quando o usuário está logado
@@ -62,8 +64,8 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
           setCallType(null);
         }
       },
-      onRemoteStream: () => {
-        // Stream remoto será tratado pelo componente CallUI
+      onRemoteStream: (stream) => {
+        setRemoteStream(stream);
       },
       onCallRequest: async (from, type, roomId) => {
         // Busca informações do usuário que está chamando
@@ -236,6 +238,7 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
     isMuted,
     isVideoEnabled,
     getLocalStream,
+    remoteStream,
   };
 
   return <CallContext.Provider value={value}>{children}</CallContext.Provider>;
