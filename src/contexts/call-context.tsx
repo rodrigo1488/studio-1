@@ -208,7 +208,7 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
         to,
         callType,
         currentUser?.name || 'Algum usuário',
-        currentUser?.image || '' // Pass avatar
+        currentUser?.avatarUrl || '' // Pass avatar
       );
     } catch (error) {
       console.error('Error starting call:', error);
