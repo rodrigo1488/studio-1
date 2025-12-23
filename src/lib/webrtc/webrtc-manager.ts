@@ -287,14 +287,21 @@ export class WebRTCManager {
         };
 
         this.peerConnection.ontrack = (event) => {
+            console.log('[WebRTC] Remote track received:', event.streams.length, 'streams');
+            event.streams[0].getTracks().forEach(t => console.log('Track:', t.kind, t.enabled, t.readyState));
             this.remoteStream = event.streams[0];
             this.callbacks.onRemoteStream(this.remoteStream);
         };
 
         this.peerConnection.onconnectionstatechange = () => {
+            console.log('[WebRTC] Connection State Change:', this.peerConnection?.connectionState);
             if (this.peerConnection?.connectionState === 'disconnected') {
                 this.cleanup();
             }
+        };
+
+        this.peerConnection.oniceconnectionstatechange = () => {
+            console.log('[WebRTC] ICE Connection State:', this.peerConnection?.iceConnectionState);
         };
     }
 

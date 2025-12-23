@@ -21,8 +21,20 @@ export function CallUI() {
     }, [status, getLocalStream]);
 
     useEffect(() => {
+        console.log('[CallUI] Remote stream effect triggered', { status, hasStream: !!remoteStream });
         if (status === 'connected' && remoteStream && remoteVideoRef.current) {
+            console.log('[CallUI] Setting remote video srcObject', remoteStream.getTracks());
             remoteVideoRef.current.srcObject = remoteStream;
+
+            // Debug: Check if video plays
+            remoteVideoRef.current.onloadedmetadata = () => {
+                console.log('[CallUI] Remote video metadata loaded', {
+                    videoWidth: remoteVideoRef.current?.videoWidth,
+                    videoHeight: remoteVideoRef.current?.videoHeight,
+                    paused: remoteVideoRef.current?.paused
+                });
+                remoteVideoRef.current?.play().catch(e => console.error('[CallUI] Play error:', e));
+            };
         }
     }, [status, remoteStream]);
 

@@ -42,19 +42,38 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const managerRef = useRef<WebRTCManager | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const loopIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const autoAcceptRef = useRef<{ roomId: string; callType: CallType } | null>(null);
 
   // Sound effect handler
   useEffect(() => {
     const playAudio = async (filename: string) => {
       try {
+        // If switching sounds or initializing, clear old interval
+        if (loopIntervalRef.current) {
+          clearInterval(loopIntervalRef.current);
+          loopIntervalRef.current = null;
+        }
+
         if (!audioRef.current || audioRef.current.src.indexOf(filename) === -1) {
           if (audioRef.current) {
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
           }
           audioRef.current = new Audio(filename);
-          audioRef.current.loop = true;
+
+          if (filename === '/calling.mp3') {
+            audioRef.current.loop = false;
+            // Manual loop every 3 seconds
+            loopIntervalRef.current = setInterval(() => {
+              if (audioRef.current) {
+                audioRef.current.currentTime = 0;
+                audioRef.current.play().catch(() => { });
+              }
+            }, 3000);
+          } else {
+            audioRef.current.loop = true;
+          }
         }
         if (audioRef.current.paused) {
           await audioRef.current.play();
@@ -77,13 +96,15 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
         audioRef.current.currentTime = 0;
         audioRef.current = null; // Reset ref
       }
+      if (loopIntervalRef.current) {
+        clearInterval(loopIntervalRef.current);
+        loopIntervalRef.current = null;
+      }
     }
 
     return () => {
-      // Don't stop here, let the next effect run handle it or the dependency change handle it
-      // Actually, we should cleanup on unmount, but not necessarily on every dependency change if the status remains relevant.
-      // But since we have if/else logic above that covers all states, we good.
-      // Wait, if we unmount, we MUST stop.
+      // Cleanup on unmount or effect re-run will be handled by logic above or explicit unmount effect below
+      // But strictly for this effect, we don't forcefully stop unless status changes (handled by else)
     };
   }, [incomingCall, status]);
 
@@ -93,6 +114,9 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
+      }
+      if (loopIntervalRef.current) {
+        clearInterval(loopIntervalRef.current);
       }
     }
   }, []);
