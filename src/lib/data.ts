@@ -24,6 +24,11 @@ export type Message = {
   threadId?: string;
   threadCount?: number;
   threadMessages?: Message[];
+  type?: 'text' | 'system';
+  callLog?: {
+    type: 'missed' | 'declined' | 'accepted';
+    duration?: number;
+  };
 };
 
 export type Room = {

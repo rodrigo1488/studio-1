@@ -210,6 +210,32 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
     };
   }, [currentUser?.id]);
 
+  // Timeout handling
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const callStartTimeRef = useRef<number | null>(null);
+
+  const sendSystemMessage = async (roomId: string, logType: 'missed' | 'declined' | 'accepted') => {
+    try {
+      await fetch('/api/messages/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId,
+          text: logType === 'missed' ? 'Chamada perdida' :
+            logType === 'declined' ? 'Chamada recusada' :
+              'Chamada atendida',
+          type: 'system',
+          callLog: {
+            type: logType,
+            duration: callStartTimeRef.current ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) : 0
+          }
+        })
+      });
+    } catch (e) {
+      console.error('Error sending system message:', e);
+    }
+  };
+
   const startCall = useCallback(async (
     roomId: string,
     from: string,
@@ -224,15 +250,24 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
     try {
       setCurrentCall({ roomId, from, to });
       setCallType(callType);
-      // Pass the actual caller name (currentUser's name) if we had it available in context, 
-      // but 'startCall' args in context signature currently has 'toName'.
-      // Wait, 'startCall' in Context receives (roomId, from, to, toName, type).
-      // We don't have 'fromName' (current user name) easily accessible here unless we use 'currentUser' from provider props?
-      // Actually CallProvider has 'currentUser' prop.
-      // So we can pass currentUser.name.
 
-      // Wait, 'currentUser' is available in CallProvider scope.
-      // Let's use it.
+      // Start 60s timeout for "Missed Call"
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        console.log('Call timeout - 60s limit reached');
+        if (managerRef.current) {
+          managerRef.current.endCall(); // Or cancel/hangup logic
+        }
+        // Send Missed Call log
+        sendSystemMessage(roomId, 'missed');
+
+        setStatus('idle');
+        setCurrentCall(null);
+        setIncomingCall(null);
+        setCallType(null);
+      }, 60000);
+
+
       // @ts-ignore - Assuming we updated WebRTCManager signature
       await managerRef.current.startCall(
         roomId,
@@ -246,9 +281,10 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
       console.error('Error starting call:', error);
       setStatus('idle');
       setCurrentCall(null);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
       throw error;
     }
-  }, []);
+  }, [currentUser]);
 
   const acceptCall = useCallback(async (callType: CallType) => {
     if (!managerRef.current || !incomingCall) {
@@ -256,6 +292,17 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
     }
 
     try {
+      // Clear timeout on accept
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+
+      callStartTimeRef.current = Date.now();
+
+      // Send Accepted Log
+      sendSystemMessage(incomingCall.roomId, 'accepted');
+
       setCurrentCall({
         roomId: incomingCall.roomId,
         from: incomingCall.from,
@@ -273,15 +320,29 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
   }, [incomingCall, currentUser?.id]);
 
   const rejectCall = useCallback(() => {
+    if (incomingCall) {
+      sendSystemMessage(incomingCall.roomId, 'declined');
+    }
     if (managerRef.current) {
       managerRef.current.rejectCall();
     }
     setIncomingCall(null);
     setStatus('idle');
     setCallType(null);
-  }, []);
+  }, [incomingCall]);
 
   const endCall = useCallback(() => {
+    // Determine if we should clear timeout (if caller ends before answer)
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+      // If ended by caller before answer, it's technically a "Missed" call for the other side?
+      // Or just "Cancelled". Logic is tricky here. 
+      // If we are calling and we cancel, it's not missed, it's cancelled.
+      // User asked for "Missed" (timeout).
+      // Let's leave "Cancelled" as is (no system msg or maybe a different one).
+    }
+
     if (managerRef.current) {
       managerRef.current.endCall();
     }
@@ -289,6 +350,7 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
     setCurrentCall(null);
     setIncomingCall(null);
     setCallType(null);
+    callStartTimeRef.current = null;
   }, []);
 
   const toggleMute = useCallback(() => {

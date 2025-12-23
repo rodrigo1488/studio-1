@@ -19,6 +19,7 @@ import {
   Smile,
   Forward,
   Search,
+  PhoneOff,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -1455,6 +1456,46 @@ export default function ChatLayout({
       const showDaySeparator = dayKey !== lastRenderedDate;
       if (showDaySeparator) {
         lastRenderedDate = dayKey;
+      }
+
+      // Check for System Messages (Call Logs)
+      if (message.type === 'system' && message.callLog) {
+        const { type, duration } = message.callLog;
+        let icon = <Phone className="h-4 w-4" />;
+        let text = message.text;
+        let colorClass = "bg-muted text-muted-foreground";
+
+        if (type === 'missed') {
+          icon = <PhoneOff className="h-4 w-4 text-orange-500" />;
+          text = "Chamada perdida";
+          colorClass = "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800";
+        } else if (type === 'declined') {
+          icon = <PhoneOff className="h-4 w-4 text-red-500" />;
+          text = "Chamada recusada";
+          colorClass = "bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800";
+        } else if (type === 'accepted') {
+          icon = <Check className="h-4 w-4 text-green-500" />;
+          text = "Chamada atendida";
+          if (duration) text += ` • ${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}`;
+          colorClass = "bg-green-500/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800";
+        }
+
+        return (
+          <div key={message.id} className="w-full flex flex-col items-center my-4 animate-in fade-in zoom-in duration-300">
+            {showDaySeparator && (
+              <div className="flex justify-center mb-4">
+                <span className="px-3 py-1 rounded-full bg-muted text-[11px] sm:text-xs text-muted-foreground border border-border shadow-sm">
+                  {formatDayLabel(messageDate)}
+                </span>
+              </div>
+            )}
+            <div className={cn("flex items-center gap-2 px-4 py-2 rounded-full border shadow-sm text-sm font-medium", colorClass)}>
+              {icon}
+              <span>{text}</span>
+              <span className="text-[10px] opacity-70 ml-2">{format(messageDate, 'p', { locale: ptBR })}</span>
+            </div>
+          </div>
+        );
       }
 
       // Generate rainbow colors for messages
