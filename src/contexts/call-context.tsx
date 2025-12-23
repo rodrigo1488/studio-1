@@ -169,6 +169,10 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
     managerRef.current = newManager;
     setManager(newManager);
 
+    // Connect to global signaling immediately
+    // usage: join(roomId, userId)
+    newManager.join('global', currentUser.id).catch(console.error);
+
     return () => {
       if (managerRef.current) {
         managerRef.current.disconnect();

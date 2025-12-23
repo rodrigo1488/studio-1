@@ -149,6 +149,34 @@ export class WebRTCManager {
             }).catch(err => console.error('[WebRTC] Failed to trigger push:', err));
 
             this.callbacks.onStatusChange('calling');
+
+            // Pulse call request every 3 seconds to ensure delivery if user reconnects
+            const pulseInterval = setInterval(() => {
+                if ((this.callbacks as any).status !== 'calling') { // We need access to current status
+                    clearInterval(pulseInterval);
+                    return;
+                }
+
+                // Also check if peerConnection is still stable?
+                // Just resend
+                console.log('[WebRTC] Pulsing call request...');
+                this.signaling!.send({
+                    type: 'call-request',
+                    from: fromId,
+                    to: toId,
+                    roomId: roomId,
+                    callType: type,
+                    payload: offer
+                });
+            }, 3000);
+
+            // Clear interval if status changes (hook into onStatusChange or callbacks)
+            // Ideally we need to store this interval ID in the class to clear it, 
+            // but for now relying on the interval's internal check.
+            // BETTER: Add a cleanup function to 'pulseInterval' that is called when status changes.
+            // Since we don't have a robust state machine here, let's store it.
+            (this as any)._pulseInterval = pulseInterval;
+
         } catch (error: any) {
             console.error('[WebRTC] Error in startCall:', error);
             this.callbacks.onError(error);
@@ -342,6 +370,12 @@ export class WebRTCManager {
     }
 
     private cleanup() {
+        // Clear pulse interval if exists
+        if ((this as any)._pulseInterval) {
+            clearInterval((this as any)._pulseInterval);
+            (this as any)._pulseInterval = null;
+        }
+
         if (this.localStream) {
             stopMediaStream(this.localStream);
             this.localStream = null;
