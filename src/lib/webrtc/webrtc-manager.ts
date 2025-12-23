@@ -25,6 +25,7 @@ export class WebRTCManager {
     private currentRoomId: string | null = null;
     private currentUserId: string | null = null;
     private remoteUserId: string | null = null;
+    private pendingCandidates: RTCIceCandidateInit[] = [];
 
     constructor(signalingUrl: string) {
         this.signalingUrl = signalingUrl;
@@ -330,6 +331,7 @@ export class WebRTCManager {
                     // But maybe we haven't created it yet.
                     console.log('[WebRTC] Processing offer SDP');
                     await this.setupPeerForIncoming(msg.payload);
+                    // processPendingCandidates already called inside setupPeerForIncoming
                 }
                 break;
 
@@ -343,6 +345,7 @@ export class WebRTCManager {
 
                 if (this.peerConnection) {
                     await this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg.payload));
+                    this.processPendingCandidates(); // Process any queued candidates
                     this.callbacks.onStatusChange('connected');
                 }
                 break;
@@ -356,10 +359,15 @@ export class WebRTCManager {
             case 'candidate':
                 // console.log('[WebRTC] Received ICE candidate'); // Verbose
                 if (this.peerConnection && msg.payload) {
-                    try {
-                        await this.peerConnection.addIceCandidate(new RTCIceCandidate(msg.payload));
-                    } catch (e) {
-                        console.warn('Error adding ICE candidate:', e);
+                    if (this.peerConnection.remoteDescription) {
+                        try {
+                            await this.peerConnection.addIceCandidate(new RTCIceCandidate(msg.payload));
+                        } catch (e) {
+                            console.warn('Error adding ICE candidate:', e);
+                        }
+                    } else {
+                        console.log('[WebRTC] Queuing ICE candidate (remote description not set)');
+                        this.pendingCandidates.push(msg.payload);
                     }
                 }
                 break;
@@ -409,6 +417,21 @@ export class WebRTCManager {
 
         this.createPeerConnection();
         await this.peerConnection!.setRemoteDescription(new RTCSessionDescription(offer));
+        this.processPendingCandidates();
+    }
+
+    private async processPendingCandidates() {
+        if (!this.peerConnection || this.pendingCandidates.length === 0) return;
+
+        console.log(`[WebRTC] Processing ${this.pendingCandidates.length} pending candidates`);
+        for (const candidate of this.pendingCandidates) {
+            try {
+                await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (e) {
+                console.warn('[WebRTC] Error adding pending candidate:', e);
+            }
+        }
+        this.pendingCandidates = [];
     }
 
     private cleanup() {
@@ -417,6 +440,8 @@ export class WebRTCManager {
             clearInterval((this as any)._pulseInterval);
             (this as any)._pulseInterval = null;
         }
+
+        this.pendingCandidates = []; // Clear pending candidates
 
         if (this.localStream) {
             stopMediaStream(this.localStream);

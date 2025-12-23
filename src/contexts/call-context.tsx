@@ -125,7 +125,8 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
         }
       },
       onRemoteStream: (stream) => {
-        setRemoteStream(stream);
+        // Clone stream to ensure state update triggers re-render
+        setRemoteStream(new MediaStream(stream.getTracks()));
       },
       onCallRequest: async (from, type, roomId) => {
         // Prevent duplicate ringing or "split call" UI if we are already in this call
