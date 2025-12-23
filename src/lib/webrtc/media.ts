@@ -5,7 +5,7 @@ export async function getMediaStream(video: boolean = true, audio: boolean = tru
         }
 
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: video ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } : false,
+            video: video ? { facingMode: 'user' } : false,
             audio: audio ? { echoCancellation: true, noiseSuppression: true } : false,
         });
         return stream;
