@@ -1,7 +1,7 @@
 'use client';
 
 import { useCall } from '@/contexts/call-context';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Video, VideoOff, PhoneOff } from 'lucide-react';
 import { useEffect, useRef } from 'react';
@@ -31,6 +31,8 @@ export function CallUI() {
     return (
         <Dialog open={true} onOpenChange={() => endCall()}>
             <DialogContent className="sm:max-w-3xl h-[80vh] bg-black border-none p-0 overflow-hidden">
+                <DialogTitle className="sr-only">Interface de Chamada</DialogTitle>
+                <DialogDescription className="sr-only">Chamada de vídeo em andamento com {currentCall.to}</DialogDescription>
                 <div className="relative w-full h-full flex flex-col">
                     <div className="flex-1 bg-zinc-900 relative">
                         {/* Remote Video */}

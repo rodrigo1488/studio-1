@@ -30,6 +30,12 @@ export class WebRTCManager {
         this.signalingUrl = signalingUrl;
     }
 
+    async join(roomId: string, userId: string) {
+        this.currentRoomId = roomId;
+        this.currentUserId = userId;
+        await this.setupSignaling(roomId, userId);
+    }
+
     setCallbacks(callbacks: Partial<WebRTCManagerCallbacks>) {
         this.callbacks = { ...this.callbacks, ...callbacks };
     }

@@ -32,6 +32,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { useCall } from '@/contexts/call-context';
 import type { Room, Message, User } from '@/lib/data';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -151,6 +152,14 @@ export default function ChatLayout({
   const [showGifPicker, setShowGifPicker] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
+
+  /* WebRTC Signaling */
+  const { joinRoom } = useCall();
+  useEffect(() => {
+    if (room?.id && currentUser?.id) {
+      joinRoom(room.id);
+    }
+  }, [room?.id, currentUser?.id, joinRoom]);
 
   // Buscar o outro usuário se for conversa direta
   useEffect(() => {

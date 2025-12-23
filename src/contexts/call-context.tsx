@@ -27,7 +27,8 @@ interface CallContextType {
   isMuted: () => boolean;
   isVideoEnabled: () => boolean;
   getLocalStream: () => MediaStream | null;
-  remoteStream: MediaStream | null; // Add remoteStream
+  remoteStream: MediaStream | null;
+  joinRoom: (roomId: string) => void; // Add joinRoom
 }
 
 const CallContext = createContext<CallContextType | null>(null);
@@ -223,6 +224,18 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
     return managerRef.current.getLocalStream();
   }, []);
 
+  const joinRoom = useCallback((roomId: string) => {
+    if (!managerRef.current || !currentUser?.id) return;
+
+    // We need to cast to any or update WebRTCManager to expose a connect/join method
+    // For now, let's assume we will add a public 'join' method to WebRTCManager
+    // @ts-ignore
+    if (managerRef.current.join) {
+      // @ts-ignore
+      managerRef.current.join(roomId, currentUser.id);
+    }
+  }, [currentUser?.id]);
+
   const value: CallContextType = {
     manager,
     status,
@@ -239,6 +252,7 @@ export function CallProvider({ children, currentUser }: { children: React.ReactN
     isVideoEnabled,
     getLocalStream,
     remoteStream,
+    joinRoom,
   };
 
   return <CallContext.Provider value={value}>{children}</CallContext.Provider>;
